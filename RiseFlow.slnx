@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RiseFlow.Api/RiseFlow.Api.csproj" />
+  </Folder>
+</Solution>
