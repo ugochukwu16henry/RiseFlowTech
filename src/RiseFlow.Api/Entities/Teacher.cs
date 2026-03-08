@@ -12,6 +12,7 @@ public class Teacher : ITenantEntity
     public string? MiddleName { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
+    public string? WhatsAppNumber { get; set; }
     public string? StaffId { get; set; }
     public string? SubjectSpecialization { get; set; }
     public bool IsActive { get; set; } = true;
@@ -20,4 +21,7 @@ public class Teacher : ITenantEntity
 
     public School School { get; set; } = null!;
     public ICollection<TeacherClass> TeacherClasses { get; set; } = new List<TeacherClass>();
+    public ICollection<TeacherSubject> TeacherSubjects { get; set; } = new List<TeacherSubject>();
+    public ICollection<TeacherClassSubject> TeacherClassSubjects { get; set; } = new List<TeacherClassSubject>();
+    public ICollection<StudentResult> EnteredResults { get; set; } = new List<StudentResult>();
 }

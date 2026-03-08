@@ -70,6 +70,7 @@ public class TeachersController : ControllerBase
             MiddleName = request.MiddleName,
             Email = request.Email,
             Phone = request.Phone,
+            WhatsAppNumber = request.WhatsAppNumber,
             StaffId = request.StaffId,
             SubjectSpecialization = request.SubjectSpecialization,
             IsActive = true,
@@ -95,6 +96,7 @@ public class TeachersController : ControllerBase
         teacher.MiddleName = request.MiddleName;
         teacher.Email = request.Email;
         teacher.Phone = request.Phone;
+        teacher.WhatsAppNumber = request.WhatsAppNumber;
         teacher.StaffId = request.StaffId;
         teacher.SubjectSpecialization = request.SubjectSpecialization;
         teacher.IsActive = request.IsActive;

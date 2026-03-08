@@ -6,6 +6,7 @@ public record CreateTeacherRequest(
     string? MiddleName,
     string? Email,
     string? Phone,
+    string? WhatsAppNumber,
     string? StaffId,
     string? SubjectSpecialization);
 
@@ -15,6 +16,7 @@ public record UpdateTeacherRequest(
     string? MiddleName,
     string? Email,
     string? Phone,
+    string? WhatsAppNumber,
     string? StaffId,
     string? SubjectSpecialization,
     bool IsActive);

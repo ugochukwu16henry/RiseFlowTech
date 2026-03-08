@@ -19,4 +19,7 @@ public class School
     public ICollection<Parent> Parents { get; set; } = new List<Parent>();
     public ICollection<Class> Classes { get; set; } = new List<Class>();
     public ICollection<Grade> Grades { get; set; } = new List<Grade>();
+    public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
+    public ICollection<AcademicTerm> AcademicTerms { get; set; } = new List<AcademicTerm>();
+    public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
 }

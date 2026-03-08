@@ -26,6 +26,12 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<Class> Classes => Set<Class>();
     public DbSet<StudentParent> StudentParents => Set<StudentParent>();
     public DbSet<TeacherClass> TeacherClasses => Set<TeacherClass>();
+    public DbSet<Subject> Subjects => Set<Subject>();
+    public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
+    public DbSet<ClassSubject> ClassSubjects => Set<ClassSubject>();
+    public DbSet<TeacherClassSubject> TeacherClassSubjects => Set<TeacherClassSubject>();
+    public DbSet<AcademicTerm> AcademicTerms => Set<AcademicTerm>();
+    public DbSet<StudentResult> StudentResults => Set<StudentResult>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -37,7 +43,10 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         builder.Entity<Parent>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
         builder.Entity<Grade>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
         builder.Entity<Class>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        // StudentParent/TeacherClass are accessed via Student/Teacher; no filter needed to avoid cross-tenant leaks.
+        builder.Entity<Subject>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
+        builder.Entity<AcademicTerm>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
+        builder.Entity<StudentResult>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
+        // StudentParent/TeacherClass/TeacherSubject/ClassSubject/TeacherClassSubject are accessed via tenant-scoped entities.
 
         // School
         builder.Entity<School>(e =>
@@ -91,6 +100,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.MiddleName).HasMaxLength(128);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.Phone).HasMaxLength(32);
+            e.Property(x => x.WhatsAppNumber).HasMaxLength(32);
             e.Property(x => x.StaffId).HasMaxLength(64);
             e.Property(x => x.SubjectSpecialization).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.Teachers).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
@@ -125,6 +135,63 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.RoleInClass).HasMaxLength(64);
             e.HasOne(x => x.Teacher).WithMany(t => t.TeacherClasses).HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Class).WithMany(c => c.TeacherClasses).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Subject
+        builder.Entity<Subject>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            e.Property(x => x.Code).HasMaxLength(32);
+            e.HasOne(x => x.School).WithMany(s => s.Subjects).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TeacherSubject (many-to-many)
+        builder.Entity<TeacherSubject>(e =>
+        {
+            e.HasKey(x => new { x.TeacherId, x.SubjectId });
+            e.HasOne(x => x.Teacher).WithMany(t => t.TeacherSubjects).HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subject).WithMany(s => s.TeacherSubjects).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ClassSubject (many-to-many)
+        builder.Entity<ClassSubject>(e =>
+        {
+            e.HasKey(x => new { x.ClassId, x.SubjectId });
+            e.HasOne(x => x.Class).WithMany(c => c.ClassSubjects).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subject).WithMany(s => s.ClassSubjects).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // TeacherClassSubject (teacher teaches subject in class)
+        builder.Entity<TeacherClassSubject>(e =>
+        {
+            e.HasKey(x => new { x.TeacherId, x.ClassId, x.SubjectId });
+            e.HasOne(x => x.Teacher).WithMany(t => t.TeacherClassSubjects).HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Class).WithMany(c => c.TeacherClassSubjects).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Subject).WithMany(s => s.TeacherClassSubjects).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AcademicTerm
+        builder.Entity<AcademicTerm>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(64);
+            e.Property(x => x.AcademicYear).IsRequired().HasMaxLength(16);
+            e.HasOne(x => x.School).WithMany(s => s.AcademicTerms).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // StudentResult
+        builder.Entity<StudentResult>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.AssessmentType).IsRequired().HasMaxLength(64);
+            e.Property(x => x.GradeLetter).HasMaxLength(16);
+            e.Property(x => x.Comment).HasMaxLength(512);
+            e.HasOne(x => x.School).WithMany(s => s.StudentResults).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Student).WithMany(s => s.Results).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Subject).WithMany(s => s.StudentResults).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Term).WithMany(t => t.StudentResults).HasForeignKey(x => x.TermId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.EnteredByTeacher).WithMany(t => t.EnteredResults).HasForeignKey(x => x.EnteredByTeacherId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // Identity: use Guid for User and Role
