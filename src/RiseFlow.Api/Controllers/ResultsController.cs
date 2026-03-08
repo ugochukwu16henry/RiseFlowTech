@@ -160,6 +160,40 @@ public class ResultsController : ControllerBase
         return Ok(list);
     }
 
+    /// <summary>Class rankings for a term: total score and position in class. Teachers/SchoolAdmin. Requires termId; classId optional (filter by class).</summary>
+    [HttpGet("class-rankings")]
+    [Authorize(Roles = $"{Roles.Teacher},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(List<ClassRankingDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<ClassRankingDto>>> ClassRankings([FromQuery] Guid termId, [FromQuery] Guid? classId, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var results = await _db.StudentResults
+            .AsNoTracking()
+            .Include(r => r.Student)
+            .Where(r => r.TermId == termId)
+            .ToListAsync(ct);
+        if (classId.HasValue)
+            results = results.Where(r => r.Student != null && r.Student.ClassId == classId.Value).ToList();
+        var byStudent = results
+            .GroupBy(r => r.StudentId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var totalScore = g.Sum(r => r.Score);
+                var maxTotal = g.Sum(r => r.MaxScore);
+                var pct = maxTotal > 0 ? Math.Round((totalScore / maxTotal) * 100, 1) : 0m;
+                var name = first.Student == null ? "—" : $"{first.Student.LastName} {first.Student.FirstName}".Trim();
+                return (StudentId: first.StudentId, StudentName: name, TotalScore: totalScore, MaxTotal: maxTotal, Percentage: pct);
+            })
+            .OrderByDescending(x => x.TotalScore)
+            .ToList();
+        var rankings = new List<ClassRankingDto>();
+        for (var i = 0; i < byStudent.Count; i++)
+            rankings.Add(new ClassRankingDto(byStudent[i].StudentId, byStudent[i].StudentName, byStudent[i].TotalScore, byStudent[i].MaxTotal, byStudent[i].Percentage, i + 1));
+        return Ok(rankings);
+    }
+
     private async Task<Guid?> ResolveCurrentTeacherIdAsync(CancellationToken ct)
     {
         var email = _tenant.CurrentUserEmail;
@@ -193,3 +227,5 @@ public class ResultsController : ControllerBase
         return ids.Contains(studentId);
     }
 }
+
+public record ClassRankingDto(Guid StudentId, string StudentName, decimal TotalScore, decimal MaxTotal, decimal Percentage, int PositionInClass);

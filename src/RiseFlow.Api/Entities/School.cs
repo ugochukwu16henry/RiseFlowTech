@@ -14,6 +14,8 @@ public class School
     public string? CountryCode { get; set; }
     /// <summary>ISO 4217 (e.g. NGN, GHS, KES). Billing is in this currency.</summary>
     public string CurrencyCode { get; set; } = "NGN";
+    /// <summary>Stored logo file name (e.g. under wwwroot/logos) or relative path. Set during onboarding or via logo upload.</summary>
+    public string? LogoFileName { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }

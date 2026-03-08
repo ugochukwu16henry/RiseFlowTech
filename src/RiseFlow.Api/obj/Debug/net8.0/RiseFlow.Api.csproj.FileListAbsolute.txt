@@ -145,3 +145,11 @@ C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\runtimes\
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\runtimes\osx-x64\native\libQuestPdfSkia.dylib
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\runtimes\win-x64\native\QuestPdfSkia.dll
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\runtimes\win-x86\native\QuestPdfSkia.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\ClosedXML.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\ClosedXML.Parser.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\DocumentFormat.OpenXml.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\ExcelNumberFormat.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\RBush.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\SixLabors.Fonts.dll
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\System.IO.Packaging.dll

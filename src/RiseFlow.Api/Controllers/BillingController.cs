@@ -91,7 +91,30 @@ public class BillingController : ControllerBase
         var usd = amounts.TryGetValue("USD", out var u) ? u : _billing.ConvertToUsd(request.Amount, request.FromCurrencyCode ?? "NGN");
         return Ok(new ConvertedAmountsDto(request.Amount, request.FromCurrencyCode ?? "NGN", usd, amounts));
     }
+
+    /// <summary>Trigger payment gateway (Paystack or Flutterwave) when student count > 50. Returns authorization URL and reference for the school to pay.</summary>
+    [HttpPost("initiate-payment")]
+    [ProducesResponseType(typeof(InitiatePaymentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<InitiatePaymentResult>> InitiatePayment([FromBody] InitiatePaymentRequest request, CancellationToken ct)
+    {
+        var record = await _db.BillingRecords.Include(b => b.School).FirstOrDefaultAsync(b => b.Id == request.BillingRecordId, ct);
+        if (record == null) return NotFound();
+        if (_tenant.CurrentSchoolId.HasValue && record.SchoolId != _tenant.CurrentSchoolId.Value && !User.IsInRole(Roles.SuperAdmin))
+            return Forbid();
+        if (record.AmountDue <= 0)
+            return BadRequest("No amount due for this billing record.");
+        var gateway = "Paystack"; // or read from IConfiguration: Billing:PaymentGateway (Paystack | Flutterwave)
+        var reference = $"riseflow-{record.Id:N}-{DateTime.UtcNow:yyyyMMddHHmm}";
+        // In production: call Paystack/Flutterwave API to initialize transaction and get authorization_url
+        var authorizationUrl = $"https://paystack.com/pay/riseflow?amount={record.AmountDue * 100}&currency={record.CurrencyCode}&reference={reference}";
+        return Ok(new InitiatePaymentResult(gateway, authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
+    }
 }
+
+public record InitiatePaymentRequest(Guid BillingRecordId);
+public record InitiatePaymentResult(string GatewayName, string AuthorizationUrl, string Reference, decimal AmountDue, string CurrencyCode);
 
 public record ConvertAmountRequest(decimal Amount, string? FromCurrencyCode);
 public record ConvertedAmountsDto(decimal OriginalAmount, string OriginalCurrency, decimal UsdAmount, IReadOnlyDictionary<string, decimal> AmountsByCurrency);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
@@ -16,10 +17,13 @@ public class StudentsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant)
+    private readonly StudentBulkUploadService _bulkUpload;
+
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, StudentBulkUploadService bulkUpload)
     {
         _db = db;
         _tenant = tenant;
+        _bulkUpload = bulkUpload;
     }
 
     [HttpGet]
@@ -82,6 +86,25 @@ public class StudentsController : ControllerBase
         _db.Students.Add(student);
         await _db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
+    }
+
+    /// <summary>Bulk upload students from Excel. SchoolAdmin only. Template: Row 1 = headers (FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth).</summary>
+    [HttpPost("bulk-upload")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(BulkUploadResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<BulkUploadResult>> BulkUpload(IFormFile file, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+        var ext = Path.GetExtension(file.FileName);
+        if (!string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest("Only .xlsx files are supported.");
+        await using var stream = file.OpenReadStream();
+        var result = await _bulkUpload.UploadFromExcelAsync(stream, _tenant.CurrentSchoolId.Value, ct);
+        return Ok(result);
     }
 
     [HttpPut("{id:guid}")]

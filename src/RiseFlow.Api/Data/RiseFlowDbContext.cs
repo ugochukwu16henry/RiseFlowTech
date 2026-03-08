@@ -54,6 +54,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
+            e.Property(x => x.LogoFileName).HasMaxLength(256);
         });
 
         // Grade

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
@@ -7,17 +9,19 @@ using RiseFlow.Api.Constants;
 namespace RiseFlow.Api.Services;
 
 /// <summary>
-/// School onboarding: create a new tenant (school) and optionally its first admin user.
+/// School onboarding: create a new tenant (school) and optionally its first admin user and logo.
 /// </summary>
 public class SchoolOnboardingService
 {
     private readonly RiseFlowDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IWebHostEnvironment _env;
 
-    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager)
+    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
     {
         _db = db;
         _userManager = userManager;
+        _env = env;
     }
 
     public async Task<SchoolOnboardingResult> OnboardSchoolAsync(OnboardSchoolRequest request, CancellationToken ct = default)
@@ -61,6 +65,32 @@ public class SchoolOnboardingService
 
         await _db.SaveChangesAsync(ct);
         return SchoolOnboardingResult.CreateSuccess(school.Id, school.Name);
+    }
+
+    /// <summary>Onboard a school with optional logo upload. Use from multipart/form-data endpoint.</summary>
+    public async Task<SchoolOnboardingResult> OnboardSchoolWithLogoAsync(OnboardSchoolRequest request, IFormFile? logo, CancellationToken ct = default)
+    {
+        var result = await OnboardSchoolAsync(request, ct);
+        if (!result.Success || !result.SchoolId.HasValue || logo == null || logo.Length == 0)
+            return result;
+        var ext = Path.GetExtension(logo.FileName);
+        if (string.IsNullOrEmpty(ext)) ext = ".png";
+        var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return result;
+        var logosDir = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "logos");
+        Directory.CreateDirectory(logosDir);
+        var fileName = $"{result.SchoolId.Value:N}{ext}";
+        var path = Path.Combine(logosDir, fileName);
+        await using (var stream = File.Create(path))
+            await logo.CopyToAsync(stream, ct);
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == result.SchoolId.Value, ct);
+        if (school != null)
+        {
+            school.LogoFileName = $"logos/{fileName}";
+            await _db.SaveChangesAsync(ct);
+        }
+        return result;
     }
 
     public async Task<School?> GetSchoolByIdAsync(Guid schoolId, CancellationToken ct = default)

@@ -33,6 +33,7 @@ builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
+builder.Services.AddScoped<StudentBulkUploadService>();
 
 builder.Services.AddCors(options =>
 {

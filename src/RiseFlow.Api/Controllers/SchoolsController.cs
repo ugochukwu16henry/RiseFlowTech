@@ -39,6 +39,25 @@ public class SchoolsController : ControllerBase
     }
 
     /// <summary>
+    /// Onboard a new school with optional logo upload (multipart/form-data). Principal signs up, sets school name, and uploads logo.
+    /// </summary>
+    [HttpPost("onboard-with-logo")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(SchoolOnboardingResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SchoolOnboardingResult>> OnboardWithLogo([FromForm] OnboardSchoolRequest request, [FromForm] IFormFile? Logo, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.SchoolName))
+            return BadRequest("School name is required.");
+        if (!string.IsNullOrWhiteSpace(request.AdminEmail) && string.IsNullOrWhiteSpace(request.AdminPassword))
+            return BadRequest("Admin password is required when admin email is provided.");
+        var result = await _onboarding.OnboardSchoolWithLogoAsync(request, Logo, ct);
+        if (!result.Success)
+            return BadRequest(result);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// List all schools. SuperAdmin only.
     /// </summary>
     [HttpGet]
