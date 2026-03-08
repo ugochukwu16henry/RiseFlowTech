@@ -5,8 +5,10 @@
   padding: var(--card-padding-lg) var(--card-padding);
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-.header h1 { color: inherit; margin: 0; font-size: 1.25rem; font-weight: 600; }
-.header p { margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.875rem; }
+.header-brand { display: inline-block; margin: 0; }
+.header-logo { display: block; height: 40px; width: auto; max-width: 180px; object-fit: contain; }
+.header-logo-text { font-size: 1.25rem; font-weight: 600; color: var(--color-white); }
+.header-tagline { margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.875rem; }
 .main { flex: 1; padding: var(--gap); max-width: 1200px; margin: 0 auto; width: 100%; }
 .section-title { font-size: 1rem; font-weight: 600; margin: 0 0 var(--gap); }
 

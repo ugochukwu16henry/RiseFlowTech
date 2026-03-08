@@ -87,6 +87,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,11 +125,26 @@ function App() {
     ? Math.round(progressBySubject.reduce((s, p) => s + p.value, 0) / progressBySubject.length)
     : 0;
 
+  const logoWithName = '/logos/RiseFlow%20logo%20with%20name.png';
+
   return (
     <div className="app">
       <header className="header">
-        <h1>RiseFlow</h1>
-        <p>Your child’s growth, in one place</p>
+        <a href="/" className="header-brand" aria-label="RiseFlow home">
+          {logoError ? (
+            <span className="header-logo-text">RiseFlow</span>
+          ) : (
+            <img
+              src={logoWithName}
+              alt="RiseFlow"
+              className="header-logo"
+              width="140"
+              height="40"
+              onError={() => setLogoError(true)}
+            />
+          )}
+        </a>
+        <p className="header-tagline">Your child’s growth, in one place</p>
       </header>
 
       <main className="main">
