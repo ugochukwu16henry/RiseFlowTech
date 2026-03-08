@@ -31,6 +31,7 @@ public class SchoolOnboardingService
             Id = Guid.NewGuid(),
             Name = request.SchoolName,
             Address = request.Address,
+            PrincipalName = request.PrincipalName,
             Phone = request.Phone,
             Email = request.Email,
             CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
@@ -107,6 +108,7 @@ public class SchoolOnboardingService
 public record OnboardSchoolRequest(
     string SchoolName,
     string? Address,
+    string? PrincipalName,
     string? Phone,
     string? Email,
     string? CountryCode,

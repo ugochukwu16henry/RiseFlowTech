@@ -8,6 +8,7 @@ public class School
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Address { get; set; }
+    public string? PrincipalName { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     /// <summary>ISO 3166-1 alpha-2 (e.g. NG, GH, KE). Used for billing and localization.</summary>

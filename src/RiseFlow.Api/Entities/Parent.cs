@@ -12,7 +12,10 @@ public class Parent : ITenantEntity
     public string? MiddleName { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }
+    public string? WhatsAppNumber { get; set; }
     public string? Relationship { get; set; } // e.g. "Father", "Mother", "Guardian"
+    public string? ResidentialAddress { get; set; }
+    public string? Occupation { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }

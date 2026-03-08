@@ -78,9 +78,22 @@ public class StudentsController : ControllerBase
             MiddleName = request.MiddleName,
             DateOfBirth = request.DateOfBirth,
             Gender = request.Gender,
+            Nationality = request.Nationality,
+            StateOfOrigin = request.StateOfOrigin,
+            LGA = request.LGA,
+            NIN = request.NIN,
+            NationalIdType = request.NationalIdType,
+            NationalIdNumber = request.NationalIdNumber,
             AdmissionNumber = request.AdmissionNumber,
+            DateOfAdmission = request.DateOfAdmission,
             ClassId = request.ClassId,
             GradeId = request.GradeId,
+            PreviousSchool = request.PreviousSchool,
+            BloodGroup = request.BloodGroup,
+            Genotype = request.Genotype,
+            Allergies = request.Allergies,
+            EmergencyContactName = request.EmergencyContactName,
+            EmergencyContactPhone = request.EmergencyContactPhone,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -148,13 +161,81 @@ public class StudentsController : ControllerBase
         student.MiddleName = request.MiddleName;
         student.DateOfBirth = request.DateOfBirth;
         student.Gender = request.Gender;
+        student.Nationality = request.Nationality;
+        student.StateOfOrigin = request.StateOfOrigin;
+        student.LGA = request.LGA;
+        student.NIN = request.NIN;
+        student.NationalIdType = request.NationalIdType;
+        student.NationalIdNumber = request.NationalIdNumber;
         student.AdmissionNumber = request.AdmissionNumber;
+        student.DateOfAdmission = request.DateOfAdmission;
         student.ClassId = request.ClassId;
         student.GradeId = request.GradeId;
+        student.PreviousSchool = request.PreviousSchool;
+        student.BloodGroup = request.BloodGroup;
+        student.Genotype = request.Genotype;
+        student.Allergies = request.Allergies;
+        student.EmergencyContactName = request.EmergencyContactName;
+        student.EmergencyContactPhone = request.EmergencyContactPhone;
         student.IsActive = request.IsActive;
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(student);
+    }
+
+    /// <summary>Get or generate Parent Access Code for a student. Parent enters this code to link to the student. SchoolAdmin/Teacher.</summary>
+    [HttpGet("{id:guid}/access-code")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [ProducesResponseType(typeof(AccessCodeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccessCodeDto>> GetOrCreateAccessCode(Guid id, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+        if (student == null)
+            return NotFound();
+        if (string.IsNullOrEmpty(student.ParentAccessCode))
+        {
+            student.ParentAccessCode = await GenerateUniqueAccessCodeAsync(_tenant.CurrentSchoolId.Value, ct);
+            await _db.SaveChangesAsync(ct);
+        }
+        return Ok(new AccessCodeDto(student.ParentAccessCode!));
+    }
+
+    /// <summary>Generate parent access codes for all students in the school that don't have one. SchoolAdmin.</summary>
+    [HttpPost("generate-access-codes")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(GenerateAccessCodesResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GenerateAccessCodesResult>> GenerateAccessCodes(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var studentsWithoutCode = await _db.Students.Where(s => s.SchoolId == schoolId && (s.ParentAccessCode == null || s.ParentAccessCode == "")).ToListAsync(ct);
+        var generated = 0;
+        foreach (var s in studentsWithoutCode)
+        {
+            s.ParentAccessCode = await GenerateUniqueAccessCodeAsync(schoolId, ct);
+            generated++;
+        }
+        await _db.SaveChangesAsync(ct);
+        var totalStudents = await _db.Students.CountAsync(s => s.SchoolId == schoolId, ct);
+        var withCode = await _db.Students.CountAsync(s => s.SchoolId == schoolId && !string.IsNullOrEmpty(s.ParentAccessCode), ct);
+        return Ok(new GenerateAccessCodesResult(generated, totalStudents, withCode));
+    }
+
+    private async Task<string> GenerateUniqueAccessCodeAsync(Guid schoolId, CancellationToken ct)
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rng = Random.Shared;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            var code = new string(Enumerable.Range(0, 8).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+            var exists = await _db.Students.AnyAsync(s => s.SchoolId == schoolId && s.ParentAccessCode == code, ct);
+            if (!exists) return code;
+        }
+        return Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
     }
 
     [HttpDelete("{id:guid}")]
@@ -172,3 +253,6 @@ public class StudentsController : ControllerBase
         return NoContent();
     }
 }
+
+public record AccessCodeDto(string Code);
+public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);

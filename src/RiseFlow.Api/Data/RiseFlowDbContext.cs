@@ -50,6 +50,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(256);
             e.Property(x => x.Address).HasMaxLength(512);
+            e.Property(x => x.PrincipalName).HasMaxLength(128);
             e.Property(x => x.Phone).HasMaxLength(32);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CountryCode).HasMaxLength(2);
@@ -84,7 +85,21 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.LastName).IsRequired().HasMaxLength(128);
             e.Property(x => x.MiddleName).HasMaxLength(128);
             e.Property(x => x.Gender).HasMaxLength(32);
+            e.Property(x => x.Nationality).HasMaxLength(128);
+            e.Property(x => x.StateOfOrigin).HasMaxLength(128);
+            e.Property(x => x.LGA).HasMaxLength(128);
+            e.Property(x => x.NIN).HasMaxLength(32);
+            e.Property(x => x.NationalIdType).HasMaxLength(32);
+            e.Property(x => x.NationalIdNumber).HasMaxLength(64);
             e.Property(x => x.AdmissionNumber).HasMaxLength(64);
+            e.Property(x => x.PreviousSchool).HasMaxLength(256);
+            e.Property(x => x.BloodGroup).HasMaxLength(16);
+            e.Property(x => x.Genotype).HasMaxLength(16);
+            e.Property(x => x.Allergies).HasMaxLength(512);
+            e.Property(x => x.EmergencyContactName).HasMaxLength(128);
+            e.Property(x => x.EmergencyContactPhone).HasMaxLength(32);
+            e.Property(x => x.ParentAccessCode).HasMaxLength(16);
+            e.HasIndex(x => new { x.SchoolId, x.ParentAccessCode }).IsUnique();
             e.HasOne(x => x.School).WithMany(s => s.Students).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Class).WithMany(c => c.Students).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Grade).WithMany(g => g.Students).HasForeignKey(x => x.GradeId).OnDelete(DeleteBehavior.SetNull);
@@ -115,6 +130,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.Phone).HasMaxLength(32);
             e.Property(x => x.Relationship).HasMaxLength(64);
+            e.Property(x => x.WhatsAppNumber).HasMaxLength(32);
+            e.Property(x => x.ResidentialAddress).HasMaxLength(512);
+            e.Property(x => x.Occupation).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.Parents).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         });
 
