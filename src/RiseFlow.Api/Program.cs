@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
+using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,8 +25,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 .AddEntityFrameworkStores<RiseFlowDbContext>()
 .AddDefaultTokenProviders();
 
-// Multi-tenancy and app services
+// Multi-tenancy: TenantService holds TenantId (from header or claim) for the request; EF filters by School
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
@@ -50,6 +52,9 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseCors();
+
+// Extract TenantId from X-Tenant-Id header so TenantService and EF can filter by School
+app.UseMiddleware<TenantMiddleware>();
 
 // Seed roles on startup (idempotent)
 using (var scope = app.Services.CreateScope())

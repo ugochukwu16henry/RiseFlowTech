@@ -5,23 +5,17 @@ namespace RiseFlow.Api.Services;
 
 public class TenantContext : ITenantContext
 {
+    private readonly ITenantService _tenantService;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public TenantContext(IHttpContextAccessor httpContextAccessor)
+    public TenantContext(ITenantService tenantService, IHttpContextAccessor httpContextAccessor)
     {
+        _tenantService = tenantService;
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public Guid? CurrentSchoolId
-    {
-        get
-        {
-            var schoolIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirstValue("SchoolId");
-            if (string.IsNullOrEmpty(schoolIdClaim) || !Guid.TryParse(schoolIdClaim, out var id))
-                return null;
-            return id;
-        }
-    }
+    /// <summary>Current school (tenant) ID from X-Tenant-Id header or user's SchoolId claim.</summary>
+    public Guid? CurrentSchoolId => _tenantService.TenantId;
 
     public bool IsSuperAdmin =>
         _httpContextAccessor.HttpContext?.User?.IsInRole(Constants.Roles.SuperAdmin) ?? false;

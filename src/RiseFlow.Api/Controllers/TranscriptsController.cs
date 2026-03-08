@@ -12,11 +12,13 @@ public class TranscriptsController : ControllerBase
 {
     private readonly TranscriptPdfService _transcriptPdf;
     private readonly Services.ITenantContext _tenant;
+    private readonly IConfiguration _config;
 
-    public TranscriptsController(TranscriptPdfService transcriptPdf, Services.ITenantContext tenant)
+    public TranscriptsController(TranscriptPdfService transcriptPdf, Services.ITenantContext tenant, IConfiguration config)
     {
         _transcriptPdf = transcriptPdf;
         _tenant = tenant;
+        _config = config;
     }
 
     /// <summary>Generate a PDF transcript with verification QR code. SchoolAdmin or Teacher.</summary>
@@ -44,7 +46,10 @@ public class TranscriptsController : ControllerBase
                     list.Add(id);
             if (list.Count > 0) termIdList = list;
         }
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        // QR code in PDF should point to the web app verification page so scanners see a friendly result.
+        var baseUrl = _config["RiseFlow:VerificationBaseUrl"]?.Trim();
+        if (string.IsNullOrEmpty(baseUrl))
+            baseUrl = $"{Request.Scheme}://{Request.Host}";
         try
         {
             var (_, pdfBytes) = await _transcriptPdf.GenerateTranscriptAsync(studentId, schoolId, termIdList, issuedToName, baseUrl, ct);
