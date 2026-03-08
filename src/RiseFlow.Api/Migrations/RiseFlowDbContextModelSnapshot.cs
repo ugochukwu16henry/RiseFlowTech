@@ -232,6 +232,47 @@ namespace RiseFlow.Api.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.AcademicTerm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("AcademicTerms");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Class", b =>
                 {
                     b.Property<Guid>("Id")
@@ -266,6 +307,27 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("SchoolId");
 
                     b.ToTable("Classes");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.ClassSubject", b =>
+                {
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Order")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ClassId", "SubjectId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("ClassSubjects");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Grade", b =>
@@ -472,6 +534,101 @@ namespace RiseFlow.Api.Migrations
                     b.ToTable("StudentParents");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssessmentType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EnteredByTeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GradeLetter")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<decimal>("MaxScore")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Score")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TermId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnteredByTeacherId");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("TermId");
+
+                    b.ToTable("StudentResults");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.Subject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("Subjects");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Teacher", b =>
                 {
                     b.Property<Guid>("Id")
@@ -520,6 +677,10 @@ namespace RiseFlow.Api.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("WhatsAppNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SchoolId");
@@ -547,6 +708,47 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("ClassId");
 
                     b.ToTable("TeacherClasses");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherClassSubject", b =>
+                {
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TeacherId", "ClassId", "SubjectId");
+
+                    b.HasIndex("ClassId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("TeacherClassSubjects");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherSubject", b =>
+                {
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TeacherId", "SubjectId");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("TeacherSubjects");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -600,6 +802,17 @@ namespace RiseFlow.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.AcademicTerm", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("AcademicTerms")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Class", b =>
                 {
                     b.HasOne("RiseFlow.Api.Entities.Grade", "Grade")
@@ -617,6 +830,25 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Grade");
 
                     b.Navigation("School");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.ClassSubject", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.Class", "Class")
+                        .WithMany("ClassSubjects")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Subject", "Subject")
+                        .WithMany("ClassSubjects")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Grade", b =>
@@ -685,6 +917,59 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentResult", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.Teacher", "EnteredByTeacher")
+                        .WithMany("EnteredResults")
+                        .HasForeignKey("EnteredByTeacherId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("StudentResults")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Student", "Student")
+                        .WithMany("Results")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Subject", "Subject")
+                        .WithMany("StudentResults")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.AcademicTerm", "Term")
+                        .WithMany("StudentResults")
+                        .HasForeignKey("TermId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EnteredByTeacher");
+
+                    b.Navigation("School");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Term");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.Subject", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("Subjects")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Teacher", b =>
                 {
                     b.HasOne("RiseFlow.Api.Entities.School", "School")
@@ -715,9 +1000,64 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherClassSubject", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.Class", "Class")
+                        .WithMany("TeacherClassSubjects")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Subject", "Subject")
+                        .WithMany("TeacherClassSubjects")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Teacher", "Teacher")
+                        .WithMany("TeacherClassSubjects")
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Class");
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherSubject", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.Subject", "Subject")
+                        .WithMany("TeacherSubjects")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Teacher", "Teacher")
+                        .WithMany("TeacherSubjects")
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.AcademicTerm", b =>
+                {
+                    b.Navigation("StudentResults");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Class", b =>
                 {
+                    b.Navigation("ClassSubjects");
+
                     b.Navigation("Students");
+
+                    b.Navigation("TeacherClassSubjects");
 
                     b.Navigation("TeacherClasses");
                 });
@@ -736,25 +1076,50 @@ namespace RiseFlow.Api.Migrations
 
             modelBuilder.Entity("RiseFlow.Api.Entities.School", b =>
                 {
+                    b.Navigation("AcademicTerms");
+
                     b.Navigation("Classes");
 
                     b.Navigation("Grades");
 
                     b.Navigation("Parents");
 
+                    b.Navigation("StudentResults");
+
                     b.Navigation("Students");
+
+                    b.Navigation("Subjects");
 
                     b.Navigation("Teachers");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Student", b =>
                 {
+                    b.Navigation("Results");
+
                     b.Navigation("StudentParents");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.Subject", b =>
+                {
+                    b.Navigation("ClassSubjects");
+
+                    b.Navigation("StudentResults");
+
+                    b.Navigation("TeacherClassSubjects");
+
+                    b.Navigation("TeacherSubjects");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Teacher", b =>
                 {
+                    b.Navigation("EnteredResults");
+
+                    b.Navigation("TeacherClassSubjects");
+
                     b.Navigation("TeacherClasses");
+
+                    b.Navigation("TeacherSubjects");
                 });
 #pragma warning restore 612, 618
         }
