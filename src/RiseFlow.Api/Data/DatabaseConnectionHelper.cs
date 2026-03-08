@@ -6,17 +6,17 @@ namespace RiseFlow.Api.Data;
 public static class DatabaseConnectionHelper
 {
     /// <summary>
-    /// Gets the Npgsql connection string: from DefaultConnection first, then from DATABASE_URL env var.
+    /// Gets the Npgsql connection string: DATABASE_URL env var first (e.g. Railway), then DefaultConnection from config.
     /// </summary>
     public static string GetConnectionString(IConfiguration config)
     {
-        var fromConfig = config.GetConnectionString("DefaultConnection");
-        if (!string.IsNullOrWhiteSpace(fromConfig))
-            return fromConfig.Trim();
-
         var url = Environment.GetEnvironmentVariable("DATABASE_URL");
         if (!string.IsNullOrWhiteSpace(url))
             return ParsePostgresUrl(url.Trim());
+
+        var fromConfig = config.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrWhiteSpace(fromConfig))
+            return fromConfig.Trim();
 
         return "Host=localhost;Database=RiseFlow;Username=postgres;Password=postgres;Include Error Detail=true";
     }
