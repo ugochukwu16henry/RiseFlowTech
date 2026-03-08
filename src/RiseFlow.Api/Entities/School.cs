@@ -22,4 +22,6 @@ public class School
     public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
     public ICollection<AcademicTerm> AcademicTerms { get; set; } = new List<AcademicTerm>();
     public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
+    public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
+    public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
 }

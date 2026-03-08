@@ -32,6 +32,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<TeacherClassSubject> TeacherClassSubjects => Set<TeacherClassSubject>();
     public DbSet<AcademicTerm> AcademicTerms => Set<AcademicTerm>();
     public DbSet<StudentResult> StudentResults => Set<StudentResult>();
+    public DbSet<BillingRecord> BillingRecords => Set<BillingRecord>();
+    public DbSet<TranscriptVerification> TranscriptVerifications => Set<TranscriptVerification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -46,6 +48,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         builder.Entity<Subject>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
         builder.Entity<AcademicTerm>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
         builder.Entity<StudentResult>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
+        builder.Entity<BillingRecord>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
+        builder.Entity<TranscriptVerification>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
         // StudentParent/TeacherClass/TeacherSubject/ClassSubject/TeacherClassSubject are accessed via tenant-scoped entities.
 
         // School
@@ -192,6 +196,25 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.Subject).WithMany(s => s.StudentResults).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Term).WithMany(t => t.StudentResults).HasForeignKey(x => x.TermId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.EnteredByTeacher).WithMany(t => t.EnteredResults).HasForeignKey(x => x.EnteredByTeacherId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // BillingRecord
+        builder.Entity<BillingRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.PeriodLabel).IsRequired().HasMaxLength(32);
+            e.HasOne(x => x.School).WithMany(s => s.BillingRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TranscriptVerification
+        builder.Entity<TranscriptVerification>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.VerificationToken).IsUnique();
+            e.Property(x => x.VerificationToken).IsRequired().HasMaxLength(64);
+            e.Property(x => x.IssuedToName).HasMaxLength(256);
+            e.HasOne(x => x.Student).WithMany(s => s.TranscriptVerifications).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.School).WithMany(s => s.TranscriptVerifications).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // Identity: use Guid for User and Role

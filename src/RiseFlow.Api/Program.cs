@@ -28,6 +28,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<SchoolOnboardingService>();
+builder.Services.AddScoped<BillingService>();
+builder.Services.AddScoped<TranscriptPdfService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

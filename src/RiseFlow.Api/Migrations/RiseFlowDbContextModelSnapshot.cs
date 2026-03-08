@@ -273,6 +273,48 @@ namespace RiseFlow.Api.Migrations
                     b.ToTable("AcademicTerms");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.BillingRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountDueNaira")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal?>("AmountPaidNaira")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PaidAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PeriodLabel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StudentCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.ToTable("BillingRecords");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.Class", b =>
                 {
                     b.Property<Guid>("Id")
@@ -751,6 +793,42 @@ namespace RiseFlow.Api.Migrations
                     b.ToTable("TeacherSubjects");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.TranscriptVerification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("IssuedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IssuedToName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerificationToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("VerificationToken")
+                        .IsUnique();
+
+                    b.ToTable("TranscriptVerifications");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -806,6 +884,17 @@ namespace RiseFlow.Api.Migrations
                 {
                     b.HasOne("RiseFlow.Api.Entities.School", "School")
                         .WithMany("AcademicTerms")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.BillingRecord", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("BillingRecords")
                         .HasForeignKey("SchoolId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1046,6 +1135,25 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Teacher");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.TranscriptVerification", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("TranscriptVerifications")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Student", "Student")
+                        .WithMany("TranscriptVerifications")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.AcademicTerm", b =>
                 {
                     b.Navigation("StudentResults");
@@ -1078,6 +1186,8 @@ namespace RiseFlow.Api.Migrations
                 {
                     b.Navigation("AcademicTerms");
 
+                    b.Navigation("BillingRecords");
+
                     b.Navigation("Classes");
 
                     b.Navigation("Grades");
@@ -1091,6 +1201,8 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Subjects");
 
                     b.Navigation("Teachers");
+
+                    b.Navigation("TranscriptVerifications");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Student", b =>
@@ -1098,6 +1210,8 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Results");
 
                     b.Navigation("StudentParents");
+
+                    b.Navigation("TranscriptVerifications");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Subject", b =>

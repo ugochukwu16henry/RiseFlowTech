@@ -24,4 +24,5 @@ public class Student : ITenantEntity
     public Grade? Grade { get; set; }
     public ICollection<StudentParent> StudentParents { get; set; } = new List<StudentParent>();
     public ICollection<StudentResult> Results { get; set; } = new List<StudentResult>();
+    public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
 }
