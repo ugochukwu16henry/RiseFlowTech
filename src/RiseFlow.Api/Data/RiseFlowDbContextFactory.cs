@@ -22,8 +22,7 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
-        var conn = config.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Database=RiseFlow;Username=postgres;Password=postgres;Include Error Detail=true";
+        var conn = DatabaseConnectionHelper.GetConnectionString(config);
         optionsBuilder.UseNpgsql(conn);
 
         return new RiseFlowDbContext(optionsBuilder.Options);

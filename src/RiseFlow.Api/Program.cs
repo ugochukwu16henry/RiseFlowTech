@@ -6,10 +6,10 @@ using RiseFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database
+// Database (DefaultConnection in config, or DATABASE_URL env var e.g. Railway)
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseNpgsql(DatabaseConnectionHelper.GetConnectionString(builder.Configuration));
 });
 
 // Identity with Guid keys
