@@ -1,0 +1,28 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "RiseFlow API Dev",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run",
+				"--project",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "RiseFlow Web Dev",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev",
+				"--prefix",
+				"src/RiseFlow.Web"
+			],
+			"isBackground": true
+		}
+	]
+}
