@@ -182,6 +182,7 @@ function App() {
   const [contactsError, setContactsError] = useState(null);
   const [resultsCachedAt, setResultsCachedAt] = useState(null);
   const [retryResultsTrigger, setRetryResultsTrigger] = useState(0);
+  const [templateDownloading, setTemplateDownloading] = useState(false);
 
   useEffect(() => {
     try {
@@ -444,9 +445,33 @@ function App() {
             <div className="bulk-upload-block">
               <h4 className="card-title" style={{ marginTop: '1rem' }}>Bulk upload students</h4>
               <p className="card-desc">Download the Excel template, fill in your students (1000+ supported), then upload when signed in as School Admin.</p>
-              <a href={`${API_BASE}/api/students/bulk-upload-template`} download="RiseFlow-Students-Template.xlsx" className="btn-download-template">
-                Download Excel template
-              </a>
+              <button
+                type="button"
+                className="btn-download-template"
+                disabled={templateDownloading}
+                onClick={async () => {
+                  setTemplateDownloading(true);
+                  try {
+                    const res = await fetch(`${API_BASE}/api/students/bulk-upload-template`);
+                    if (!res.ok) throw new Error('Download failed');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'RiseFlow-Students-Template.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setTemplateDownloading(false);
+                  }
+                }}
+              >
+                {templateDownloading ? 'Downloading…' : 'Download Excel template'}
+              </button>
             </div>
           </section>
         )}
