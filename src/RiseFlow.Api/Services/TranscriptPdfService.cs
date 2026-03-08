@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -48,6 +50,10 @@ public class TranscriptPdfService
         }
         var results = await resultsQuery.OrderBy(r => r.Term!.StartDate).ThenBy(r => r.Subject!.Name).ToListAsync(ct);
 
+        var issuedAt = DateTime.UtcNow;
+        var canonical = BuildCanonicalContent(student, school, results, issuedAt, issuedToName);
+        var contentHash = ComputeSha256Hex(canonical);
+
         var token = Guid.NewGuid().ToString("N")[..16];
         var verification = new TranscriptVerification
         {
@@ -55,18 +61,34 @@ public class TranscriptPdfService
             StudentId = studentId,
             SchoolId = schoolId,
             VerificationToken = token,
-            IssuedAtUtc = DateTime.UtcNow,
+            ContentHash = contentHash,
+            IssuedAtUtc = issuedAt,
             IssuedToName = issuedToName
         };
         _db.TranscriptVerifications.Add(verification);
         await _db.SaveChangesAsync(ct);
 
         var verifyUrl = $"{verificationBaseUrl.TrimEnd('/')}/verify/transcript/{token}";
-        var pdfBytes = BuildPdf(student, school, results, verifyUrl);
+        var pdfBytes = BuildPdf(student, school, results, verifyUrl, contentHash);
         return (verification, pdfBytes);
     }
 
-    private static byte[] BuildPdf(Student student, School school, List<StudentResult> results, string verifyUrl)
+    private static string BuildCanonicalContent(Student student, School school, List<StudentResult> results, DateTime issuedAt, string? issuedToName)
+    {
+        var sb = new StringBuilder();
+        sb.Append(student.Id).Append('|').Append(school.Id).Append('|').Append(issuedAt.ToString("O")).Append('|').Append(issuedToName ?? "");
+        foreach (var r in results)
+            sb.Append('|').Append(r.Term?.Name).Append('|').Append(r.Subject?.Name).Append('|').Append(r.Score).Append('|').Append(r.MaxScore).Append('|').Append(r.GradeLetter ?? "");
+        return sb.ToString();
+    }
+
+    private static string ComputeSha256Hex(string content)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static byte[] BuildPdf(Student student, School school, List<StudentResult> results, string verifyUrl, string? contentHash)
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var qrBytes = GenerateQrPng(verifyUrl);
@@ -126,7 +148,9 @@ public class TranscriptPdfService
                         r.RelativeItem();
                         r.ConstantItem(120).Height(120).Width(120).Image(qrBytes).FitArea();
                     });
-                    c.Item().Text("Scan QR code to verify this transcript.").FontSize(8);
+                    if (!string.IsNullOrEmpty(contentHash))
+                        c.Item().Text($"Verification hash: {contentHash}").FontSize(7);
+                    c.Item().Text("Scan QR code or visit the URL to verify this transcript at riseflow.com/verify.").FontSize(8);
                 });
             });
         }).GeneratePdf();

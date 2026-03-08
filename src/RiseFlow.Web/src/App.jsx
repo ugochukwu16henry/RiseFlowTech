@@ -141,6 +141,13 @@ function ProgressBar({ label, value, overall }) {
   );
 }
 
+function formatMoney(amount, currencyCode) {
+  const code = currencyCode || 'NGN';
+  const n = Number(amount);
+  if (Number.isNaN(n)) return '—';
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: code, maximumFractionDigits: 0 }).format(n);
+}
+
 /** Build WhatsApp chat URL: wa.me/<digits only>. Use teacher's WhatsAppNumber or fallback Phone. */
 function whatsAppUrl(whatsAppNumber, phone) {
   const raw = (whatsAppNumber || phone || '').replace(/\D/g, '');
@@ -182,6 +189,10 @@ function App() {
   const [contactsError, setContactsError] = useState(null);
   const [resultsCachedAt, setResultsCachedAt] = useState(null);
   const [retryResultsTrigger, setRetryResultsTrigger] = useState(0);
+  const [schoolDashboard, setSchoolDashboard] = useState(null);
+  const [schoolDashboardLoading, setSchoolDashboardLoading] = useState(false);
+  const [superAdminDashboard, setSuperAdminDashboard] = useState(null);
+  const [superAdminLoading, setSuperAdminLoading] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, role);
@@ -290,6 +301,38 @@ function App() {
     return () => { cancelled = true; };
   }, [role]);
 
+  // School Admin: dashboard summary (active students, unpaid fees)
+  useEffect(() => {
+    if (role !== ROLES.SchoolAdmin) {
+      setSchoolDashboard(null);
+      return;
+    }
+    let cancelled = false;
+    setSchoolDashboardLoading(true);
+    fetch(`${API_BASE}/api/schools/dashboard`, { credentials: 'include' })
+      .then((res) => (cancelled ? null : res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setSchoolDashboard(data); })
+      .catch(() => { if (!cancelled) setSchoolDashboard(null); })
+      .finally(() => { if (!cancelled) setSchoolDashboardLoading(false); });
+    return () => { cancelled = true; };
+  }, [role]);
+
+  // Super Admin: dashboard (schools by country, monthly revenue)
+  useEffect(() => {
+    if (role !== ROLES.SuperAdmin) {
+      setSuperAdminDashboard(null);
+      return;
+    }
+    let cancelled = false;
+    setSuperAdminLoading(true);
+    fetch(`${API_BASE}/api/superadmin/dashboard`, { credentials: 'include' })
+      .then((res) => (cancelled ? null : res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled) setSuperAdminDashboard(data); })
+      .catch(() => { if (!cancelled) setSuperAdminDashboard(null); })
+      .finally(() => { if (!cancelled) setSuperAdminLoading(false); });
+    return () => { cancelled = true; };
+  }, [role]);
+
   const overallPct = progressBySubject.length
     ? Math.round(progressBySubject.reduce((s, p) => s + p.value, 0) / progressBySubject.length)
     : 0;
@@ -337,6 +380,131 @@ function App() {
       </header>
 
       <main className="main">
+        {/* Parent: Feed-style — Recent Results and Teacher Contacts first */}
+        {showPerformance && (
+          <div className="dashboard-feed" aria-label="Your feed">
+            <h2 className="section-title">Recent Results</h2>
+            <section id="results" className="feed-card progress-section" aria-label="Performance at a glance">
+              {resultsCachedAt && (
+                <div className="offline-banner" role="status">
+                  <span>Showing cached results from {new Date(resultsCachedAt).toLocaleString()}. Sync when back online.</span>
+                  <button type="button" className="offline-retry" onClick={() => setRetryResultsTrigger((c) => c + 1)}>Retry</button>
+                </div>
+              )}
+              {loading ? (
+                <p className="empty-state" aria-busy="true">Loading results…</p>
+              ) : error ? (
+                <p className="empty-state empty-state--error">{error}</p>
+              ) : needsAuth ? (
+                <p className="empty-state">Sign in to see your child's results.</p>
+              ) : progressBySubject.length > 0 ? (
+                <>
+                  <div className="progress-item progress-overall">
+                    <ProgressBar label="Overall" value={overallPct} overall />
+                  </div>
+                  <ul className="progress-list">
+                    {progressBySubject.map(({ subject, value }) => (
+                      <li key={subject} className="progress-item">
+                        <ProgressBar label={subject} value={value} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="empty-state">No results yet. Check back after grades are published.</p>
+              )}
+            </section>
+            <h2 className="section-title">Teacher Contacts</h2>
+            <section id="message" className="feed-card progress-section" aria-label="Message teacher">
+              <p className="card-desc">Contact your child's teacher. Use WhatsApp to open a direct chat.</p>
+              {contactsLoading && <p className="empty-state" aria-busy="true">Loading teachers…</p>}
+              {contactsError && !contactsLoading && <p className="empty-state empty-state--error">{contactsError}</p>}
+              {!contactsLoading && !contactsError && teacherContacts.length === 0 && (
+                <p className="empty-state">Sign in as a parent to see your children's teachers.</p>
+              )}
+              {!contactsLoading && teacherContacts.length > 0 && (
+                <ul className="teacher-list">
+                  {teacherContacts.map((t) => {
+                    const wa = whatsAppUrl(t.whatsAppNumber, t.phone);
+                    return (
+                      <li key={t.teacherId} className="teacher-item">
+                        <span className="teacher-name">{t.fullName}</span>
+                        {wa ? (
+                          <a href={wa} target="_blank" rel="noopener noreferrer" className="btn-whatsapp" aria-label={`Open WhatsApp chat with ${t.fullName}`}>WhatsApp</a>
+                        ) : (
+                          <span className="teacher-no-wa">No WhatsApp number</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+            <section id="pay" className="feed-card progress-section section-spacer" aria-label="Pay fees">
+              <h3 className="card-title">Pay Fees</h3>
+              <p className="card-desc">View and pay school fees in your local currency.</p>
+            </section>
+          </div>
+        )}
+
+        {/* School Admin: high-level view — active students, unpaid fees */}
+        {role === ROLES.SchoolAdmin && (
+          <div className="dashboard-summary">
+            <h2 className="section-title">Dashboard</h2>
+            {schoolDashboardLoading ? (
+              <p className="empty-state" aria-busy="true">Loading…</p>
+            ) : schoolDashboard ? (
+              <div className="summary-cards">
+                <div className="summary-card">
+                  <span className="summary-value">{schoolDashboard.activeStudentCount}</span>
+                  <span className="summary-label">Active students</span>
+                </div>
+                <div className="summary-card summary-card--warning">
+                  <span className="summary-value">{formatMoney(schoolDashboard.unpaidFeesTotal, schoolDashboard.currencyCode)}</span>
+                  <span className="summary-label">Unpaid fees</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Super Admin: map of schools by country + monthly revenue */}
+        {role === ROLES.SuperAdmin && (
+          <div className="dashboard-summary">
+            <h2 className="section-title">Control room</h2>
+            {superAdminLoading ? (
+              <p className="empty-state" aria-busy="true">Loading…</p>
+            ) : superAdminDashboard ? (
+              <>
+                <div className="summary-cards">
+                  <div className="summary-card">
+                    <span className="summary-value">{formatMoney(superAdminDashboard.monthlyRevenueUsd, 'USD')}</span>
+                    <span className="summary-label">Monthly revenue</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-value">{formatMoney(superAdminDashboard.totalRevenueUsd, 'USD')}</span>
+                    <span className="summary-label">Total revenue</span>
+                  </div>
+                </div>
+                <h3 className="card-title" style={{ marginTop: '1.25rem' }}>Schools by country</h3>
+                <p className="card-desc">States and countries with the most active schools.</p>
+                {superAdminDashboard.schoolsByCountry?.length > 0 ? (
+                  <ul className="country-list">
+                    {superAdminDashboard.schoolsByCountry.map((c) => (
+                      <li key={c.countryCode} className="country-item">
+                        <span className="country-name">{c.countryName}</span>
+                        <span className="country-count">{c.schoolCount} schools</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="empty-state">No schools by country yet.</p>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+
         <h2 className="section-title">Quick actions</h2>
         <div className="cards" role="navigation" aria-label="Quick actions">
           {cards.map(({ id, to, title, desc, icon: Icon, className }) => (
@@ -357,8 +525,8 @@ function App() {
 
         {showPerformance && (
           <>
-            <h2 className="section-title">Academic performance</h2>
-            <section id="results" className="progress-section" aria-label="Performance at a glance">
+            <h2 className="section-title section-title--secondary">More</h2>
+            <section id="results-dupe" className="progress-section" aria-hidden="true" style={{ display: 'none' }}>
               {resultsCachedAt && (
                 <div className="offline-banner" role="status">
                   <span>Showing cached results from {new Date(resultsCachedAt).toLocaleString()}. Sync when back online.</span>

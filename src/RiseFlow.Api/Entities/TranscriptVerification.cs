@@ -9,6 +9,8 @@ public class TranscriptVerification
     public Guid StudentId { get; set; }
     public Guid SchoolId { get; set; }
     public string VerificationToken { get; set; } = string.Empty; // used in QR URL
+    /// <summary>SHA256 hash of transcript content for tamper detection. Shown on PDF and verify page.</summary>
+    public string? ContentHash { get; set; }
     public DateTime IssuedAtUtc { get; set; }
     public string? IssuedToName { get; set; }
 

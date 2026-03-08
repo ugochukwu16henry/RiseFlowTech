@@ -22,7 +22,14 @@ public class SuperAdminController : ControllerBase
         _billing = billing;
     }
 
-    /// <summary>Control room dashboard: total schools, active students, revenue metrics.</summary>
+    private static readonly IReadOnlyDictionary<string, string> CountryNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["NG"] = "Nigeria", ["GH"] = "Ghana", ["KE"] = "Kenya", ["ZA"] = "South Africa",
+        ["TZ"] = "Tanzania", ["UG"] = "Uganda", ["SN"] = "Senegal", ["CI"] = "Côte d'Ivoire",
+        ["CM"] = "Cameroon", ["ET"] = "Ethiopia", ["RW"] = "Rwanda", ["ZM"] = "Zambia",
+    };
+
+    /// <summary>Control room dashboard: schools by country (map data), total and monthly revenue.</summary>
     [HttpGet("dashboard")]
     [ProducesResponseType(typeof(SuperAdminDashboardDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<SuperAdminDashboardDto>> GetDashboard(CancellationToken ct)
@@ -34,12 +41,33 @@ public class SuperAdminController : ControllerBase
         var totalRevenue = await _billing.GetTotalRevenueUsdAsync(ct);
         var billingRecordsCount = await _db.BillingRecords.CountAsync(ct);
 
+        var now = DateTime.UtcNow;
+        var firstOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthlyRevenue = await _db.BillingRecords
+            .Where(b => b.PaidAtUtc >= firstOfMonth && b.AmountPaid != null)
+            .ToListAsync(ct);
+        var monthlyRevenueUsd = 0m;
+        foreach (var b in monthlyRevenue)
+            monthlyRevenueUsd += _billing.ConvertToUsd(b.AmountPaid ?? 0, b.CurrencyCode);
+
+        var byCountry = await _db.Schools
+            .Where(s => s.IsActive && s.CountryCode != null)
+            .GroupBy(s => s.CountryCode!)
+            .Select(g => new { Code = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var schoolsByCountry = byCountry
+            .OrderByDescending(x => x.Count)
+            .Select(x => new SchoolsByCountryDto(x.Code, CountryNames.GetValueOrDefault(x.Code, x.Code), x.Count))
+            .ToList();
+
         return Ok(new SuperAdminDashboardDto(
             TotalSchools: totalSchools,
             ActiveSchools: activeSchools,
             TotalStudents: totalStudents,
             ActiveStudents: activeStudents,
             TotalRevenueUsd: totalRevenue,
-            BillingRecordsCount: billingRecordsCount));
+            MonthlyRevenueUsd: monthlyRevenueUsd,
+            BillingRecordsCount: billingRecordsCount,
+            SchoolsByCountry: schoolsByCountry));
     }
 }

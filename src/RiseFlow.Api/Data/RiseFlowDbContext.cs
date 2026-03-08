@@ -208,6 +208,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.VerificationToken).IsUnique();
             e.Property(x => x.VerificationToken).IsRequired().HasMaxLength(64);
+            e.Property(x => x.ContentHash).HasMaxLength(64);
             e.Property(x => x.IssuedToName).HasMaxLength(256);
             e.HasOne(x => x.Student).WithMany(s => s.TranscriptVerifications).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.School).WithMany(s => s.TranscriptVerifications).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);

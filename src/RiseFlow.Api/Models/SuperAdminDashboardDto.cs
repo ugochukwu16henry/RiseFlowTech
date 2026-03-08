@@ -6,4 +6,8 @@ public record SuperAdminDashboardDto(
     int TotalStudents,
     int ActiveStudents,
     decimal TotalRevenueUsd,
-    int BillingRecordsCount);
+    decimal MonthlyRevenueUsd,
+    int BillingRecordsCount,
+    IReadOnlyList<SchoolsByCountryDto> SchoolsByCountry);
+
+public record SchoolsByCountryDto(string CountryCode, string CountryName, int SchoolCount);

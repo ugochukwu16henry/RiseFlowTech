@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
+using RiseFlow.Api.Data;
 using RiseFlow.Api.Services;
 
 namespace RiseFlow.Api.Controllers;
@@ -10,10 +12,33 @@ namespace RiseFlow.Api.Controllers;
 public class SchoolsController : ControllerBase
 {
     private readonly SchoolOnboardingService _onboarding;
+    private readonly RiseFlowDbContext _db;
+    private readonly ITenantContext _tenant;
 
-    public SchoolsController(SchoolOnboardingService onboarding)
+    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant)
     {
         _onboarding = onboarding;
+        _db = db;
+        _tenant = tenant;
+    }
+
+    /// <summary>School dashboard: high-level view of active students and unpaid fees. SchoolAdmin only.</summary>
+    [HttpGet("dashboard")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolDashboardDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolDashboardDto>> GetDashboard(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var activeStudents = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
+        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        var currencyCode = school?.CurrencyCode ?? "NGN";
+        var unpaidRecords = await _db.BillingRecords
+            .Where(b => b.SchoolId == schoolId && (b.AmountPaid == null || b.AmountPaid < b.AmountDue))
+            .ToListAsync(ct);
+        var unpaidFeesTotal = unpaidRecords.Sum(b => b.AmountDue - (b.AmountPaid ?? 0));
+        return Ok(new SchoolDashboardDto(activeStudents, unpaidFeesTotal, currencyCode));
     }
 
     /// <summary>
@@ -84,3 +109,5 @@ public class SchoolsController : ControllerBase
         return Ok(school);
     }
 }
+
+public record SchoolDashboardDto(int ActiveStudentCount, decimal UnpaidFeesTotal, string CurrencyCode);

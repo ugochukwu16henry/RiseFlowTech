@@ -35,8 +35,9 @@ public class VerifyController : ControllerBase
             StudentName: $"{verification.Student.FirstName} {verification.Student.LastName}",
             SchoolName: verification.School.Name,
             IssuedAtUtc: verification.IssuedAtUtc,
-            IssuedToName: verification.IssuedToName));
+            IssuedToName: verification.IssuedToName,
+            ContentHash: verification.ContentHash));
     }
 }
 
-public record TranscriptVerificationResult(bool Valid, string StudentName, string SchoolName, DateTime IssuedAtUtc, string? IssuedToName);
+public record TranscriptVerificationResult(bool Valid, string StudentName, string SchoolName, DateTime IssuedAtUtc, string? IssuedToName, string? ContentHash);

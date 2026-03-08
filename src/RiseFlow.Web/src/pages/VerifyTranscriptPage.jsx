@@ -88,8 +88,14 @@ export default function VerifyTranscriptPage() {
                   <dd>{state.data.issuedToName}</dd>
                 </>
               )}
+              {state.data.contentHash && (
+                <>
+                  <dt>Verification hash</dt>
+                  <dd className="verify-hash">{state.data.contentHash}</dd>
+                </>
+              )}
             </dl>
-            <p className="verify-note">This transcript has been verified against RiseFlow records.</p>
+            <p className="verify-note">This transcript is official. The unique hash and QR code prove it has not been forged. riseflow.com/verify</p>
           </div>
         )}
       </div>

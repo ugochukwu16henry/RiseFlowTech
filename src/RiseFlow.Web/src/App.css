@@ -129,3 +129,24 @@
   border-radius: 8px; text-decoration: none;
 }
 .btn-download-template:hover { opacity: 0.9; color: var(--color-white); }
+
+.dashboard-feed { margin-bottom: var(--gap-lg); }
+.feed-card { margin-bottom: var(--gap); }
+.dashboard-summary { margin-bottom: var(--gap-lg); }
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--gap); margin-top: 0.5rem; }
+.summary-card {
+  padding: var(--card-padding-lg); border-radius: 12px; background: var(--color-white);
+  border: 1px solid var(--color-neutral-border); text-align: center;
+}
+.summary-card--warning { border-color: #f59e0b; background: #fffbeb; }
+.summary-value { display: block; font-size: 1.5rem; font-weight: 700; color: var(--color-deep-blue); }
+.summary-card--warning .summary-value { color: #b45309; }
+.summary-label { display: block; font-size: 0.875rem; color: var(--color-neutral-text-secondary); margin-top: 0.25rem; }
+.country-list { list-style: none; margin: 0.75rem 0 0; padding: 0; }
+.country-item {
+  display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-neutral-border);
+}
+.country-item:last-child { border-bottom: none; }
+.country-name { font-weight: 500; }
+.country-count { font-size: 0.875rem; color: var(--color-neutral-text-secondary); }
