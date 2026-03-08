@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +87,30 @@ public class StudentsController : ControllerBase
         _db.Students.Add(student);
         await _db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
+    }
+
+    /// <summary>Download Excel template for bulk student upload. Headers: FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth.</summary>
+    [HttpGet("bulk-upload-template")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    public ActionResult DownloadBulkUploadTemplate()
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Students");
+        ws.Cell(1, 1).Value = "FirstName";
+        ws.Cell(1, 2).Value = "LastName";
+        ws.Cell(1, 3).Value = "MiddleName";
+        ws.Cell(1, 4).Value = "AdmissionNumber";
+        ws.Cell(1, 5).Value = "Gender";
+        ws.Cell(1, 6).Value = "DateOfBirth";
+        ws.Row(1).Style.Font.Bold = true;
+        ws.Cell(2, 1).Value = "John";
+        ws.Cell(2, 2).Value = "Doe";
+        ws.Cell(2, 6).Value = "2015-09-01";
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream, false);
+        stream.Position = 0;
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "RiseFlow-Students-Template.xlsx");
     }
 
     /// <summary>Bulk upload students from Excel. SchoolAdmin only. Template: Row 1 = headers (FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth).</summary>

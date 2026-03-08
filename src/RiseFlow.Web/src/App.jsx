@@ -317,6 +317,9 @@ function App() {
               />
             )}
           </a>
+          <nav className="header-nav">
+            <a href="/onboard" className="header-link">Register school</a>
+          </nav>
           <label className="role-switcher">
             <span className="role-switcher-label">View as</span>
             <select
@@ -438,6 +441,13 @@ function App() {
           <section className="progress-section section-spacer">
             <h3 className="card-title">School Admin dashboard</h3>
             <p className="card-desc">Manage your school profile, billing, teachers, students, and reports. Full features available after sign-in.</p>
+            <div className="bulk-upload-block">
+              <h4 className="card-title" style={{ marginTop: '1rem' }}>Bulk upload students</h4>
+              <p className="card-desc">Download the Excel template, fill in your students (1000+ supported), then upload when signed in as School Admin.</p>
+              <a href={`${API_BASE}/api/students/bulk-upload-template`} download="RiseFlow-Students-Template.xlsx" className="btn-download-template">
+                Download Excel template
+              </a>
+            </div>
           </section>
         )}
 
