@@ -243,7 +243,21 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
 
             var parameter = Expression.Parameter(entityType.ClrType, "x");
             var entityTenantId = Expression.Property(parameter, tenantIdPropertyInfo);
-            var tenantIdEquals = Expression.Equal(entityTenantId, currentTenantIdProperty);
+
+            Expression comparableTenantId = currentTenantIdProperty;
+            if (entityTenantId.Type != currentTenantIdProperty.Type)
+            {
+                if (entityTenantId.Type == typeof(Guid) && currentTenantIdProperty.Type == typeof(Guid?))
+                {
+                    comparableTenantId = Expression.Property(currentTenantIdProperty, nameof(Nullable<Guid>.Value));
+                }
+                else
+                {
+                    comparableTenantId = Expression.Convert(currentTenantIdProperty, entityTenantId.Type);
+                }
+            }
+
+            var tenantIdEquals = Expression.Equal(entityTenantId, comparableTenantId);
 
             // When _tenantContext is null or CurrentSchoolId has no value, do not filter (allow all)
             var contextIsNull = Expression.Equal(tenantContextConstant, Expression.Constant(null, typeof(ITenantContext)));
