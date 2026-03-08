@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -39,18 +41,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     {
         base.OnModelCreating(builder);
 
-        // Global query filter: tenant-scoped entities only see their school's data. Evaluated at query time via _tenantContext.
-        builder.Entity<Student>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<Teacher>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<Parent>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<Grade>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<Class>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<Subject>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<AcademicTerm>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<StudentResult>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<BillingRecord>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        builder.Entity<TranscriptVerification>().HasQueryFilter(e => _tenantContext == null || !_tenantContext.CurrentSchoolId.HasValue || e.SchoolId == _tenantContext.CurrentSchoolId);
-        // StudentParent/TeacherClass/TeacherSubject/ClassSubject/TeacherClassSubject are accessed via tenant-scoped entities.
+        // Global query filter: every entity implementing ITenantEntity is filtered by current tenant (Where(x => x.TenantId == _currentTenantId)).
+        ApplyTenantQueryFilters(builder);
 
         // School
         builder.Entity<School>(e =>
@@ -225,6 +217,44 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         {
             e.Property(x => x.SchoolId).IsRequired(false);
         });
+    }
+
+    /// <summary>
+    /// Applies a global query filter to every entity that implements <see cref="ITenantEntity"/>:
+    /// Where(x => x.TenantId == _currentTenantId). The tenant key property is <see cref="ITenantEntity.SchoolId"/>.
+    /// When tenant context or current tenant ID is null, no filter is applied (all rows visible for that entity).
+    /// </summary>
+    private void ApplyTenantQueryFilters(ModelBuilder builder)
+    {
+        if (_tenantContext == null)
+            return;
+
+        var tenantContextConstant = Expression.Constant(_tenantContext);
+        var currentTenantIdProperty = Expression.Property(tenantContextConstant, nameof(ITenantContext.CurrentSchoolId));
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (!typeof(ITenantEntity).IsAssignableFrom(entityType.ClrType))
+                continue;
+
+            var tenantIdPropertyInfo = entityType.ClrType.GetProperty(nameof(ITenantEntity.SchoolId));
+            if (tenantIdPropertyInfo == null)
+                continue;
+
+            var parameter = Expression.Parameter(entityType.ClrType, "x");
+            var entityTenantId = Expression.Property(parameter, tenantIdPropertyInfo);
+            var tenantIdEquals = Expression.Equal(entityTenantId, currentTenantIdProperty);
+
+            // When _tenantContext is null or CurrentSchoolId has no value, do not filter (allow all)
+            var contextIsNull = Expression.Equal(tenantContextConstant, Expression.Constant(null, typeof(ITenantContext)));
+            var currentTenantIdHasValue = Expression.Property(currentTenantIdProperty, "HasValue");
+            var currentTenantIdIsNull = Expression.Not(currentTenantIdHasValue);
+            var noFilter = Expression.Or(contextIsNull, currentTenantIdIsNull);
+            var filterBody = Expression.Or(noFilter, tenantIdEquals);
+
+            var lambda = Expression.Lambda(filterBody, parameter);
+            entityType.SetQueryFilter(lambda);
+        }
     }
 
     /// <summary>
