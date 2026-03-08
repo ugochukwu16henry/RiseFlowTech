@@ -25,4 +25,8 @@ public class TenantContext : ITenantContext
 
     public bool IsSuperAdmin =>
         _httpContextAccessor.HttpContext?.User?.IsInRole(Constants.Roles.SuperAdmin) ?? false;
+
+    public string? CurrentUserEmail =>
+        _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email)
+        ?? _httpContextAccessor.HttpContext?.User?.Identity?.Name;
 }
