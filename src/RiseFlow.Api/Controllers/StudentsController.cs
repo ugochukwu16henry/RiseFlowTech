@@ -110,7 +110,8 @@ public class StudentsController : ControllerBase
         using var stream = new MemoryStream();
         workbook.SaveAs(stream, false);
         stream.Position = 0;
-        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "RiseFlow-Students-Template.xlsx");
+        const string fileName = "RiseFlow-Students-Template.xlsx";
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     /// <summary>Bulk upload students from Excel. SchoolAdmin only. Template: Row 1 = headers (FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth).</summary>

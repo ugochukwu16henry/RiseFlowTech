@@ -122,6 +122,7 @@
 .offline-retry:hover { opacity: 0.9; }
 
 .bulk-upload-block { margin-top: 0.5rem; }
+.bulk-download-form { display: inline-block; margin: 0; }
 .btn-download-template {
   display: inline-flex; align-items: center; min-height: 44px; padding: 0.5rem 1rem; margin-top: 0.5rem;
   background: var(--color-deep-blue); color: var(--color-white); font-weight: 600; font-size: 0.9375rem;

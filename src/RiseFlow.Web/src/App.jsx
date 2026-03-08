@@ -182,8 +182,6 @@ function App() {
   const [contactsError, setContactsError] = useState(null);
   const [resultsCachedAt, setResultsCachedAt] = useState(null);
   const [retryResultsTrigger, setRetryResultsTrigger] = useState(0);
-  const [templateDownloading, setTemplateDownloading] = useState(false);
-
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, role);
@@ -445,33 +443,16 @@ function App() {
             <div className="bulk-upload-block">
               <h4 className="card-title" style={{ marginTop: '1rem' }}>Bulk upload students</h4>
               <p className="card-desc">Download the Excel template, fill in your students (1000+ supported), then upload when signed in as School Admin.</p>
-              <button
-                type="button"
-                className="btn-download-template"
-                disabled={templateDownloading}
-                onClick={async () => {
-                  setTemplateDownloading(true);
-                  try {
-                    const res = await fetch(`${API_BASE}/api/students/bulk-upload-template`);
-                    if (!res.ok) throw new Error('Download failed');
-                    const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'RiseFlow-Students-Template.xlsx';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  } catch (e) {
-                    console.error(e);
-                  } finally {
-                    setTemplateDownloading(false);
-                  }
-                }}
+              <form
+                method="GET"
+                action={`${API_BASE}/api/students/bulk-upload-template`}
+                target="_blank"
+                className="bulk-download-form"
               >
-                {templateDownloading ? 'Downloading…' : 'Download Excel template'}
-              </button>
+                <button type="submit" className="btn-download-template">
+                  Download Excel template
+                </button>
+              </form>
             </div>
           </section>
         )}
