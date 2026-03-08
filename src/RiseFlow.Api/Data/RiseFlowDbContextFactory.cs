@@ -11,16 +11,19 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
 {
     public RiseFlowDbContext CreateDbContext(string[] args)
     {
-        var basePath = Directory.GetCurrentDirectory();
+        var currentDir = Directory.GetCurrentDirectory();
+        var basePath = File.Exists(Path.Combine(currentDir, "appsettings.json"))
+            ? currentDir
+            : Path.Combine(currentDir, "src", "RiseFlow.Api");
         var config = new ConfigurationBuilder()
             .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
         var conn = config.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Database=RiseFlow;Username=postgres;Password=postgres;";
+            ?? "Host=localhost;Database=RiseFlow;Username=postgres;Password=postgres;Include Error Detail=true";
         optionsBuilder.UseNpgsql(conn);
 
         return new RiseFlowDbContext(optionsBuilder.Options);
