@@ -31,7 +31,7 @@ public class SuperAdminController : ControllerBase
         var activeSchools = await _db.Schools.CountAsync(s => s.IsActive, ct);
         var totalStudents = await _db.Students.CountAsync(ct);
         var activeStudents = await _db.Students.CountAsync(s => s.IsActive, ct);
-        var totalRevenue = await _billing.GetTotalRevenueAsync(ct);
+        var totalRevenue = await _billing.GetTotalRevenueUsdAsync(ct);
         var billingRecordsCount = await _db.BillingRecords.CountAsync(ct);
 
         return Ok(new SuperAdminDashboardDto(
@@ -39,7 +39,7 @@ public class SuperAdminController : ControllerBase
             ActiveSchools: activeSchools,
             TotalStudents: totalStudents,
             ActiveStudents: activeStudents,
-            TotalRevenueNaira: totalRevenue,
+            TotalRevenueUsd: totalRevenue,
             BillingRecordsCount: billingRecordsCount));
     }
 }

@@ -60,6 +60,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Address).HasMaxLength(512);
             e.Property(x => x.Phone).HasMaxLength(32);
             e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.CountryCode).HasMaxLength(2);
+            e.Property(x => x.CurrencyCode).HasMaxLength(3);
         });
 
         // Grade
@@ -203,6 +205,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.PeriodLabel).IsRequired().HasMaxLength(32);
+            e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
             e.HasOne(x => x.School).WithMany(s => s.BillingRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         });
 

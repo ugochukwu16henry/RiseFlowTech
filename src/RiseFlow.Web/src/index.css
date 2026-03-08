@@ -1,0 +1,26 @@
+:root {
+  --color-success-green: #059669;
+  --color-deep-blue: #1E40AF;
+  --color-white: #FFFFFF;
+  --color-neutral-text: #374151;
+  --color-neutral-text-secondary: #6B7280;
+  --color-neutral-border: #E5E7EB;
+  --touch-min: 48px;
+  --card-padding: 1rem;
+  --card-padding-lg: 1.25rem;
+  --gap: 1rem;
+  --gap-lg: 1.5rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--color-neutral-text);
+  background-color: var(--color-white);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-height: 100vh; }
+#root { min-height: 100vh; }
+a { color: var(--color-deep-blue); text-decoration: none; }
+h1, h2, h3 { color: var(--color-deep-blue); font-weight: 600; margin: 0 0 0.5em; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.25rem; }
+@media (min-width: 768px) { h1 { font-size: 1.75rem; } h2 { font-size: 1.375rem; } }

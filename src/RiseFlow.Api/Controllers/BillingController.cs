@@ -63,7 +63,7 @@ public class BillingController : ControllerBase
             return Forbid();
         var list = await query.OrderByDescending(b => b.PeriodStart).Select(b => new BillingRecordDto(
             b.Id, b.SchoolId, b.School.Name, b.PeriodLabel, b.PeriodStart, b.PeriodEnd,
-            b.StudentCount, b.AmountDueNaira, b.AmountPaidNaira, b.PaidAtUtc)).ToListAsync(ct);
+            b.StudentCount, b.AmountDue, b.AmountPaid, b.CurrencyCode, b.PaidAtUtc)).ToListAsync(ct);
         return Ok(list);
     }
 
@@ -76,13 +76,26 @@ public class BillingController : ControllerBase
     {
         var record = await _db.BillingRecords.Include(b => b.School).FirstOrDefaultAsync(b => b.Id == id, ct);
         if (record == null) return NotFound();
-        record.AmountPaidNaira = request.AmountPaidNaira;
+        record.AmountPaid = request.AmountPaid;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(record);
     }
+
+    /// <summary>Convert an amount to USD and other African currencies using configured exchange rates.</summary>
+    [HttpPost("convert")]
+    [ProducesResponseType(typeof(ConvertedAmountsDto), StatusCodes.Status200OK)]
+    public ActionResult<ConvertedAmountsDto> Convert([FromBody] ConvertAmountRequest request)
+    {
+        var amounts = _billing.ConvertToOtherCurrencies(request.Amount, request.FromCurrencyCode ?? "NGN");
+        var usd = amounts.TryGetValue("USD", out var u) ? u : _billing.ConvertToUsd(request.Amount, request.FromCurrencyCode ?? "NGN");
+        return Ok(new ConvertedAmountsDto(request.Amount, request.FromCurrencyCode ?? "NGN", usd, amounts));
+    }
 }
 
+public record ConvertAmountRequest(decimal Amount, string? FromCurrencyCode);
+public record ConvertedAmountsDto(decimal OriginalAmount, string OriginalCurrency, decimal UsdAmount, IReadOnlyDictionary<string, decimal> AmountsByCurrency);
+
 public record GenerateBillingRequest(DateOnly PeriodStart, DateOnly PeriodEnd, string? PeriodLabel, Guid? SchoolId);
-public record RecordPaymentRequest(decimal AmountPaidNaira);
-public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, decimal AmountDueNaira, decimal? AmountPaidNaira, DateTime? PaidAtUtc);
+public record RecordPaymentRequest(decimal AmountPaid);
+public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, decimal AmountDue, decimal? AmountPaid, string CurrencyCode, DateTime? PaidAtUtc);

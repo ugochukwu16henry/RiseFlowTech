@@ -5,5 +5,5 @@ public record SuperAdminDashboardDto(
     int ActiveSchools,
     int TotalStudents,
     int ActiveStudents,
-    decimal TotalRevenueNaira,
+    decimal TotalRevenueUsd,
     int BillingRecordsCount);

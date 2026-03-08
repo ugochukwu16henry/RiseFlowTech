@@ -29,6 +29,8 @@ public class SchoolOnboardingService
             Address = request.Address,
             Phone = request.Phone,
             Email = request.Email,
+            CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
+            CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -77,6 +79,8 @@ public record OnboardSchoolRequest(
     string? Address,
     string? Phone,
     string? Email,
+    string? CountryCode,
+    string? CurrencyCode,
     string? AdminEmail,
     string? AdminPassword,
     string? AdminFullName);
