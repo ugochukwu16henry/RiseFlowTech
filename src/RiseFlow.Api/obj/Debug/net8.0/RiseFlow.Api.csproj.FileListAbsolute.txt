@@ -1,0 +1,9 @@
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.csproj.AssemblyReference.cache
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\rpswa.dswa.cache.json
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.AssemblyInfoInputs.cache
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.AssemblyInfo.cs
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.csproj.CoreCompileInputs.cache
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Debug\net8.0\RiseFlow.Api.sourcelink.json
