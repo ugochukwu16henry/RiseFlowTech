@@ -11,7 +11,7 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
 {
     public RiseFlowDbContext CreateDbContext(string[] args)
     {
-        var basePath = Path.Combine(Directory.GetCurrentDirectory(), "..");
+        var basePath = Directory.GetCurrentDirectory();
         var config = new ConfigurationBuilder()
             .SetBasePath(basePath)
             .AddJsonFile("appsettings.json", optional: false)

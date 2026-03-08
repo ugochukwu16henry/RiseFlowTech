@@ -51,14 +51,14 @@ public class SchoolOnboardingService
 
             var createResult = await _userManager.CreateAsync(user, request.AdminPassword ?? throw new ArgumentException("Admin password required when admin email is provided."));
             if (!createResult.Succeeded)
-                return SchoolOnboardingResult.Failed(createResult.Errors.Select(e => e.Description).ToList());
+                return SchoolOnboardingResult.CreateFailed(createResult.Errors.Select(e => e.Description).ToList());
 
             await _userManager.AddToRoleAsync(user, Roles.SchoolAdmin);
             await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim("SchoolId", school.Id.ToString()));
         }
 
         await _db.SaveChangesAsync(ct);
-        return SchoolOnboardingResult.Success(school.Id, school.Name);
+        return SchoolOnboardingResult.CreateSuccess(school.Id, school.Name);
     }
 
     public async Task<School?> GetSchoolByIdAsync(Guid schoolId, CancellationToken ct = default)
@@ -83,9 +83,9 @@ public record OnboardSchoolRequest(
 
 public record SchoolOnboardingResult(bool Success, Guid? SchoolId, string? SchoolName, IReadOnlyList<string> Errors)
 {
-    public static SchoolOnboardingResult Success(Guid schoolId, string schoolName) =>
+    public static SchoolOnboardingResult CreateSuccess(Guid schoolId, string schoolName) =>
         new(true, schoolId, schoolName, Array.Empty<string>());
 
-    public static SchoolOnboardingResult Failed(IReadOnlyList<string> errors) =>
+    public static SchoolOnboardingResult CreateFailed(IReadOnlyList<string> errors) =>
         new(false, null, null, errors);
 }
