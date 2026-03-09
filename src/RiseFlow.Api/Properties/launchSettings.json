@@ -17,7 +17,7 @@
       "applicationUrl": "http://localhost:5221",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "DATABASE_URL": "postgresql://postgres:lwcrwCfUpgpSJtzQssPKkFmnTybYnKOW@postgres.railway.internal:5432/railway"
+        "DATABASE_PUBLIC_URL": "postgresql://postgres:lwcrwCfUpgpSJtzQssPKkFmnTybYnKOW@metro.proxy.rlwy.net:11801/railway"
       }
     },
     "https": {
@@ -28,7 +28,7 @@
       "applicationUrl": "https://localhost:7001;http://localhost:5221",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "DATABASE_URL": "postgresql://postgres:lwcrwCfUpgpSJtzQssPKkFmnTybYnKOW@postgres.railway.internal:5432/railway"
+        "DATABASE_PUBLIC_URL": "postgresql://postgres:lwcrwCfUpgpSJtzQssPKkFmnTybYnKOW@metro.proxy.rlwy.net:11801/railway"
       }
     },
     "IIS Express": {

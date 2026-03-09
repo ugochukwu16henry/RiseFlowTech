@@ -6,13 +6,17 @@ namespace RiseFlow.Api.Data;
 public static class DatabaseConnectionHelper
 {
     /// <summary>
-    /// Gets the Npgsql connection string: DATABASE_URL env var first (e.g. Railway), then DefaultConnection from config.
+    /// Gets the Npgsql connection string: DATABASE_URL (Railway internal), then DATABASE_PUBLIC_URL (local/public), then DefaultConnection from config.
     /// </summary>
     public static string GetConnectionString(IConfiguration config)
     {
         var url = Environment.GetEnvironmentVariable("DATABASE_URL");
         if (!string.IsNullOrWhiteSpace(url))
             return ParsePostgresUrl(url.Trim());
+
+        var publicUrl = Environment.GetEnvironmentVariable("DATABASE_PUBLIC_URL");
+        if (!string.IsNullOrWhiteSpace(publicUrl))
+            return ParsePostgresUrl(publicUrl.Trim());
 
         var fromConfig = config.GetConnectionString("DefaultConnection");
         if (!string.IsNullOrWhiteSpace(fromConfig))
