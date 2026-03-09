@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './OnboardingPage.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { apiFetch } from '../api';
 
 export default function OnboardingPage() {
   const [form, setForm] = useState({
@@ -50,7 +49,7 @@ export default function OnboardingPage() {
       fd.append('AdminFullName', form.adminFullName || '');
       if (logo) fd.append('Logo', logo);
 
-      const res = await fetch(`${API_BASE}/api/schools/onboard-with-logo`, {
+      const res = await apiFetch('/api/schools/onboard-with-logo', {
         method: 'POST',
         body: fd,
       });

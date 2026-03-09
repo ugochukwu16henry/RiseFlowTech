@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import './VerifyTranscriptPage.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { apiFetch } from '../api';
 
 export default function VerifyTranscriptPage() {
   const { token } = useParams();
@@ -14,7 +13,7 @@ export default function VerifyTranscriptPage() {
       return;
     }
     let cancelled = false;
-    fetch(`${API_BASE}/verify/transcript/${encodeURIComponent(token)}`)
+    apiFetch(`/verify/transcript/${encodeURIComponent(token)}`)
       .then((res) => {
         if (cancelled) return null;
         if (res.status === 404)

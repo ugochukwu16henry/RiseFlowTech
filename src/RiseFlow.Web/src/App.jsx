@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { apiFetch, getApiBase } from './api';
 
 const ROLES = {
   Parent: 'Parent',
@@ -213,7 +212,7 @@ function App() {
     setError(null);
     setNeedsAuth(false);
     setResultsCachedAt(null);
-    fetch(`${API_BASE}/api/results/my-children`, { credentials: 'include' })
+    apiFetch('/api/results/my-children')
       .then((res) => {
         if (cancelled) return null;
         if (res.status === 401) {
@@ -279,7 +278,7 @@ function App() {
     let cancelled = false;
     setContactsLoading(true);
     setContactsError(null);
-    fetch(`${API_BASE}/api/contacts/teachers`, { credentials: 'include' })
+    apiFetch('/api/contacts/teachers')
       .then((res) => {
         if (cancelled) return [];
         if (res.status === 401) return [];
@@ -309,7 +308,7 @@ function App() {
     }
     let cancelled = false;
     setSchoolDashboardLoading(true);
-    fetch(`${API_BASE}/api/schools/dashboard`, { credentials: 'include' })
+    apiFetch('/api/schools/dashboard')
       .then((res) => (cancelled ? null : res.ok ? res.json() : null))
       .then((data) => { if (!cancelled) setSchoolDashboard(data); })
       .catch(() => { if (!cancelled) setSchoolDashboard(null); })
@@ -325,7 +324,7 @@ function App() {
     }
     let cancelled = false;
     setSuperAdminLoading(true);
-    fetch(`${API_BASE}/api/superadmin/dashboard`, { credentials: 'include' })
+    apiFetch('/api/superadmin/dashboard')
       .then((res) => (cancelled ? null : res.ok ? res.json() : null))
       .then((data) => { if (!cancelled) setSuperAdminDashboard(data); })
       .catch(() => { if (!cancelled) setSuperAdminDashboard(null); })
@@ -613,7 +612,7 @@ function App() {
               <p className="card-desc">Download the Excel template, fill in your students (1000+ supported), then upload when signed in as School Admin.</p>
               <form
                 method="GET"
-                action={`${API_BASE}/api/students/bulk-upload-template`}
+                action={`${getApiBase()}/api/students/bulk-upload-template`}
                 target="_blank"
                 className="bulk-download-form"
               >
