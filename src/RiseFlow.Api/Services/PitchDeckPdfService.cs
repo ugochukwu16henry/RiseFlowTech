@@ -23,7 +23,7 @@ public class PitchDeckPdfService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.Background(Colors.White);
+                page.PageColor(Colors.White);
                 page.Content().Column(c =>
                 {
                     c.Spacing(120);
