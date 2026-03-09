@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './App.css';
-import { apiFetch, getApiBase } from './api';
+import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from './api';
 
 const ROLES = {
   Parent: 'Parent',
@@ -193,6 +193,7 @@ function App() {
   const [schoolDashboardLoading, setSchoolDashboardLoading] = useState(false);
   const [superAdminDashboard, setSuperAdminDashboard] = useState(null);
   const [superAdminLoading, setSuperAdminLoading] = useState(false);
+  const [schoolBrand, setSchoolBrand] = useState(null);
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, role);
@@ -333,6 +334,33 @@ function App() {
     return () => { cancelled = true; };
   }, [role]);
 
+  // Load current school brand (logo + name) when a tenant is selected
+  useEffect(() => {
+    let cancelled = false;
+    let schoolId = null;
+    try {
+      schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+    } catch {
+      schoolId = null;
+    }
+    if (!schoolId) {
+      setSchoolBrand(null);
+      return undefined;
+    }
+    apiFetch(`/api/schools/${schoolId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) {
+          const logo = data.logoFileName ? `${getApiBase()}/${data.logoFileName}` : null;
+          setSchoolBrand({ name: data.name || 'School', logo });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolBrand(null);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const overallPct = progressBySubject.length
     ? Math.round(progressBySubject.reduce((s, p) => s + p.value, 0) / progressBySubject.length)
     : 0;
@@ -346,12 +374,12 @@ function App() {
       <header className="header">
         <div className="header-row">
           <a href="/" className="header-brand" aria-label="RiseFlow home">
-            {logoError ? (
-              <span className="header-logo-text">RiseFlow</span>
+            {logoError || (!schoolBrand?.logo && !logoWithName) ? (
+              <span className="header-logo-text">{schoolBrand?.name || 'RiseFlow'}</span>
             ) : (
               <img
-                src={logoWithName}
-                alt="RiseFlow"
+                src={schoolBrand?.logo || logoWithName}
+                alt={schoolBrand?.name || 'RiseFlow'}
                 className="header-logo"
                 width="140"
                 height="40"
