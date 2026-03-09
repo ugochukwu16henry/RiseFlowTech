@@ -238,6 +238,11 @@ export default function HomePage() {
         <div className="home-footer-inner">
           <p>RiseFlow &mdash; School management built for African schools.</p>
           <p className="home-footer-meta">Day &amp; night view for busy school owners and parents.</p>
+          <p className="home-footer-legal">
+            <Link to="/terms">Terms of Service</Link>
+            {' · '}
+            <Link to="/privacy">Privacy &amp; Data Processing</Link>
+          </p>
         </div>
       </footer>
     </div>

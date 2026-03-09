@@ -344,6 +344,15 @@
   margin-top: 0.15rem;
 }
 
+.home-footer-legal {
+  margin-top: 0.5rem;
+}
+.home-footer-legal a {
+  color: var(--color-deep-blue);
+  text-decoration: none;
+}
+.home-footer-legal a:hover { text-decoration: underline; }
+
 @media (max-width: 640px) {
   .home-header-inner {
     align-items: flex-start;
