@@ -9,7 +9,7 @@ export default function TermsPage() {
         <p className="legal-updated">Last updated: March 2026. For a full launch, have these terms reviewed by a Data Protection Compliance Organisation (DPCO) in your jurisdiction.</p>
 
         <h2>1. The Service</h2>
-        <p>RiseFlow is a cloud-based school management platform (“the Service”) provided by RiseFlow and its affiliates. The Service is provided <strong>“as-is”</strong> to support academic record-keeping, parent-teacher communication, billing, and related operations for schools in Nigeria and other African countries.</p>
+        <p>RiseFlow is a cloud-based school management platform (“the Service”) provided and operated by the sole owner of RiseFlow. The Service is provided <strong>“as-is”</strong> to support academic record-keeping, parent-teacher communication, billing, and related operations for schools in Nigeria and other African countries.</p>
 
         <h2>2. Billing</h2>
         <p>Schools are charged per student per month in their chosen local currency (e.g. 500 Naira per student in Nigeria) for any student beyond the first 50, who are free. Invoices are issued monthly. <strong>Failure to pay within 7 days of the invoice date may result in “Read-Only” access to results and certain features</strong> until payment is received. Pricing may vary by country and currency as displayed in the platform.</p>

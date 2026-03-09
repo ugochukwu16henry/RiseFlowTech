@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <p className="legal-updated">Last updated: March 2026. This policy is aligned with the Nigeria Data Protection Act (NDPA) 2023. For a full launch, have it reviewed by a Data Protection Compliance Organisation (DPCO) in your jurisdiction.</p>
 
         <h2>1. Who We Are</h2>
-        <p>RiseFlow is an EdTech platform that processes data on behalf of schools. Because we process data of minors (under 18), we are classified in Nigeria as a <strong>Data Controller of Major Importance</strong> and comply with Nigeria Data Protection Commission (NDPC) regulations. We apply similar standards across African markets where we operate.</p>
+        <p>RiseFlow is an EdTech platform operated by a single owner and processes data on behalf of schools. Because we process data of minors (under 18), we are classified in Nigeria as a <strong>Data Controller of Major Importance</strong> and comply with Nigeria Data Protection Commission (NDPC) regulations. We apply similar standards across African markets where we operate.</p>
 
         <h2>2. Data We Collect</h2>
         <p>We collect and process the following categories of data for educational purposes:</p>
