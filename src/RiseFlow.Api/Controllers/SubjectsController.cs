@@ -79,6 +79,8 @@ public class SubjectsController : ControllerBase
         var subject = await _db.Subjects.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (subject == null)
             return NotFound();
+        if (subject.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         subject.Name = request.Name;
         subject.Code = request.Code;
         subject.IsActive = request.IsActive;
@@ -97,6 +99,8 @@ public class SubjectsController : ControllerBase
         var subject = await _db.Subjects.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (subject == null)
             return NotFound();
+        if (subject.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         _db.Subjects.Remove(subject);
         await _db.SaveChangesAsync(ct);
         return NoContent();
@@ -122,7 +126,15 @@ public class SubjectsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var link = await _db.TeacherSubjects.FirstOrDefaultAsync(ts => ts.TeacherId == teacherId && ts.SubjectId == subjectId, ct);
-        if (link != null) { _db.TeacherSubjects.Remove(link); await _db.SaveChangesAsync(ct); }
+        if (link != null)
+        {
+            var teacherInSchool = await _db.Teachers.AnyAsync(t => t.Id == teacherId && t.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            var subjectInSchool = await _db.Subjects.AnyAsync(s => s.Id == subjectId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            if (!teacherInSchool || !subjectInSchool)
+                return Forbid();
+            _db.TeacherSubjects.Remove(link);
+            await _db.SaveChangesAsync(ct);
+        }
         return NoContent();
     }
 
@@ -146,7 +158,15 @@ public class SubjectsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var link = await _db.ClassSubjects.FirstOrDefaultAsync(cs => cs.ClassId == classId && cs.SubjectId == subjectId, ct);
-        if (link != null) { _db.ClassSubjects.Remove(link); await _db.SaveChangesAsync(ct); }
+        if (link != null)
+        {
+            var classInSchool = await _db.Classes.AnyAsync(c => c.Id == classId && c.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            var subjectInSchool = await _db.Subjects.AnyAsync(s => s.Id == subjectId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            if (!classInSchool || !subjectInSchool)
+                return Forbid();
+            _db.ClassSubjects.Remove(link);
+            await _db.SaveChangesAsync(ct);
+        }
         return NoContent();
     }
 
@@ -170,7 +190,16 @@ public class SubjectsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var link = await _db.TeacherClassSubjects.FirstOrDefaultAsync(tcs => tcs.TeacherId == teacherId && tcs.ClassId == classId && tcs.SubjectId == subjectId, ct);
-        if (link != null) { _db.TeacherClassSubjects.Remove(link); await _db.SaveChangesAsync(ct); }
+        if (link != null)
+        {
+            var teacherInSchool = await _db.Teachers.AnyAsync(t => t.Id == teacherId && t.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            var classInSchool = await _db.Classes.AnyAsync(c => c.Id == classId && c.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            var subjectInSchool = await _db.Subjects.AnyAsync(s => s.Id == subjectId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            if (!teacherInSchool || !classInSchool || !subjectInSchool)
+                return Forbid();
+            _db.TeacherClassSubjects.Remove(link);
+            await _db.SaveChangesAsync(ct);
+        }
         return NoContent();
     }
 }

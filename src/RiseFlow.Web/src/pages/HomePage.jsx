@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getApiBase } from '../api';
 import './HomePage.css';
 
 const THEME_STORAGE_KEY = 'riseflow-theme';
@@ -93,6 +94,14 @@ export default function HomePage() {
               <Link to="/login" className="home-hero-cta-secondary">
                 Already using RiseFlow? Log in
               </Link>
+              <a
+                href={`${getApiBase()}/api/public/pitch-deck`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="home-hero-cta-pdf"
+              >
+                Download pitch deck (PDF)
+              </a>
             </div>
             <div className="home-hero-meta">
               <span>• First 50 students free after you register your school</span>

@@ -97,6 +97,8 @@ public class ResultsController : ControllerBase
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
+        if (result.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         var oldScore = result.Score;
         var oldMax = result.MaxScore;
         result.AssessmentType = request.AssessmentType;
@@ -129,6 +131,8 @@ public class ResultsController : ControllerBase
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
+        if (result.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         var details = $"Result deleted: Student {result.StudentId:N}, Score {result.Score}/{result.MaxScore}";
         _db.StudentResults.Remove(result);
         await _db.SaveChangesAsync(ct);

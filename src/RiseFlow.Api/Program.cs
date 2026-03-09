@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Sensitive data encryption at rest (NIN, phone numbers). Set Encryption:Key (Base64 256-bit) in config; if unset, values stay plaintext.
+SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 
 // Railway (and similar hosts): listen on PORT when set
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
@@ -62,6 +66,7 @@ builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
+builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddScoped<StudentBulkUploadService>();
 builder.Services.AddScoped<ExcelService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
@@ -82,12 +87,26 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+
+// Rate limiting for auth endpoints (brute-force protection)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("Auth", config =>
+    {
+        config.Window = TimeSpan.FromMinutes(1);
+        config.PermitLimit = 10;
+        config.QueueLimit = 0;
+    });
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
 app.UseCors();
+app.UseRateLimiter();
 
 // Extract TenantId from X-Tenant-Id header so TenantService and EF can filter by School
 app.UseMiddleware<TenantMiddleware>();

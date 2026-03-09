@@ -368,6 +368,9 @@ public class TeachersController : ControllerBase
         var link = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
         if (link != null)
         {
+            var teacherInSchool = await _db.Teachers.AnyAsync(t => t.Id == teacherId && t.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            if (!teacherInSchool)
+                return Forbid();
             _db.TeacherClasses.Remove(link);
             await _db.SaveChangesAsync(ct);
         }

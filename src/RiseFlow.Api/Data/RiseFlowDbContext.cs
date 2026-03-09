@@ -48,6 +48,10 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         // Global query filter: every entity implementing ITenantEntity is filtered by current tenant (Where(x => x.TenantId == _currentTenantId)).
         ApplyTenantQueryFilters(builder);
 
+        var sensitiveConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<string?, string?>(
+            v => SensitiveDataEncryption.Encrypt(v),
+            v => SensitiveDataEncryption.Decrypt(v));
+
         // School
         builder.Entity<School>(e =>
         {
@@ -55,7 +59,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Name).IsRequired().HasMaxLength(256);
             e.Property(x => x.Address).HasMaxLength(512);
             e.Property(x => x.PrincipalName).HasMaxLength(128);
-            e.Property(x => x.Phone).HasMaxLength(32);
+            e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
@@ -92,16 +96,16 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Nationality).HasMaxLength(128);
             e.Property(x => x.StateOfOrigin).HasMaxLength(128);
             e.Property(x => x.LGA).HasMaxLength(128);
-            e.Property(x => x.NIN).HasMaxLength(32);
+            e.Property(x => x.NIN).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.NationalIdType).HasMaxLength(32);
-            e.Property(x => x.NationalIdNumber).HasMaxLength(64);
+            e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.AdmissionNumber).HasMaxLength(64);
             e.Property(x => x.PreviousSchool).HasMaxLength(256);
             e.Property(x => x.BloodGroup).HasMaxLength(16);
             e.Property(x => x.Genotype).HasMaxLength(16);
             e.Property(x => x.Allergies).HasMaxLength(512);
             e.Property(x => x.EmergencyContactName).HasMaxLength(128);
-            e.Property(x => x.EmergencyContactPhone).HasMaxLength(32);
+            e.Property(x => x.EmergencyContactPhone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.ParentAccessCode).HasMaxLength(16);
             e.Property(x => x.ProfilePhotoFileName).HasMaxLength(256);
             e.HasIndex(x => new { x.SchoolId, x.ParentAccessCode }).IsUnique();
@@ -118,7 +122,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.LastName).IsRequired().HasMaxLength(128);
             e.Property(x => x.MiddleName).HasMaxLength(128);
             e.Property(x => x.Email).HasMaxLength(256);
-            e.Property(x => x.Phone).HasMaxLength(32);
+            e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.WhatsAppNumber).HasMaxLength(32);
             e.Property(x => x.StaffId).HasMaxLength(64);
             e.Property(x => x.SubjectSpecialization).HasMaxLength(128);
@@ -126,9 +130,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Nationality).HasMaxLength(128);
             e.Property(x => x.StateOfOrigin).HasMaxLength(128);
             e.Property(x => x.LGA).HasMaxLength(128);
-            e.Property(x => x.NIN).HasMaxLength(32);
+            e.Property(x => x.NIN).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.NationalIdType).HasMaxLength(32);
-            e.Property(x => x.NationalIdNumber).HasMaxLength(64);
+            e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.TrcnNumber).HasMaxLength(64);
             e.Property(x => x.ResidentialAddress).HasMaxLength(512);
             e.Property(x => x.HighestQualification).HasMaxLength(128);
@@ -154,7 +158,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.LastName).IsRequired().HasMaxLength(128);
             e.Property(x => x.MiddleName).HasMaxLength(128);
             e.Property(x => x.Email).HasMaxLength(256);
-            e.Property(x => x.Phone).HasMaxLength(32);
+            e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Relationship).HasMaxLength(64);
             e.Property(x => x.WhatsAppNumber).HasMaxLength(32);
             e.Property(x => x.ResidentialAddress).HasMaxLength(512);

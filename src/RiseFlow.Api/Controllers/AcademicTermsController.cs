@@ -101,6 +101,8 @@ public class AcademicTermsController : ControllerBase
         var term = await _db.AcademicTerms.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (term == null)
             return NotFound();
+        if (term.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         term.Name = request.Name;
         term.AcademicYear = request.AcademicYear;
         term.StartDate = request.StartDate;
@@ -125,6 +127,8 @@ public class AcademicTermsController : ControllerBase
         var term = await _db.AcademicTerms.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (term == null)
             return NotFound();
+        if (term.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         _db.AcademicTerms.Remove(term);
         await _db.SaveChangesAsync(ct);
         return NoContent();
