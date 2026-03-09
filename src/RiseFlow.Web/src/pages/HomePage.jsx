@@ -110,6 +110,14 @@ export default function HomePage() {
               >
                 Teacher's Quick Start Guide (PDF)
               </a>
+              <a
+                href={`${getApiBase()}/api/public/grading-reference`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="home-hero-cta-pdf"
+              >
+                Grading Reference (PDF)
+              </a>
             </div>
             <div className="home-hero-meta">
               <span>• First 50 students free after you register your school</span>
