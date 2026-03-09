@@ -10,10 +10,12 @@ namespace RiseFlow.Api.Controllers;
 public class PublicController : ControllerBase
 {
     private readonly PitchDeckPdfService _pitchDeckPdf;
+    private readonly TeacherQuickStartPdfService _teacherGuidePdf;
 
-    public PublicController(PitchDeckPdfService pitchDeckPdf)
+    public PublicController(PitchDeckPdfService pitchDeckPdf, TeacherQuickStartPdfService teacherGuidePdf)
     {
         _pitchDeckPdf = pitchDeckPdf;
+        _teacherGuidePdf = teacherGuidePdf;
     }
 
     /// <summary>Download the RiseFlow "Future-Ready" School Pitch Deck as a PDF.</summary>
@@ -24,6 +26,17 @@ public class PublicController : ControllerBase
     {
         var bytes = _pitchDeckPdf.GeneratePdf();
         const string fileName = "RiseFlow-Pitch-Deck.pdf";
+        return File(bytes, "application/pdf", fileName);
+    }
+
+    /// <summary>Download the RiseFlow Teacher's Quick Start Guide as a PDF.</summary>
+    [HttpGet("teacher-quick-start")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any)]
+    public IActionResult GetTeacherQuickStartPdf()
+    {
+        var bytes = _teacherGuidePdf.GeneratePdf();
+        const string fileName = "RiseFlow-Teacher-Quick-Start-Guide.pdf";
         return File(bytes, "application/pdf", fileName);
     }
 }

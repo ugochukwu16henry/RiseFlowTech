@@ -67,6 +67,7 @@ builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
+builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddScoped<StudentBulkUploadService>();
 builder.Services.AddScoped<ExcelService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();

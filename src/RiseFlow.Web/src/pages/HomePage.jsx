@@ -102,6 +102,14 @@ export default function HomePage() {
               >
                 Download pitch deck (PDF)
               </a>
+              <a
+                href={`${getApiBase()}/api/public/teacher-quick-start`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="home-hero-cta-pdf"
+              >
+                Teacher's Quick Start Guide (PDF)
+              </a>
             </div>
             <div className="home-hero-meta">
               <span>• First 50 students free after you register your school</span>
