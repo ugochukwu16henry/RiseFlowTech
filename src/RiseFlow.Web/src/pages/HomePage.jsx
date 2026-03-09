@@ -37,10 +37,22 @@ export default function HomePage() {
     <div className="home-root">
       <header className="home-header">
         <div className="home-header-inner">
-          <div className="home-brand">
-            <span className="home-logo-dot" aria-hidden="true" />
-            <span className="home-logo-text">RiseFlow</span>
-          </div>
+          <Link to="/" className="home-brand" aria-label="RiseFlow home">
+            <img
+              src="/logos/RiseFlow%20logo%20with%20name.png"
+              alt="RiseFlow"
+              className="home-logo-img"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                const fallback = e.target.nextElementSibling;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+            <span className="home-brand-fallback" style={{ display: 'none' }}>
+              <span className="home-logo-dot" aria-hidden="true" />
+              <span className="home-logo-text">RiseFlow</span>
+            </span>
+          </Link>
           <div className="home-header-actions">
             <button
               type="button"

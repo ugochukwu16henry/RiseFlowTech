@@ -365,21 +365,27 @@ function App() {
     ? Math.round(progressBySubject.reduce((s, p) => s + p.value, 0) / progressBySubject.length)
     : 0;
 
-  const logoWithName = '/logos/RiseFlow%20logo%20with%20name.png';
+  const riseFlowLogo = '/logos/RiseFlow%20logo%20with%20name.png';
   const cards = DASHBOARD_BY_ROLE[role] || DASHBOARD_BY_ROLE[ROLES.Parent];
   const showPerformance = role === ROLES.Parent;
+  const isSuperAdmin = role === ROLES.SuperAdmin;
+  // App logo only on Super Admin dashboard; all other roles see only their school logo/name
+  const showAppLogo = isSuperAdmin;
+  const headerLogo = showAppLogo ? riseFlowLogo : (schoolBrand?.logo ?? null);
+  const headerAlt = showAppLogo ? 'RiseFlow' : (schoolBrand?.name || 'School');
+  const headerText = showAppLogo ? 'RiseFlow' : (schoolBrand?.name || 'School');
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-row">
-          <a href="/" className="header-brand" aria-label="RiseFlow home">
-            {logoError || (!schoolBrand?.logo && !logoWithName) ? (
-              <span className="header-logo-text">{schoolBrand?.name || 'RiseFlow'}</span>
+          <a href="/" className="header-brand" aria-label={isSuperAdmin ? 'RiseFlow home' : 'Dashboard home'}>
+            {logoError || !headerLogo ? (
+              <span className="header-logo-text">{headerText}</span>
             ) : (
               <img
-                src={schoolBrand?.logo || logoWithName}
-                alt={schoolBrand?.name || 'RiseFlow'}
+                src={headerLogo}
+                alt={headerAlt}
                 className="header-logo"
                 width="140"
                 height="40"
