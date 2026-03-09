@@ -1,0 +1,29 @@
+# Environment and secrets (never commit database URLs, API keys, etc.)
+.env
+.env.*
+!.env.example
+**/appsettings.*.local.json
+**/launchSettings.local.json
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.user
+
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+**/node_modules/
+
+# Logs
+*.log
+logs
+
+# Web
+src/RiseFlow.Web/dist
+src/RiseFlow.Web/dist-ssr

@@ -28,4 +28,4 @@ ASP.NET Core maps `__` (double underscore) to nested config keys.
 
 - **CORS**: If your frontend (e.g. on Vercel) calls this API, add its origin to `Cors__AllowedOrigins`.
 - **Database**: Link the Postgres service in Railway so `DATABASE_URL` is injected; no need to add it manually.
-- **Local vs Railway**: Locally you can use `DATABASE_PUBLIC_URL` or `DefaultConnection` in appsettings; on Railway use the linked Postgres (DATABASE_URL).
+- **Local vs Railway**: Locally set `DATABASE_PUBLIC_URL` in your environment (or in a local `.env` that is not committed) or use `DefaultConnection` in appsettings; on Railway use the linked Postgres (DATABASE_URL). **Do not commit database URLs to Git.**
