@@ -11,11 +11,11 @@ public record SuperAdminDashboardDto(
     long TotalResultsProcessed,
     IReadOnlyList<SchoolsByCountryDto> SchoolsByCountry,
     /// <summary>Schools with &gt;50 students that have unpaid/overdue billing (payment delinquency).</summary>
-    IReadOnlyList<PaymentDelinquencyDto> PaymentDelinquency,
+    IReadOnlyList<PaymentDelinquencyDto>? PaymentDelinquency = null,
     /// <summary>Schools that have completed term results (at least one result in current or recent term).</summary>
-    int SchoolsWithTermResultsCount,
+    int SchoolsWithTermResultsCount = 0,
     /// <summary>Schools that have not yet had their signed Data Consent forms recorded.</summary>
-    IReadOnlyList<ComplianceSchoolDto> CompliancePending);
+    IReadOnlyList<ComplianceSchoolDto>? CompliancePending = null);
 
 public record SchoolsByCountryDto(string CountryCode, string CountryName, int SchoolCount);
 
