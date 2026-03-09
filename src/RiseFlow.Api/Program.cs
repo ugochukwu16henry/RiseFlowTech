@@ -6,7 +6,11 @@ using RiseFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database (DefaultConnection in config, or DATABASE_URL env var e.g. Railway)
+// Railway (and similar hosts): listen on PORT when set
+if (Environment.GetEnvironmentVariable("PORT") is { } port)
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+// Database (DATABASE_URL on Railway, or DefaultConnection in config)
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
     options.UseNpgsql(DatabaseConnectionHelper.GetConnectionString(builder.Configuration));

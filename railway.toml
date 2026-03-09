@@ -1,0 +1,8 @@
+# Railway deploy config for monorepo root deployment
+# Ensures Railpack builds the API project directly and does not rely on --no-restore.
+
+[build]
+buildCommand = "dotnet restore src/RiseFlow.Api/RiseFlow.Api.csproj && dotnet publish src/RiseFlow.Api/RiseFlow.Api.csproj -c Release -o out"
+
+[deploy]
+startCommand = "dotnet out/RiseFlow.Api.dll"

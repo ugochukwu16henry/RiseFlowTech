@@ -1,0 +1,17 @@
+# RiseFlow API – Railway deploy config
+# Set service "Root Directory" to src/RiseFlow.Api (or this directory).
+
+[build]
+# Railpack auto-detects .NET; override if needed:
+# buildCommand = "dotnet publish -c Release -o out"
+
+[deploy]
+# Start command (Railway may auto-detect):
+# startCommand = "dotnet RiseFlow.Api.dll"
+# If using publish: startCommand = "dotnet out/RiseFlow.Api.dll"
+
+# Environment variables (set in Railway dashboard or link Postgres for DATABASE_URL):
+# - DATABASE_URL          (auto when Postgres is linked)
+# - Cors__AllowedOrigins  (e.g. https://your-app.vercel.app)
+# - ASPNETCORE_ENVIRONMENT = Production
+# - RiseFlow__VerificationBaseUrl (optional, for transcript verification links)
