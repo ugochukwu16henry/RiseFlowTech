@@ -99,6 +99,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.EmergencyContactName).HasMaxLength(128);
             e.Property(x => x.EmergencyContactPhone).HasMaxLength(32);
             e.Property(x => x.ParentAccessCode).HasMaxLength(16);
+            e.Property(x => x.ProfilePhotoFileName).HasMaxLength(256);
             e.HasIndex(x => new { x.SchoolId, x.ParentAccessCode }).IsUnique();
             e.HasOne(x => x.School).WithMany(s => s.Students).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Class).WithMany(c => c.Students).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.SetNull);
@@ -117,6 +118,27 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.WhatsAppNumber).HasMaxLength(32);
             e.Property(x => x.StaffId).HasMaxLength(64);
             e.Property(x => x.SubjectSpecialization).HasMaxLength(128);
+            e.Property(x => x.Gender).HasMaxLength(32);
+            e.Property(x => x.Nationality).HasMaxLength(128);
+            e.Property(x => x.StateOfOrigin).HasMaxLength(128);
+            e.Property(x => x.LGA).HasMaxLength(128);
+            e.Property(x => x.NIN).HasMaxLength(32);
+            e.Property(x => x.NationalIdType).HasMaxLength(32);
+            e.Property(x => x.NationalIdNumber).HasMaxLength(64);
+            e.Property(x => x.TrcnNumber).HasMaxLength(64);
+            e.Property(x => x.ResidentialAddress).HasMaxLength(512);
+            e.Property(x => x.HighestQualification).HasMaxLength(128);
+            e.Property(x => x.FieldOfStudy).HasMaxLength(128);
+            e.Property(x => x.PreviousSchools).HasMaxLength(512);
+            e.Property(x => x.ProfessionalBodies).HasMaxLength(256);
+            e.Property(x => x.EmploymentType).HasMaxLength(64);
+            e.Property(x => x.RoleTitle).HasMaxLength(128);
+            e.Property(x => x.Department).HasMaxLength(128);
+            e.Property(x => x.BaseSalaryCurrency).HasMaxLength(8);
+            e.Property(x => x.AllowancesNote).HasMaxLength(512);
+            e.Property(x => x.PromotionHistory).HasMaxLength(1024);
+            e.Property(x => x.Recognitions).HasMaxLength(512);
+            e.Property(x => x.ProfilePhotoFileName).HasMaxLength(256);
             e.HasOne(x => x.School).WithMany(s => s.Teachers).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         });
 

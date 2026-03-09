@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
@@ -17,14 +19,15 @@ public class StudentsController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
-
+    private readonly IWebHostEnvironment _env;
     private readonly StudentBulkUploadService _bulkUpload;
     private readonly ExcelService _excelService;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, StudentBulkUploadService bulkUpload, ExcelService excelService)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService)
     {
         _db = db;
         _tenant = tenant;
+        _env = env;
         _bulkUpload = bulkUpload;
         _excelService = excelService;
     }
@@ -314,6 +317,76 @@ public class StudentsController : ControllerBase
             if (!exists) return code;
         }
         return "RF-" + Guid.NewGuid().ToString("N")[..4].ToUpperInvariant();
+    }
+
+    /// <summary>Get student passport-size profile photo. Authorized: same school (SchoolAdmin/Teacher) or parent of this student.</summary>
+    [HttpGet("{id:guid}/photo")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPhoto(Guid id, CancellationToken ct)
+    {
+        var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (student == null || string.IsNullOrEmpty(student.ProfilePhotoFileName))
+            return NotFound();
+        if (!await CanViewStudentAsync(id, ct))
+            return Forbid();
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var path = Path.Combine(root, student.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
+        if (!System.IO.File.Exists(path))
+            return NotFound();
+        var contentType = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
+            : path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "image/gif"
+            : path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+            : "image/jpeg";
+        return PhysicalFile(path, contentType, enableRangeProcessing: false);
+    }
+
+    /// <summary>Upload passport-size profile photo for a student. SchoolAdmin only. Accepts .jpg, .jpeg, .png, .gif, .webp.</summary>
+    [HttpPost("{id:guid}/photo")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UploadPhoto(Guid id, IFormFile? file, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+        if (student == null)
+            return NotFound();
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+        var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var studentsDir = Path.Combine(root, "students", student.SchoolId.ToString("N"));
+        Directory.CreateDirectory(studentsDir);
+        var fileName = $"{student.Id:N}{ext}";
+        var relativePath = $"students/{student.SchoolId:N}/{fileName}";
+        var fullPath = Path.Combine(studentsDir, fileName);
+        await using (var stream = System.IO.File.Create(fullPath))
+            await file.CopyToAsync(stream, ct);
+        student.ProfilePhotoFileName = relativePath;
+        student.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = "Photo uploaded.", profilePhotoFileName = relativePath });
+    }
+
+    private async Task<bool> CanViewStudentAsync(Guid studentId, CancellationToken ct)
+    {
+        if (_tenant.CurrentSchoolId.HasValue)
+        {
+            var inSchool = await _db.Students.AnyAsync(s => s.Id == studentId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+            if (inSchool) return true;
+        }
+        var email = User.FindFirstValue(ClaimTypes.Email) ?? _tenant.CurrentUserEmail;
+        if (string.IsNullOrEmpty(email) || !_tenant.CurrentSchoolId.HasValue) return false;
+        var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == email, ct);
+        if (parent == null) return false;
+        return await _db.StudentParents.AnyAsync(sp => sp.StudentId == studentId && sp.ParentId == parent.Id, ct);
     }
 
     [HttpDelete("{id:guid}")]

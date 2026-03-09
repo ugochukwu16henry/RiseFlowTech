@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
@@ -11,6 +11,10 @@ export default function AddStudentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [createdStudent, setCreatedStudent] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploaded, setPhotoUploaded] = useState(false);
+  const photoInputRef = useRef(null);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -83,7 +87,9 @@ export default function AddStudentPage() {
         setError(data?.message || data?.title || 'Failed to add student.');
         return;
       }
+      setCreatedStudent({ id: data.id, firstName: data.firstName, lastName: data.lastName });
       setSuccess(true);
+      setPhotoUploaded(false);
       setForm({ firstName: '', lastName: '', middleName: '', admissionNumber: '', classId: '', gender: '', dateOfBirth: '', emergencyContactName: '', emergencyContactPhone: '' });
     } catch (e) {
       setError(e.message || 'Network error.');
@@ -92,13 +98,49 @@ export default function AddStudentPage() {
     }
   };
 
+  const onPhotoUpload = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || !createdStudent) return;
+    setPhotoUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await apiFetch(`/api/students/${createdStudent.id}/photo`, { method: 'POST', body: formData });
+      if (res.ok) setPhotoUploaded(true);
+    } finally {
+      setPhotoUploading(false);
+      e.target.value = '';
+    }
+  };
+
   if (success) {
     return (
       <PageLayout title="Student added" backTo="/school">
         <div className="add-student-success">
           <p className="add-student-success-msg">Student registered successfully. They will appear in your student list and you can generate a parent access code for them from Access Codes.</p>
+          {createdStudent && (
+            <div className="add-student-photo-upload">
+              <p className="form-label">Passport-size photo (optional)</p>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
+                ref={photoInputRef}
+                onChange={onPhotoUpload}
+                style={{ display: 'none' }}
+                aria-label="Upload passport photo"
+              />
+              <button
+                type="button"
+                className="btn-upload-photo"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={photoUploading}
+              >
+                {photoUploading ? 'Uploading…' : photoUploaded ? 'Photo uploaded ✓' : 'Upload passport photo'}
+              </button>
+            </div>
+          )}
           <div className="add-student-actions">
-            <button type="button" className="btn-add-another" onClick={() => setSuccess(false)}>
+            <button type="button" className="btn-add-another" onClick={() => { setSuccess(false); setCreatedStudent(null); }}>
               Add another student
             </button>
             <Link to="/school" className="btn-back-dashboard">Back to School Admin</Link>

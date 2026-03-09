@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
+import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch, getApiBase } from '../api';
 import './RolePages.css';
 
@@ -17,9 +18,10 @@ export default function SchoolAdminPage() {
   const [billing, setBilling] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+  const fileInputRefs = useRef({});
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([
@@ -29,20 +31,31 @@ export default function SchoolAdminPage() {
       apiFetch('/api/billing').then((r) => (r.ok ? r.json() : [])),
     ])
       .then(([dash, tList, sList, bList]) => {
-        if (cancelled) return;
         setDashboard(dash);
         setTeachers(Array.isArray(tList) ? tList : []);
         setStudents(Array.isArray(sList) ? sList : []);
         setBilling(Array.isArray(bList) ? bList : []);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load data');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+      .catch((err) => setError(err.message || 'Failed to load data'))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const onPhotoFileChange = async (studentId, e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    setUploadingId(studentId);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await apiFetch(`/api/students/${studentId}/photo`, { method: 'POST', body: form });
+      if (res.ok) loadData();
+    } finally {
+      setUploadingId(null);
+      e.target.value = '';
+    }
+  };
 
   if (loading) return <PageLayout title="School Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
   if (error) return <PageLayout title="School Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
@@ -108,17 +121,40 @@ export default function SchoolAdminPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '56px' }}>Photo</th>
                 <th>Name</th>
                 <th>Admission #</th>
                 <th>Class</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {students.slice(0, 50).map((s) => (
                 <tr key={s.id}>
+                  <td>
+                    <StudentPhoto studentId={s.id} firstName={s.firstName} lastName={s.lastName} size={40} />
+                  </td>
                   <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
                   <td>{s.admissionNumber || '—'}</td>
                   <td>{s.class?.name || '—'}</td>
+                  <td>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.gif,.webp"
+                      ref={(el) => { fileInputRefs.current[s.id] = el; }}
+                      onChange={(e) => onPhotoFileChange(s.id, e)}
+                      style={{ display: 'none' }}
+                      aria-label={`Upload photo for ${[s.firstName, s.lastName].filter(Boolean).join(' ')}`}
+                    />
+                    <button
+                      type="button"
+                      className="btn-upload-photo"
+                      onClick={() => fileInputRefs.current[s.id]?.click()}
+                      disabled={uploadingId === s.id}
+                    >
+                      {uploadingId === s.id ? '…' : 'Upload photo'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

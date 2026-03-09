@@ -41,6 +41,9 @@ public class Student : ITenantEntity
     // ——— Parent link (unique code per student for parent to claim link) ———
     public string? ParentAccessCode { get; set; }
 
+    /// <summary>Relative path for passport-size profile photo (e.g. students/{schoolId}/{studentId}.jpg). Uploaded after add or bulk import.</summary>
+    public string? ProfilePhotoFileName { get; set; }
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }

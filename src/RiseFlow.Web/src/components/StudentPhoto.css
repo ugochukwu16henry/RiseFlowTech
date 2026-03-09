@@ -1,0 +1,33 @@
+.student-photo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: var(--color-deep-blue);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.student-photo--32 { width: 32px; height: 32px; font-size: 0.75rem; }
+.student-photo--40 { width: 40px; height: 40px; font-size: 0.875rem; }
+.student-photo--48 { width: 48px; height: 48px; font-size: 1rem; }
+.student-photo--56 { width: 56px; height: 56px; font-size: 1.125rem; }
+
+.student-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.student-photo-initials {
+  display: none;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.student-photo-initials--show {
+  display: flex !important;
+}

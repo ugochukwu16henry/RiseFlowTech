@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PageLayout from '../components/PageLayout';
+import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
@@ -73,6 +74,7 @@ export default function TeacherPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '48px' }}>Photo</th>
                 <th>Name</th>
                 <th>Admission #</th>
                 <th>Class</th>
@@ -82,6 +84,7 @@ export default function TeacherPage() {
             <tbody>
               {students.map((s) => (
                 <tr key={s.id}>
+                  <td><StudentPhoto studentId={s.id} firstName={s.firstName} lastName={s.lastName} size={40} /></td>
                   <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
                   <td>{s.admissionNumber || '—'}</td>
                   <td>{s.class?.name || '—'}</td>

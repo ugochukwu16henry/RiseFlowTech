@@ -113,3 +113,15 @@
 .country-item:last-child { border-bottom: none; }
 .country-name { font-weight: 500; }
 .country-count { font-size: 0.875rem; color: var(--color-neutral-text-secondary); }
+
+.btn-upload-photo {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: var(--color-deep-blue);
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn-upload-photo:hover:not(:disabled) { background: #f1f5f9; }
+.btn-upload-photo:disabled { opacity: 0.6; cursor: not-allowed; }

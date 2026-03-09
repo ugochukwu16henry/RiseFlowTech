@@ -117,6 +117,12 @@
   padding: var(--card-padding-lg);
 }
 
+.family-view-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
 .family-view-profile .card-title {
   margin-bottom: 0.75rem;
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
+import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch } from '../api';
 import './RolePages.css';
 import './ParentPage.css';
@@ -162,7 +163,7 @@ export default function ParentPage() {
                   className={`child-avatar ${selectedChildId === child.studentId ? 'child-avatar--selected' : ''}`}
                   onClick={() => setSelectedChildId(child.studentId)}
                 >
-                  <span className="child-avatar-initials">{initials(child)}</span>
+                  <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} />
                 </button>
               ))}
             </div>
@@ -188,7 +189,10 @@ export default function ParentPage() {
           <div className="family-view-grid">
             {/* Left: Student profile */}
             <section className="family-view-card family-view-profile" aria-label="Student profile">
-              <h3 className="card-title">{displayName(selectedChild)}</h3>
+              <div className="family-view-profile-header">
+                <StudentPhoto studentId={selectedChild.studentId} firstName={selectedChild.firstName} lastName={selectedChild.lastName} size={56} />
+                <h3 className="card-title" style={{ marginBottom: 0 }}>{displayName(selectedChild)}</h3>
+              </div>
               <dl className="profile-dl">
                 <dt>Class</dt>
                 <dd>{selectedChild.className || '—'}</dd>

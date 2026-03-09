@@ -58,6 +58,8 @@
 .btn-cancel:hover { text-decoration: underline; }
 
 .add-student-success { max-width: 420px; }
+.add-student-photo-upload { margin: 1rem 0; }
+.add-student-photo-upload .form-label { margin-bottom: 0.5rem; }
 .add-student-success-msg {
   font-size: 0.9375rem;
   color: var(--color-neutral-text);
