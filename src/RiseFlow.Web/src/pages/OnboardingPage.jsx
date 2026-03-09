@@ -14,6 +14,7 @@ export default function OnboardingPage() {
     adminEmail: '',
     adminPassword: '',
     adminFullName: '',
+    agreedToTermsAndDpa: false,
   });
   const [logo, setLogo] = useState(null);
   const [status, setStatus] = useState({ type: null, message: null });
@@ -34,6 +35,10 @@ export default function OnboardingPage() {
       setStatus({ type: 'error', message: 'Admin password is required when you provide an admin email.' });
       return;
     }
+    if (form.adminEmail?.trim() && !form.agreedToTermsAndDpa) {
+      setStatus({ type: 'error', message: 'You must agree to the RiseFlow Terms of Service and Data Processing Agreement to register.' });
+      return;
+    }
     setSubmitting(true);
     setStatus({ type: null, message: null });
     try {
@@ -47,6 +52,7 @@ export default function OnboardingPage() {
       fd.append('AdminEmail', form.adminEmail || '');
       fd.append('AdminPassword', form.adminPassword || '');
       fd.append('AdminFullName', form.adminFullName || '');
+      fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
       if (logo) fd.append('Logo', logo);
 
       const res = await apiFetch('/api/schools/onboard-with-logo', {
@@ -63,7 +69,7 @@ export default function OnboardingPage() {
         type: 'success',
         message: `School "${data.schoolName}" has been created. You can now sign in with your admin email.`,
       });
-      setForm({ schoolName: '', address: '', phone: '', email: '', countryCode: 'NG', currencyCode: 'NGN', adminEmail: '', adminPassword: '', adminFullName: '' });
+      setForm({ schoolName: '', address: '', phone: '', email: '', countryCode: 'NG', currencyCode: 'NGN', adminEmail: '', adminPassword: '', adminFullName: '', agreedToTermsAndDpa: false });
       setLogo(null);
     } catch (err) {
       setStatus({ type: 'error', message: err.message || 'Network error.' });
@@ -145,6 +151,16 @@ export default function OnboardingPage() {
             <label className="onboarding-label">
               Admin password
               <input type="password" name="adminPassword" value={form.adminPassword} onChange={handleChange} placeholder="Min 8 characters" className="onboarding-input" autoComplete="new-password" minLength={8} />
+            </label>
+            <label className="onboarding-label onboarding-checkbox">
+              <input
+                type="checkbox"
+                name="agreedToTermsAndDpa"
+                checked={form.agreedToTermsAndDpa}
+                onChange={(e) => setForm((prev) => ({ ...prev, agreedToTermsAndDpa: e.target.checked }))}
+                className="onboarding-input"
+              />
+              <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">RiseFlow Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Data Processing Agreement</a>.</span>
             </label>
           </fieldset>
 

@@ -37,7 +37,8 @@ public class SchoolOnboardingService
             CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
             CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
             IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow,
+            TermsAndDpaAgreedAt = request.AgreedToTermsAndDpa ? DateTime.UtcNow : (DateTime?)null
         };
 
         _db.Schools.Add(school);
@@ -115,7 +116,9 @@ public record OnboardSchoolRequest(
     string? CurrencyCode,
     string? AdminEmail,
     string? AdminPassword,
-    string? AdminFullName);
+    string? AdminFullName,
+    /// <summary>Required when creating an admin account. Must be true to comply with ToS and Data Processing Agreement.</summary>
+    bool AgreedToTermsAndDpa = false);
 
 public record SchoolOnboardingResult(bool Success, Guid? SchoolId, string? SchoolName, IReadOnlyList<string> Errors)
 {

@@ -18,6 +18,8 @@ import ParentSignupPage from './pages/ParentSignupPage.jsx'
 import AddStudentPage from './pages/AddStudentPage.jsx'
 import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import TermsPage from './pages/TermsPage.jsx'
+import PrivacyPage from './pages/PrivacyPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -26,6 +28,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<HomePage />} />
         <Route path="/verify/transcript/:token" element={<VerifyTranscriptPage />} />
         <Route path="/onboard" element={<OnboardingPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
         <Route path="/parent" element={<ParentPage />} />

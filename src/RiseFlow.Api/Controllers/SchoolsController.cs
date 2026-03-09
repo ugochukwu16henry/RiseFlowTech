@@ -72,6 +72,8 @@ public class SchoolsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(request.AdminEmail) && string.IsNullOrWhiteSpace(request.AdminPassword))
             return BadRequest("Admin password is required when admin email is provided.");
+        if (!string.IsNullOrWhiteSpace(request.AdminEmail) && !request.AgreedToTermsAndDpa)
+            return BadRequest("You must agree to the RiseFlow Terms of Service and Data Processing Agreement to register.");
 
         var result = await _onboarding.OnboardSchoolAsync(request, ct);
         if (!result.Success)
@@ -93,6 +95,8 @@ public class SchoolsController : ControllerBase
             return BadRequest("School name is required.");
         if (!string.IsNullOrWhiteSpace(request.AdminEmail) && string.IsNullOrWhiteSpace(request.AdminPassword))
             return BadRequest("Admin password is required when admin email is provided.");
+        if (!string.IsNullOrWhiteSpace(request.AdminEmail) && !request.AgreedToTermsAndDpa)
+            return BadRequest("You must agree to the RiseFlow Terms of Service and Data Processing Agreement to register.");
         var result = await _onboarding.OnboardSchoolWithLogoAsync(request, Logo, ct);
         if (!result.Success)
             return BadRequest(result);

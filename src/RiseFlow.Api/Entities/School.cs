@@ -20,6 +20,10 @@ public class School
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+    /// <summary>When the school (admin) agreed to Terms of Service and Data Processing Agreement at signup.</summary>
+    public DateTime? TermsAndDpaAgreedAt { get; set; }
+    /// <summary>When Super Admin recorded receipt of the school's signed Data Consent forms (NDPA compliance).</summary>
+    public DateTime? DataConsentFormReceivedAt { get; set; }
 
     public ICollection<Student> Students { get; set; } = new List<Student>();
     public ICollection<Teacher> Teachers { get; set; } = new List<Teacher>();
