@@ -66,6 +66,8 @@ builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
+builder.Services.AddScoped<BillingReceiptPdfService>();
+builder.Services.AddScoped<SchoolDashboardService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddSingleton<GradingReferencePdfService>();
@@ -114,11 +116,22 @@ app.UseRateLimiter();
 // Extract TenantId from X-Tenant-Id header so TenantService and EF can filter by School
 app.UseMiddleware<TenantMiddleware>();
 
-// Seed roles on startup (idempotent)
+// Apply migrations and seed Identity (roles + SuperAdmin) on startup.
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-    await RoleSeeder.SeedRolesAsync(roleManager);
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<RiseFlowDbContext>();
+        await context.Database.MigrateAsync();
+
+        await IdentitySeeder.SeedAdminUserAsync(services);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating or seeding the database.");
+    }
 }
 
 if (app.Environment.IsDevelopment())

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <title>RiseFlow Control Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full bg-slate-950">
+    <div class="min-h-full flex flex-col">
+        <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+            <div class="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-sm font-bold">RF</div>
+                    <div>
+                        <p class="text-sm font-semibold text-white">RiseFlow Control Room</p>
+                        <p class="text-xs text-slate-400">Super Admin overview of all schools</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-medium text-emerald-400">SuperAdmin</p>
+                    <p class="text-[11px] text-slate-400">Tenant-aware &amp; NDPC-ready</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1">
+            <div class="mx-auto max-w-6xl px-4 py-6 space-y-6">
+                <!-- Pulse cards -->
+                <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                        <p class="text-xs font-medium text-slate-400">Total Schools</p>
+                        <p id="metric-total-schools" class="mt-2 text-2xl font-semibold text-white">—</p>
+                        <p class="mt-1 text-[11px] text-slate-500">Onboarded tenants across Africa</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                        <p class="text-xs font-medium text-slate-400">Total Students</p>
+                        <p id="metric-total-students" class="mt-2 text-2xl font-semibold text-white">—</p>
+                        <p class="mt-1 text-[11px] text-slate-500">Active learners under management</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+                        <p class="text-xs font-medium text-slate-400">Monthly Revenue (est.)</p>
+                        <p id="metric-total-revenue" class="mt-2 text-2xl font-semibold text-emerald-400">—</p>
+                        <p class="mt-1 text-[11px] text-slate-500">After first 50 free, ₦500 per student</p>
+                    </div>
+                </section>
+
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <!-- Latest signups -->
+                    <section class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                            <div>
+                                <p class="text-sm font-semibold text-white">Latest Signups</p>
+                                <p class="text-xs text-slate-400">Most recent accounts across all schools</p>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-800 text-sm">
+                                <thead class="bg-slate-900/80">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-slate-400">User</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-slate-400">School</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-slate-400">Created</th>
+                                        <th class="px-4 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="latest-signups" class="divide-y divide-slate-800"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- System alerts -->
+                    <aside class="rounded-xl border border-slate-800 bg-slate-900/60 shadow-sm">
+                        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-white">System Alerts</p>
+                                <p class="text-xs text-slate-400">Billing &amp; platform health</p>
+                            </div>
+                            <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        </div>
+                        <div id="system-alerts" class="px-4 py-3 space-y-2 text-xs text-slate-300">
+                            <p class="text-slate-500">No alerts. All systems normal.</p>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        (async () => {
+            async function loadDashboard() {
+                const resp = await fetch("/api/controlroom/dashboard");
+                if (!resp.ok) {
+                    console.error("Failed to load dashboard", resp.status);
+                    return;
+                }
+                const data = await resp.json();
+
+                document.getElementById("metric-total-schools").textContent = data.totalSchools;
+                document.getElementById("metric-total-students").textContent = data.totalStudents;
+                document.getElementById("metric-total-revenue").textContent = `₦${data.totalMonthlyRevenueNgn.toLocaleString()}`;
+
+                const tbody = document.getElementById("latest-signups");
+                tbody.innerHTML = "";
+                if (!data.latestSignups || data.latestSignups.length === 0) {
+                    const row = document.createElement("tr");
+                    const cell = document.createElement("td");
+                    cell.colSpan = 4;
+                    cell.className = "px-4 py-4 text-xs text-slate-500";
+                    cell.textContent = "No signups yet.";
+                    row.appendChild(cell);
+                    tbody.appendChild(row);
+                } else {
+                    data.latestSignups.forEach(u => {
+                        const row = document.createElement("tr");
+
+                        const userCell = document.createElement("td");
+                        userCell.className = "px-4 py-2 text-xs text-slate-100";
+                        userCell.textContent = u.fullName || u.email;
+
+                        const schoolCell = document.createElement("td");
+                        schoolCell.className = "px-4 py-2 text-xs text-slate-400";
+                        schoolCell.textContent = u.schoolId ? u.schoolId.substring(0, 8) + "…" : "SuperAdmin / Global";
+
+                        const createdCell = document.createElement("td");
+                        createdCell.className = "px-4 py-2 text-xs text-slate-400";
+                        const created = u.createdAtUtc ? new Date(u.createdAtUtc) : null;
+                        createdCell.textContent = created ? created.toLocaleString() : "—";
+
+                        const actionCell = document.createElement("td");
+                        actionCell.className = "px-4 py-2 text-right";
+                        const btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className =
+                            "inline-flex items-center rounded-md bg-indigo-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm hover:bg-indigo-400 disabled:opacity-40";
+                        btn.textContent = "Manage School";
+                        btn.disabled = !u.schoolId;
+                        btn.onclick = () => {
+                            alert(`Manage dashboard for school ${u.schoolId}`);
+                        };
+                        actionCell.appendChild(btn);
+
+                        row.appendChild(userCell);
+                        row.appendChild(schoolCell);
+                        row.appendChild(createdCell);
+                        row.appendChild(actionCell);
+
+                        tbody.appendChild(row);
+                    });
+                }
+
+                const alertsEl = document.getElementById("system-alerts");
+                alertsEl.innerHTML = "";
+                if (!data.systemAlerts || data.systemAlerts.length === 0) {
+                    const p = document.createElement("p");
+                    p.className = "text-slate-500";
+                    p.textContent = "No alerts. All systems normal.";
+                    alertsEl.appendChild(p);
+                } else {
+                    data.systemAlerts.forEach(a => {
+                        const div = document.createElement("div");
+                        const color =
+                            a.severity === "error"
+                                ? "border-red-500/60 bg-red-950/40 text-red-200"
+                                : a.severity === "warning"
+                                    ? "border-amber-500/60 bg-amber-950/40 text-amber-100"
+                                    : "border-slate-600 bg-slate-900 text-slate-100";
+                        div.className = `rounded-lg border px-3 py-2 text-[11px] ${color}`;
+                        div.textContent = a.message;
+                        alertsEl.appendChild(div);
+                    });
+                }
+            }
+
+            await loadDashboard();
+        })();
+    </script>
+</body>
+</html>
+

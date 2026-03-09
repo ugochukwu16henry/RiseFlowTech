@@ -40,6 +40,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AssessmentItem> AssessmentItems => Set<AssessmentItem>();
     public DbSet<StudentAssessment> StudentAssessments => Set<StudentAssessment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -309,6 +310,15 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.UserName).HasMaxLength(256);
             e.Property(x => x.Details).HasMaxLength(1024);
             e.HasIndex(x => new { x.SchoolId, x.CreatedAtUtc });
+        });
+
+        // PlatformComplianceSettings: singleton record (Id = 1)
+        builder.Entity<PlatformComplianceSettings>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DataProtectionOfficerName).HasMaxLength(128);
+            e.Property(x => x.DataProtectionOfficerEmail).HasMaxLength(256);
+            e.Property(x => x.DpiaDocumentUrl).HasMaxLength(512);
         });
     }
 

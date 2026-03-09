@@ -131,6 +131,67 @@ public class SuperAdminController : ControllerBase
             .ToListAsync(ct);
         return Ok(list);
     }
+    
+    /// <summary>
+    /// Platform-wide compliance settings for NDPC / data protection. SuperAdmin can set DPO details and DPIA URL.
+    /// </summary>
+    [HttpGet("compliance-settings")]
+    [ProducesResponseType(typeof(PlatformComplianceSettingsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PlatformComplianceSettingsDto>> GetComplianceSettings(CancellationToken ct)
+    {
+        var settings = await _db.PlatformComplianceSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+        if (settings == null)
+        {
+            return Ok(new PlatformComplianceSettingsDto(null, null, null, null));
+        }
+
+        return Ok(new PlatformComplianceSettingsDto(
+            settings.DataProtectionOfficerName,
+            settings.DataProtectionOfficerEmail,
+            settings.DpiaDocumentUrl,
+            settings.LastUpdatedUtc));
+    }
+
+    /// <summary>
+    /// Update or create platform compliance settings (DPO and DPIA). SuperAdmin only.
+    /// </summary>
+    [HttpPut("compliance-settings")]
+    [ProducesResponseType(typeof(PlatformComplianceSettingsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PlatformComplianceSettingsDto>> UpsertComplianceSettings(
+        [FromBody] UpdatePlatformComplianceSettingsRequest request,
+        CancellationToken ct)
+    {
+        var settings = await _db.PlatformComplianceSettings.FirstOrDefaultAsync(s => s.Id == 1, ct);
+        if (settings == null)
+        {
+            settings = new PlatformComplianceSettings { Id = 1 };
+            _db.PlatformComplianceSettings.Add(settings);
+        }
+
+        settings.DataProtectionOfficerName = request.DataProtectionOfficerName;
+        settings.DataProtectionOfficerEmail = request.DataProtectionOfficerEmail;
+        settings.DpiaDocumentUrl = request.DpiaDocumentUrl;
+        settings.LastUpdatedUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new PlatformComplianceSettingsDto(
+            settings.DataProtectionOfficerName,
+            settings.DataProtectionOfficerEmail,
+            settings.DpiaDocumentUrl,
+            settings.LastUpdatedUtc));
+    }
 }
 
 public record AuditLogDto(long Id, Guid? SchoolId, string Action, string EntityType, string? EntityId, string? UserEmail, string? UserName, string? Details, DateTime CreatedAtUtc);
+
+public record PlatformComplianceSettingsDto(
+    string? DataProtectionOfficerName,
+    string? DataProtectionOfficerEmail,
+    string? DpiaDocumentUrl,
+    DateTime? LastUpdatedUtc);
+
+public record UpdatePlatformComplianceSettingsRequest(
+    string? DataProtectionOfficerName,
+    string? DataProtectionOfficerEmail,
+    string? DpiaDocumentUrl);

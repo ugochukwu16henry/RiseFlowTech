@@ -36,6 +36,138 @@ public class StudentsController : ControllerBase
         _billing = billing;
     }
 
+    /// <summary>
+    /// Get a rich "digital file" profile for a student: bio, parents, academic history, and access code.
+    /// SchoolAdmin/Teacher only; tenant filter ensures isolation.
+    /// </summary>
+    [HttpGet("{id:guid}/profile")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [ProducesResponseType(typeof(StudentProfileViewModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentProfileViewModel>> GetProfile(Guid id, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+
+        var student = await _db.Students
+            .Include(s => s.Class)
+            .Include(s => s.Grade)
+            .Include(s => s.StudentParents)
+                .ThenInclude(sp => sp.Parent)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Term)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Subject)
+            .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+
+        if (student == null)
+            return NotFound();
+
+        var fullName = $"{student.FirstName} {student.LastName}".Trim();
+
+        // Mask NIN by default (e.g. ******4321); do not expose full value in this DTO.
+        string? ninMasked = null;
+        if (!string.IsNullOrWhiteSpace(student.NIN) && student.NIN!.Length > 4)
+        {
+            var last4 = student.NIN[^4..];
+            ninMasked = new string('*', student.NIN.Length - 4) + last4;
+        }
+
+        // Mask emergency contact phone similarly.
+        string? emergencyPhoneMasked = null;
+        if (!string.IsNullOrWhiteSpace(student.EmergencyContactPhone) && student.EmergencyContactPhone!.Length > 4)
+        {
+            var last4 = student.EmergencyContactPhone[^4..];
+            emergencyPhoneMasked = new string('*', student.EmergencyContactPhone.Length - 4) + last4;
+        }
+
+        var parents = student.StudentParents
+            .Select(sp => sp.Parent)
+            .Distinct()
+            .Select(p => new ParentContactDto(
+                p.Id,
+                $"{p.FirstName} {p.LastName}".Trim(),
+                p.Relationship,
+                p.Phone,
+                p.WhatsAppNumber,
+                p.Email))
+            .ToList();
+
+        var hasResults = student.Results.Any();
+        decimal currentAveragePercentage = 0;
+        if (hasResults)
+        {
+            currentAveragePercentage = student.Results.Average(r =>
+                r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m);
+        }
+
+        // Academic history: all individual results ordered by term then subject.
+        var history = student.Results
+            .OrderByDescending(r => r.Term.StartDate)
+            .ThenBy(r => r.Subject.Name)
+            .Select(r =>
+            {
+                var percentage = r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m;
+                var termLabel = $"{r.Term.Name} {r.Term.AcademicYear}";
+                return new StudentAcademicHistoryItem(
+                    r.Id,
+                    termLabel,
+                    r.Subject.Name,
+                    r.AssessmentType,
+                    r.Score,
+                    r.MaxScore,
+                    decimal.Round(percentage, 1),
+                    r.GradeLetter);
+            })
+            .ToList();
+
+        // Performance trend: average percentage per term (last 3 terms).
+        var trend = student.Results
+            .GroupBy(r => r.TermId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var avgPct = g.Average(r => r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m);
+                var label = $"{first.Term.Name} {first.Term.AcademicYear}";
+                return new PerformanceTrendPoint(first.TermId, label, decimal.Round(avgPct, 1));
+            })
+            .OrderBy(p => p.Label)
+            .TakeLast(3)
+            .ToList();
+
+        // Fee status: simple school-wide check using BillingService.
+        var hasActiveSubscription = await _billing.IsSubscriptionActiveAsync(schoolId, ct);
+        var feeStatus = hasActiveSubscription ? "Up to date" : "Action required";
+
+        var vm = new StudentProfileViewModel(
+            Id: student.Id,
+            SchoolId: student.SchoolId,
+            FullName: fullName,
+            AdmissionNumber: student.AdmissionNumber,
+            ClassName: student.Class?.Name,
+            GradeName: student.Grade?.Name,
+            ProfilePhotoFileName: student.ProfilePhotoFileName,
+            IsActive: student.IsActive,
+            ParentAccessCode: student.ParentAccessCode,
+            NinMasked: ninMasked,
+            DateOfBirth: student.DateOfBirth,
+            Gender: student.Gender,
+            Nationality: student.Nationality,
+            StateOfOrigin: student.StateOfOrigin,
+            Lga: student.LGA,
+            EmergencyContactName: student.EmergencyContactName,
+            EmergencyContactPhoneMasked: emergencyPhoneMasked,
+            CurrentAveragePercentage: decimal.Round(currentAveragePercentage, 1),
+            AttendancePercentage: null, // ready to be wired to attendance data source
+            FeeStatus: feeStatus,
+            AcademicHistory: history,
+            Parents: parents,
+            PerformanceTrend: trend);
+
+        return Ok(vm);
+    }
+
     [HttpGet]
     [ProducesResponseType(typeof(List<Student>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<Student>>> List(CancellationToken ct)

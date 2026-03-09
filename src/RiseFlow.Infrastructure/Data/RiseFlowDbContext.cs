@@ -35,6 +35,12 @@ public class RiseFlowDbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Configure ApplicationUser extras
+        modelBuilder.Entity<ApplicationUser>(e =>
+        {
+            e.Property(x => x.FullName).HasMaxLength(256);
+        });
+
         ApplyTenantQueryFilters(modelBuilder);
     }
 

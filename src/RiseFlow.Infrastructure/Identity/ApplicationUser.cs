@@ -13,5 +13,9 @@ public class ApplicationUser : IdentityUser<Guid>
     /// Super Admin or platform-level users may have this unset.
     /// </summary>
     public Guid? SchoolId { get; set; }
-}
 
+    /// <summary>Human-friendly display name.</summary>
+    public string? FullName { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+}

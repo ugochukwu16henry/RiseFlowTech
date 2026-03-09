@@ -14,31 +14,30 @@ public class SchoolsController : ControllerBase
     private readonly SchoolOnboardingService _onboarding;
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly SchoolDashboardService _dashboard;
 
-    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant)
+    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant, SchoolDashboardService dashboard)
     {
         _onboarding = onboarding;
         _db = db;
         _tenant = tenant;
+        _dashboard = dashboard;
     }
 
-    /// <summary>School dashboard: high-level view of active students and unpaid fees. SchoolAdmin only.</summary>
+    /// <summary>
+    /// School dashboard: nerve center view for SchoolAdmin.
+    /// Aggregates students, teachers, pending results, billing, and recent activity.
+    /// </summary>
     [HttpGet("dashboard")]
     [Authorize(Roles = Roles.SchoolAdmin)]
-    [ProducesResponseType(typeof(SchoolDashboardDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<SchoolDashboardDto>> GetDashboard(CancellationToken ct)
+    [ProducesResponseType(typeof(SchoolDashboardViewModel), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolDashboardViewModel>> GetDashboard(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var activeStudents = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
-        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
-        var currencyCode = school?.CurrencyCode ?? "NGN";
-        var unpaidRecords = await _db.BillingRecords
-            .Where(b => b.SchoolId == schoolId && (b.AmountPaid == null || b.AmountPaid < b.AmountDue))
-            .ToListAsync(ct);
-        var unpaidFeesTotal = unpaidRecords.Sum(b => b.AmountDue - (b.AmountPaid ?? 0));
-        return Ok(new SchoolDashboardDto(activeStudents, unpaidFeesTotal, currencyCode));
+        var vm = await _dashboard.GetDashboardStatsAsync(schoolId, ct);
+        return Ok(vm);
     }
 
     /// <summary>List classes for the current school (for dropdowns e.g. Add student). SchoolAdmin/Teacher.</summary>
@@ -148,5 +147,4 @@ public class SchoolsController : ControllerBase
     }
 }
 
-public record SchoolDashboardDto(int ActiveStudentCount, decimal UnpaidFeesTotal, string CurrencyCode);
 public record SchoolClassDto(Guid Id, string Name);

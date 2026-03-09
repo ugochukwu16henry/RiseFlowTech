@@ -17,13 +17,15 @@ public class BillingController : ControllerBase
     private readonly BillingService _billing;
     private readonly ITenantContext _tenant;
     private readonly PaymentService _payments;
+    private readonly BillingReceiptPdfService _receipts;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
         _payments = payments;
+        _receipts = receipts;
     }
 
     /// <summary>SuperAdmin: generate billing for a period for all schools or one school.</summary>
@@ -109,6 +111,36 @@ public class BillingController : ControllerBase
             return BadRequest("No amount due for this billing record.");
         var (authorizationUrl, reference) = await _payments.InitializePaystackPaymentAsync(record.Id, ct);
         return Ok(new InitiatePaymentResult("Paystack", authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
+    }
+
+    /// <summary>
+    /// Download PDF receipt for a paid billing record.
+    /// SchoolAdmin: only for their own school; SuperAdmin: any school.
+    /// </summary>
+    [HttpGet("{id:guid}/receipt")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReceipt(Guid id, CancellationToken ct)
+    {
+        var record = await _db.BillingRecords.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
+        if (record == null)
+            return NotFound();
+
+        if (_tenant.CurrentSchoolId.HasValue && record.SchoolId != _tenant.CurrentSchoolId.Value && !User.IsInRole(Roles.SuperAdmin))
+            return Forbid();
+
+        byte[] pdf;
+        try
+        {
+            pdf = await _receipts.GenerateReceiptAsync(id, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            return BadRequest("Receipt is only available for paid billing records.");
+        }
+
+        var fileName = $"RiseFlow-Receipt-{id:N}.pdf";
+        return File(pdf, "application/pdf", fileName);
     }
 }
 
