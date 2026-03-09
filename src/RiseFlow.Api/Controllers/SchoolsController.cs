@@ -89,7 +89,7 @@ public class SchoolsController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(typeof(SchoolOnboardingResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<SchoolOnboardingResult>> OnboardWithLogo([FromForm] OnboardSchoolRequest request, [FromForm] IFormFile? Logo, CancellationToken ct)
+    public async Task<ActionResult<SchoolOnboardingResult>> OnboardWithLogo([FromForm] OnboardSchoolRequest request, [FromForm] IFormFile? Logo, [FromForm] IFormFile? CacDocument, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.SchoolName))
             return BadRequest("School name is required.");
@@ -97,7 +97,7 @@ public class SchoolsController : ControllerBase
             return BadRequest("Admin password is required when admin email is provided.");
         if (!string.IsNullOrWhiteSpace(request.AdminEmail) && !request.AgreedToTermsAndDpa)
             return BadRequest("You must agree to the RiseFlow Terms of Service and Data Processing Agreement to register.");
-        var result = await _onboarding.OnboardSchoolWithLogoAsync(request, Logo, ct);
+        var result = await _onboarding.OnboardSchoolWithLogoAsync(request, Logo, CacDocument, ct);
         if (!result.Success)
             return BadRequest(result);
         return Ok(result);

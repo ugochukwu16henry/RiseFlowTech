@@ -12,6 +12,15 @@ export default function OnboardingPage() {
   const [status, setStatus] = useState({ type: null, message: null });
   const [submitting, setSubmitting] = useState(false);
 
+  const buildPublicUrl = (relativePath) => {
+    if (!relativePath) return null;
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    const normalizedPath = relativePath.replace(/^\/+/, '');
+    const base = getApiBase();
+    if (!base) return `/${normalizedPath}`;
+    return `${base}/${normalizedPath}`;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -66,6 +75,8 @@ export default function OnboardingPage() {
       setCreatedSchool({
         schoolName: data.schoolName || form.schoolName,
         schoolId: data.schoolId || null,
+        logoPath: data.logoPath || null,
+        cacDocumentPath: data.cacDocumentPath || null,
       });
       setStep(3);
     } catch (err) {
@@ -95,6 +106,20 @@ export default function OnboardingPage() {
             <span className="school-id-label">RiseFlow ID</span>
             <strong className="school-id-value">{createdSchool.schoolId || 'Generated'}</strong>
           </div>
+
+          {(createdSchool.logoPath || createdSchool.cacDocumentPath) && (
+            <div className="school-files-box">
+              <span className="school-id-label">Uploaded Files</span>
+              <div className="school-files-list">
+                {createdSchool.logoPath && (
+                  <a href={buildPublicUrl(createdSchool.logoPath)} target="_blank" rel="noopener noreferrer">View School Logo</a>
+                )}
+                {createdSchool.cacDocumentPath && (
+                  <a href={buildPublicUrl(createdSchool.cacDocumentPath)} target="_blank" rel="noopener noreferrer">View CAC Document</a>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="success-actions">
             <Link to="/school/import" className="action-card">

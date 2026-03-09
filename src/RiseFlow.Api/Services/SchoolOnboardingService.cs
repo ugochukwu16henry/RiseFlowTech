@@ -69,30 +69,56 @@ public class SchoolOnboardingService
         return SchoolOnboardingResult.CreateSuccess(school.Id, school.Name);
     }
 
-    /// <summary>Onboard a school with optional logo upload. Use from multipart/form-data endpoint.</summary>
-    public async Task<SchoolOnboardingResult> OnboardSchoolWithLogoAsync(OnboardSchoolRequest request, IFormFile? logo, CancellationToken ct = default)
+    /// <summary>Onboard a school with optional logo and CAC document upload. Use from multipart/form-data endpoint.</summary>
+    public async Task<SchoolOnboardingResult> OnboardSchoolWithLogoAsync(OnboardSchoolRequest request, IFormFile? logo, IFormFile? cacDocument, CancellationToken ct = default)
     {
         var result = await OnboardSchoolAsync(request, ct);
-        if (!result.Success || !result.SchoolId.HasValue || logo == null || logo.Length == 0)
+        if (!result.Success || !result.SchoolId.HasValue)
             return result;
-        var ext = Path.GetExtension(logo.FileName);
-        if (string.IsNullOrEmpty(ext)) ext = ".png";
-        var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
-        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
-            return result;
-        var logosDir = Path.Combine(_env.WebRootPath ?? _env.ContentRootPath, "logos");
-        Directory.CreateDirectory(logosDir);
-        var fileName = $"{result.SchoolId.Value:N}{ext}";
-        var path = Path.Combine(logosDir, fileName);
-        await using (var stream = File.Create(path))
-            await logo.CopyToAsync(stream, ct);
+
+        var schoolId = result.SchoolId.Value;
+        var logoPath = await SaveUploadedFileAsync(logo, schoolId, "logos", new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" }, ".png", ct);
+        var cacDocumentPath = await SaveUploadedFileAsync(cacDocument, schoolId, "cac", new[] { ".pdf", ".png", ".jpg", ".jpeg", ".webp" }, ".pdf", ct);
+
         var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == result.SchoolId.Value, ct);
-        if (school != null)
+        if (school != null && !string.IsNullOrWhiteSpace(logoPath))
         {
-            school.LogoFileName = $"logos/{fileName}";
+            school.LogoFileName = logoPath;
             await _db.SaveChangesAsync(ct);
         }
-        return result;
+
+        return result with { LogoPath = logoPath, CacDocumentPath = cacDocumentPath };
+    }
+
+    private async Task<string?> SaveUploadedFileAsync(
+        IFormFile? file,
+        Guid schoolId,
+        string folderName,
+        IReadOnlyCollection<string> allowedExtensions,
+        string defaultExtension,
+        CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            return null;
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = defaultExtension;
+
+        if (!allowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return null;
+
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var dir = Path.Combine(root, folderName);
+        Directory.CreateDirectory(dir);
+
+        var fileName = $"{schoolId:N}{ext}";
+        var fullPath = Path.Combine(dir, fileName);
+
+        await using var stream = File.Create(fullPath);
+        await file.CopyToAsync(stream, ct);
+
+        return $"{folderName}/{fileName}";
     }
 
     public async Task<School?> GetSchoolByIdAsync(Guid schoolId, CancellationToken ct = default)
@@ -120,7 +146,7 @@ public record OnboardSchoolRequest(
     /// <summary>Required when creating an admin account. Must be true to comply with ToS and Data Processing Agreement.</summary>
     bool AgreedToTermsAndDpa = false);
 
-public record SchoolOnboardingResult(bool Success, Guid? SchoolId, string? SchoolName, IReadOnlyList<string> Errors)
+public record SchoolOnboardingResult(bool Success, Guid? SchoolId, string? SchoolName, IReadOnlyList<string> Errors, string? LogoPath = null, string? CacDocumentPath = null)
 {
     public static SchoolOnboardingResult CreateSuccess(Guid schoolId, string schoolName) =>
         new(true, schoolId, schoolName, Array.Empty<string>());
