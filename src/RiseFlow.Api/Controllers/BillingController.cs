@@ -16,12 +16,14 @@ public class BillingController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
     private readonly ITenantContext _tenant;
+    private readonly PaymentService _payments;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
+        _payments = payments;
     }
 
     /// <summary>SuperAdmin: generate billing for a period for all schools or one school.</summary>
@@ -92,7 +94,7 @@ public class BillingController : ControllerBase
         return Ok(new ConvertedAmountsDto(request.Amount, request.FromCurrencyCode ?? "NGN", usd, amounts));
     }
 
-    /// <summary>Trigger payment gateway (Paystack or Flutterwave) when student count > 50. Returns authorization URL and reference for the school to pay.</summary>
+    /// <summary>Trigger payment gateway (Paystack) when AmountDue &gt; 0. Returns authorization URL and reference for the school to pay.</summary>
     [HttpPost("initiate-payment")]
     [ProducesResponseType(typeof(InitiatePaymentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -105,11 +107,8 @@ public class BillingController : ControllerBase
             return Forbid();
         if (record.AmountDue <= 0)
             return BadRequest("No amount due for this billing record.");
-        var gateway = "Paystack"; // or read from IConfiguration: Billing:PaymentGateway (Paystack | Flutterwave)
-        var reference = $"riseflow-{record.Id:N}-{DateTime.UtcNow:yyyyMMddHHmm}";
-        // In production: call Paystack/Flutterwave API to initialize transaction and get authorization_url
-        var authorizationUrl = $"https://paystack.com/pay/riseflow?amount={record.AmountDue * 100}&currency={record.CurrencyCode}&reference={reference}";
-        return Ok(new InitiatePaymentResult(gateway, authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
+        var (authorizationUrl, reference) = await _payments.InitializePaystackPaymentAsync(record.Id, ct);
+        return Ok(new InitiatePaymentResult("Paystack", authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
     }
 }
 

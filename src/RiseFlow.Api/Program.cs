@@ -39,6 +39,10 @@ builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddScoped<StudentBulkUploadService>();
 builder.Services.AddScoped<ExcelService>();
+builder.Services.AddHttpClient<PaymentService>("Paystack", client =>
+{
+    client.BaseAddress = new Uri("https://api.paystack.co/");
+});
 
 builder.Services.AddCors(options =>
 {

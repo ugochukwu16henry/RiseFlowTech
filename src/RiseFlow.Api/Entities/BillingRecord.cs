@@ -13,6 +13,8 @@ public class BillingRecord
     /// <summary>ISO 4217. Amounts are in this currency.</summary>
     public string CurrencyCode { get; set; } = "NGN";
     public DateTime? PaidAtUtc { get; set; }
+    /// <summary>Gateway payment reference (e.g. Paystack reference) for this period, if initialized.</summary>
+    public string? PaymentReference { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 
     public School School { get; set; } = null!;

@@ -269,6 +269,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasKey(x => x.Id);
             e.Property(x => x.PeriodLabel).IsRequired().HasMaxLength(32);
             e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
+            e.Property(x => x.PaymentReference).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.BillingRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
         });
 
