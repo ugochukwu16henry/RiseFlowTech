@@ -369,6 +369,74 @@ public class TeachersController : ControllerBase
         }
         return NoContent();
     }
+
+    /// <summary>Get teacher passport-size profile photo. Allowed for same-school users (SchoolAdmin/Teacher/Parent).</summary>
+    [HttpGet("{id:guid}/photo")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPhoto(Guid id, CancellationToken ct)
+    {
+        var teacher = await _db.Teachers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (teacher == null || string.IsNullOrEmpty(teacher.ProfilePhotoFileName))
+            return NotFound();
+        if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var path = Path.Combine(root, teacher.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
+        if (!System.IO.File.Exists(path))
+            return NotFound();
+        var contentType = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
+            : path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "image/gif"
+            : path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+            : "image/jpeg";
+        return PhysicalFile(path, contentType, enableRangeProcessing: false);
+    }
+
+    /// <summary>Upload or update teacher passport photo. SchoolAdmin or the teacher themself.</summary>
+    [HttpPost("{id:guid}/photo")]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.Teacher}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UploadPhoto(Guid id, IFormFile? file, CancellationToken ct)
+    {
+        var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (teacher == null)
+            return NotFound();
+        if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+
+        // If uploading as Teacher, ensure this is their own profile
+        if (User.IsInRole(Constants.Roles.Teacher))
+        {
+            var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
+            if (string.IsNullOrEmpty(email) || !string.Equals(email, teacher.Email, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+        }
+
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+        var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
+
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var dir = Path.Combine(root, "teachers", teacher.SchoolId.ToString("N"));
+        Directory.CreateDirectory(dir);
+        var fileName = $"{teacher.Id:N}{ext}";
+        var relativePath = $"teachers/{teacher.SchoolId:N}/{fileName}";
+        var fullPath = Path.Combine(dir, fileName);
+        await using (var stream = System.IO.File.Create(fullPath))
+            await file.CopyToAsync(stream, ct);
+
+        teacher.ProfilePhotoFileName = relativePath;
+        teacher.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = "Photo uploaded.", profilePhotoFileName = relativePath });
+    }
 }
 
 public record MyStudentDto(Guid StudentId, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? Gender);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
+import TeacherPhoto from '../components/TeacherPhoto';
 import { apiFetch } from '../api';
 import './RolePages.css';
 import './ParentPage.css';
@@ -220,8 +221,11 @@ export default function ParentPage() {
                     return (
                       <li key={`${t.teacherId}-${t.subject || ''}`} className="teacher-card">
                         <div className="teacher-card-header">
-                          <span className="teacher-card-name">{t.fullName}</span>
-                          {t.subject && <span className="teacher-card-subject">{t.subject}</span>}
+                          <TeacherPhoto teacherId={t.teacherId} fullName={t.fullName} size={40} />
+                          <div>
+                            <span className="teacher-card-name">{t.fullName}</span>
+                            {t.subject && <span className="teacher-card-subject">{t.subject}</span>}
+                          </div>
                         </div>
                         <div className="teacher-card-actions">
                           {tel && (
