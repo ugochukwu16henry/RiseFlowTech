@@ -107,6 +107,18 @@ export default function OnboardingPage() {
             <strong className="school-id-value">{createdSchool.schoolId || 'Generated'}</strong>
           </div>
 
+          {createdSchool.logoPath && (
+            <div className="logo-preview-box">
+              <span className="school-id-label">School Logo Preview</span>
+              <img
+                src={buildPublicUrl(createdSchool.logoPath)}
+                alt={`${createdSchool.schoolName} logo`}
+                className="logo-preview-image"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {(createdSchool.logoPath || createdSchool.cacDocumentPath) && (
             <div className="school-files-box">
               <span className="school-id-label">Uploaded Files</span>
