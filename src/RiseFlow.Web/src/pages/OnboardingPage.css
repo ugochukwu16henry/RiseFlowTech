@@ -256,6 +256,27 @@
   font-size: 0.93rem;
 }
 
+.school-files-box {
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.school-files-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.school-files-list a {
+  font-size: 0.88rem;
+  color: var(--color-deep-blue);
+}
+
+.school-files-list a:hover {
+  text-decoration: underline;
+}
+
 .success-actions {
   display: grid;
   gap: 0.75rem;
