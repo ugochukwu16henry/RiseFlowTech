@@ -16,11 +16,13 @@ public class ResultsController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IAuditLogService _audit;
 
-    public ResultsController(RiseFlowDbContext db, ITenantContext tenant)
+    public ResultsController(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit)
     {
         _db = db;
         _tenant = tenant;
+        _audit = audit;
     }
 
     /// <summary>Teachers/SchoolAdmin: upload or update a result. EnteredBy is set from current user (teacher by email).</summary>
@@ -51,6 +53,15 @@ public class ResultsController : ControllerBase
         };
         _db.StudentResults.Add(result);
         await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            _tenant.CurrentSchoolId,
+            "Created",
+            "StudentResult",
+            result.Id.ToString(),
+            _tenant.CurrentUserEmail,
+            User.Identity?.Name,
+            $"Result created: Student {request.StudentId:N}, Score {request.Score}/{request.MaxScore}",
+            ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -86,6 +97,8 @@ public class ResultsController : ControllerBase
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
+        var oldScore = result.Score;
+        var oldMax = result.MaxScore;
         result.AssessmentType = request.AssessmentType;
         result.Score = request.Score;
         result.MaxScore = request.MaxScore;
@@ -93,6 +106,15 @@ public class ResultsController : ControllerBase
         result.Comment = request.Comment;
         result.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            _tenant.CurrentSchoolId,
+            "Updated",
+            "StudentResult",
+            result.Id.ToString(),
+            _tenant.CurrentUserEmail,
+            User.Identity?.Name,
+            $"Score {oldScore}/{oldMax} → {request.Score}/{request.MaxScore}",
+            ct);
         return Ok(result);
     }
 
@@ -107,8 +129,18 @@ public class ResultsController : ControllerBase
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
+        var details = $"Result deleted: Student {result.StudentId:N}, Score {result.Score}/{result.MaxScore}";
         _db.StudentResults.Remove(result);
         await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            _tenant.CurrentSchoolId,
+            "Deleted",
+            "StudentResult",
+            id.ToString(),
+            _tenant.CurrentUserEmail,
+            User.Identity?.Name,
+            details,
+            ct);
         return NoContent();
     }
 

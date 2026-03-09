@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RiseFlow.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5d1382a2615bc985b8258a4bd128e713286b124")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ec97beba2a13c0aa8cc531c78d482618188aced1")]
 [assembly: System.Reflection.AssemblyProductAttribute("RiseFlow.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RiseFlow.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

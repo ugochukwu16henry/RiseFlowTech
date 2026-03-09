@@ -209,6 +209,8 @@ public class StudentsController : ControllerBase
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (student == null)
             return NotFound();
+        if (student.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         student.FirstName = request.FirstName;
         student.LastName = request.LastName;
         student.MiddleName = request.MiddleName;
@@ -399,6 +401,8 @@ public class StudentsController : ControllerBase
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (student == null)
             return NotFound();
+        if (student.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         _db.Students.Remove(student);
         await _db.SaveChangesAsync(ct);
         return NoContent();

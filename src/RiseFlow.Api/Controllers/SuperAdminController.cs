@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
+using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
 using RiseFlow.Api.Services;
 
@@ -72,4 +73,32 @@ public class SuperAdminController : ControllerBase
             TotalResultsProcessed: totalResultsProcessed,
             SchoolsByCountry: schoolsByCountry));
     }
+
+    /// <summary>Audit log: who did what (e.g. grade changes). Super Admin only.</summary>
+    [HttpGet("audit")]
+    [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<AuditLogDto>>> GetAuditLog(
+        [FromQuery] Guid? schoolId,
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        [FromQuery] int limit = 200,
+        CancellationToken ct = default)
+    {
+        var cap = Math.Clamp(limit, 1, 1000);
+        IQueryable<AuditLog> query = _db.AuditLogs.AsNoTracking();
+        if (schoolId.HasValue)
+            query = query.Where(a => a.SchoolId == schoolId.Value);
+        if (fromUtc.HasValue)
+            query = query.Where(a => a.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(a => a.CreatedAtUtc <= toUtc.Value);
+        var list = await query
+            .OrderByDescending(a => a.CreatedAtUtc)
+            .Take(cap)
+            .Select(a => new AuditLogDto(a.Id, a.SchoolId, a.Action, a.EntityType, a.EntityId, a.UserEmail, a.UserName, a.Details, a.CreatedAtUtc))
+            .ToListAsync(ct);
+        return Ok(list);
+    }
 }
+
+public record AuditLogDto(long Id, Guid? SchoolId, string Action, string EntityType, string? EntityId, string? UserEmail, string? UserName, string? Details, DateTime CreatedAtUtc);

@@ -124,6 +124,8 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (teacher == null)
             return NotFound();
+        if (teacher.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         teacher.FirstName = request.FirstName;
         teacher.LastName = request.LastName;
         teacher.MiddleName = request.MiddleName;
@@ -172,6 +174,8 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (teacher == null)
             return NotFound();
+        if (teacher.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
         _db.Teachers.Remove(teacher);
         await _db.SaveChangesAsync(ct);
         return NoContent();

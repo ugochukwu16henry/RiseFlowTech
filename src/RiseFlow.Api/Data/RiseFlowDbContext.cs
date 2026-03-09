@@ -39,6 +39,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AssessmentCategory> AssessmentCategories => Set<AssessmentCategory>();
     public DbSet<AssessmentItem> AssessmentItems => Set<AssessmentItem>();
     public DbSet<StudentAssessment> StudentAssessments => Set<StudentAssessment>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -289,6 +290,19 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
         builder.Entity<ApplicationUser>(e =>
         {
             e.Property(x => x.SchoolId).IsRequired(false);
+        });
+
+        // AuditLog: no tenant filter; Super Admin can query all
+        builder.Entity<AuditLog>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Action).IsRequired().HasMaxLength(32);
+            e.Property(x => x.EntityType).IsRequired().HasMaxLength(64);
+            e.Property(x => x.EntityId).HasMaxLength(36);
+            e.Property(x => x.UserEmail).HasMaxLength(256);
+            e.Property(x => x.UserName).HasMaxLength(256);
+            e.Property(x => x.Details).HasMaxLength(1024);
+            e.HasIndex(x => new { x.SchoolId, x.CreatedAtUtc });
         });
     }
 
