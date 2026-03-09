@@ -1,4 +1,7 @@
 .claim-child { max-width: 420px; }
+.parent-signup .signup-form .claim-label { margin-top: 1rem; }
+.parent-signup .signup-form .claim-label:first-of-type { margin-top: 0; }
+.parent-signup .signup-input { max-width: 100%; }
 .claim-form { margin-top: 1.25rem; }
 .claim-label {
   display: block;
@@ -60,3 +63,4 @@
 }
 .claim-success-msg { margin: 0; font-size: 0.9375rem; }
 .claim-success .card-desc { margin: 0.5rem 0 0; }
+.claim-success--banner { margin-bottom: 1rem; }

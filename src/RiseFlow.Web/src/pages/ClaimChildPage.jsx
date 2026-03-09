@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
 import './ClaimChildPage.css';
 
 export default function ClaimChildPage() {
+  const [searchParams] = useSearchParams();
+  const signedUp = searchParams.get('signedUp') === '1';
+
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -45,6 +49,12 @@ export default function ClaimChildPage() {
   return (
     <PageLayout title="Claim your child" backTo="/parent">
       <div className="claim-child">
+        {signedUp && (
+          <div className="claim-success claim-success--banner" role="status">
+            <p className="claim-success-title">Account created</p>
+            <p className="claim-success-msg">Please sign in, then enter your access code below to link your child.</p>
+          </div>
+        )}
         <p className="card-desc">
           Enter the <strong>Parent Access Code</strong> (e.g. <strong>RF-8821</strong>) that your school gave you. You will be linked to your child&apos;s profile and can view results and contact teachers.
         </p>

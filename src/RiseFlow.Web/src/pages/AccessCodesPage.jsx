@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../components/PageLayout';
-import { apiFetch } from '../api';
+import { apiFetch, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 import './AccessCodesPage.css';
 
@@ -52,6 +52,12 @@ export default function AccessCodesPage() {
   const withoutCode = list.filter((s) => !s.parentAccessCode || s.parentAccessCode === '');
   const withCode = list.filter((s) => s.parentAccessCode);
 
+  const schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+  const parentSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/parent/signup?school=${schoolId}` : '';
+  const copyParentSignupLink = () => {
+    if (parentSignupUrl) navigator.clipboard.writeText(parentSignupUrl);
+  };
+
   if (loading) return <PageLayout title="Parent Access Codes"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
   if (error) return <PageLayout title="Parent Access Codes"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
@@ -60,6 +66,23 @@ export default function AccessCodesPage() {
       <p className="card-desc">
         Each student has a unique code (e.g. <strong>RF-8821</strong>). Give this code to the parent so they can open the RiseFlow app or web and &quot;Claim&quot; their child&apos;s profile.
       </p>
+
+      <section className="parent-signup-link-section" aria-label="Parent signup link">
+        <h2 className="section-title">Share with parents</h2>
+        <p className="card-desc">
+          Parents who don&apos;t have an account can sign up using this link. After signup they sign in and enter the access code to link their child.
+        </p>
+        {parentSignupUrl ? (
+          <div className="parent-signup-link-box">
+            <code className="parent-signup-url">{parentSignupUrl}</code>
+            <button type="button" className="btn-copy" onClick={copyParentSignupLink} title="Copy parent signup link">
+              Copy link
+            </button>
+          </div>
+        ) : (
+          <p className="empty-state">Sign in as School Admin and select your school to see your parent signup link here.</p>
+        )}
+      </section>
 
       <div className="access-codes-actions">
         <button
