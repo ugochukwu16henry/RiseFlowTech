@@ -11,6 +11,8 @@ import TeacherPage from './pages/TeacherPage.jsx'
 import SchoolAdminPage from './pages/SchoolAdminPage.jsx'
 import StudentPage from './pages/StudentPage.jsx'
 import ExcelImportPage from './pages/ExcelImportPage.jsx'
+import AccessCodesPage from './pages/AccessCodesPage.jsx'
+import ClaimChildPage from './pages/ClaimChildPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -23,6 +25,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/teacher" element={<TeacherPage />} />
         <Route path="/school" element={<SchoolAdminPage />} />
         <Route path="/school/import" element={<ExcelImportPage />} />
+        <Route path="/school/access-codes" element={<AccessCodesPage />} />
+        <Route path="/parent/claim" element={<ClaimChildPage />} />
         <Route path="/student" element={<StudentPage />} />
         <Route path="/*" element={<App />} />
       </Routes>

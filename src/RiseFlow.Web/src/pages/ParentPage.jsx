@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -100,6 +101,9 @@ export default function ParentPage() {
 
   return (
     <PageLayout title="Parent — My children">
+      <p className="card-desc">
+        Have a new code from school? <Link to="/parent/claim">Claim your child</Link> with the Parent Access Code (e.g. RF-8821).
+      </p>
       <h2 className="section-title">Recent results (from database)</h2>
       <section className="progress-section">
         {loadingResults && <p className="empty-state" aria-busy="true">Loading results…</p>}

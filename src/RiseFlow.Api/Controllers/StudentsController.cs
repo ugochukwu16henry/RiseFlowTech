@@ -231,6 +231,32 @@ public class StudentsController : ControllerBase
         return Ok(student);
     }
 
+    /// <summary>List students with their Parent Access Codes (for school to give to parents). SchoolAdmin/Teacher.</summary>
+    [HttpGet("with-access-codes")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [ProducesResponseType(typeof(List<StudentWithAccessCodeDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentWithAccessCodeDto>>> ListWithAccessCodes(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var list = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.SchoolId == schoolId)
+            .OrderBy(s => s.LastName)
+            .ThenBy(s => s.FirstName)
+            .Select(s => new StudentWithAccessCodeDto(
+                s.Id,
+                s.FirstName,
+                s.LastName,
+                s.MiddleName,
+                s.AdmissionNumber,
+                s.Class != null ? s.Class.Name : null,
+                s.ParentAccessCode))
+            .ToListAsync(ct);
+        return Ok(list);
+    }
+
     /// <summary>Get or generate Parent Access Code for a student. Parent enters this code to link to the student. SchoolAdmin/Teacher.</summary>
     [HttpGet("{id:guid}/access-code")]
     [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
@@ -273,17 +299,19 @@ public class StudentsController : ControllerBase
         return Ok(new GenerateAccessCodesResult(generated, totalStudents, withCode));
     }
 
+    /// <summary>Generate a unique parent access code (e.g. RF-8821) for the school. Parent enters this in the app to claim their child.</summary>
     private async Task<string> GenerateUniqueAccessCodeAsync(Guid schoolId, CancellationToken ct)
     {
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var rng = Random.Shared;
         for (var attempt = 0; attempt < 50; attempt++)
         {
-            var code = new string(Enumerable.Range(0, 8).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+            var suffix = new string(Enumerable.Range(0, 4).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+            var code = "RF-" + suffix;
             var exists = await _db.Students.AnyAsync(s => s.SchoolId == schoolId && s.ParentAccessCode == code, ct);
             if (!exists) return code;
         }
-        return Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        return "RF-" + Guid.NewGuid().ToString("N")[..4].ToUpperInvariant();
     }
 
     [HttpDelete("{id:guid}")]
@@ -304,3 +332,4 @@ public class StudentsController : ControllerBase
 
 public record AccessCodeDto(string Code);
 public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);
+public record StudentWithAccessCodeDto(Guid Id, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? ParentAccessCode);

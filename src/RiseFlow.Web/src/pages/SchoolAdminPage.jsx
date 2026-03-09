@@ -118,6 +118,12 @@ export default function SchoolAdminPage() {
         </div>
       )}
 
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Parent Access Codes</h2>
+      <p className="card-desc">Generate unique codes (e.g. RF-8821) for each student. Give the code to the parent so they can claim their child in the app or web.</p>
+      <Link to="/school/access-codes" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+        Manage access codes
+      </Link>
+
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
       <p className="card-desc">Import students from Excel with preview and validation. First 50 students free.</p>
       <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
