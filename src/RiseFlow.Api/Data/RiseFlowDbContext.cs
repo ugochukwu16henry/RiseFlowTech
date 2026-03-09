@@ -58,9 +58,11 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).IsRequired().HasMaxLength(256);
             e.Property(x => x.Address).HasMaxLength(512);
+            e.Property(x => x.SchoolType).HasMaxLength(64);
             e.Property(x => x.PrincipalName).HasMaxLength(128);
             e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.CacNumber).HasMaxLength(64);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);

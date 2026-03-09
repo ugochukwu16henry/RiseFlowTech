@@ -8,9 +8,13 @@ public class School
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Address { get; set; }
+    /// <summary>School type aligned with Nigerian standards (e.g. Primary, Secondary).</summary>
+    public string? SchoolType { get; set; }
     public string? PrincipalName { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
+    /// <summary>CAC registration number for Nigerian business verification.</summary>
+    public string? CacNumber { get; set; }
     /// <summary>ISO 3166-1 alpha-2 (e.g. NG, GH, KE). Used for billing and localization.</summary>
     public string? CountryCode { get; set; }
     /// <summary>ISO 4217 (e.g. NGN, GHS, KES). Billing is in this currency.</summary>

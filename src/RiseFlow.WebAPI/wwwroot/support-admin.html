@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <title>RiseFlow Support War Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body class="h-full bg-slate-950">
+    <div class="h-full flex">
+        <!-- Left: ticket list -->
+        <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
+            <div class="px-4 py-4 border-b border-slate-800">
+                <h1 class="text-sm font-semibold text-white">RiseFlow Support Inbox</h1>
+                <p class="text-xs text-slate-400 mt-1">
+                    Live tickets from all schools. Priority customers (500+ students) are highlighted.
+                </p>
+            </div>
+            <div id="ticket-list" class="flex-1 overflow-y-auto divide-y divide-slate-800 text-sm"></div>
+        </aside>
+
+        <!-- Right: conversation -->
+        <main class="flex-1 flex flex-col bg-slate-950">
+            <header class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <p id="ticket-subject" class="text-sm font-semibold text-white">No ticket selected</p>
+                    <p id="ticket-meta" class="text-xs text-slate-400 mt-0.5"></p>
+                </div>
+                <button id="jump-to-dashboard"
+                        class="hidden inline-flex items-center rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 focus:ring-offset-slate-950">
+                    Jump to School Dashboard
+                </button>
+            </header>
+
+            <section id="conversation"
+                     class="flex-1 overflow-y-auto px-6 py-4 space-y-3 text-sm bg-gradient-to-b from-slate-950 to-slate-900">
+                <p class="text-xs text-slate-500">
+                    Select a ticket on the left to view the conversation.
+                </p>
+            </section>
+
+            <form id="reply-form" class="border-t border-slate-800 px-6 py-3 flex items-end gap-3 bg-slate-950">
+                <textarea id="reply-input"
+                          rows="2"
+                          placeholder="Type a reply to the principal..."
+                          class="flex-1 resize-none rounded-md border border-slate-700 bg-slate-900 text-sm text-slate-100 shadow-sm placeholder:text-slate-500 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                <button type="submit"
+                        class="inline-flex items-center rounded-md bg-indigo-500 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-slate-950 disabled:opacity-40 disabled:cursor-not-allowed">
+                    Send reply
+                </button>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        (() => {
+            const ticketListEl = document.getElementById("ticket-list");
+            const conversationEl = document.getElementById("conversation");
+            const subjectEl = document.getElementById("ticket-subject");
+            const metaEl = document.getElementById("ticket-meta");
+            const replyForm = document.getElementById("reply-form");
+            const replyInput = document.getElementById("reply-input");
+            const jumpBtn = document.getElementById("jump-to-dashboard");
+
+            let connection = null;
+            let connectionStarted = false;
+            let tickets = [];
+            let currentTicketId = null;
+
+            function renderTickets() {
+                ticketListEl.innerHTML = "";
+                if (tickets.length === 0) {
+                    const empty = document.createElement("div");
+                    empty.className = "px-4 py-4 text-xs text-slate-500";
+                    empty.textContent = "No tickets yet.";
+                    ticketListEl.appendChild(empty);
+                    return;
+                }
+
+                tickets.forEach(t => {
+                    const btn = document.createElement("button");
+                    const isUrgent = t.priority === "Urgent" || t.isPriorityCustomer;
+
+                    btn.type = "button";
+                    btn.className =
+                        "w-full text-left px-4 py-3 flex flex-col gap-1 hover:bg-slate-800 focus:outline-none " +
+                        (t.id === currentTicketId ? "bg-slate-800" : "");
+
+                    const topRow = document.createElement("div");
+                    topRow.className = "flex items-center justify-between gap-2";
+
+                    const subject = document.createElement("p");
+                    subject.className = "text-xs font-semibold text-slate-100 truncate";
+                    subject.textContent = t.subject;
+
+                    const pill = document.createElement("span");
+                    pill.className =
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border " +
+                        (isUrgent
+                            ? "border-red-500 text-red-300 bg-red-950/40 animate-pulse"
+                            : "border-slate-500 text-slate-300 bg-slate-900");
+                    pill.textContent = isUrgent ? "PRIORITY" : t.status;
+
+                    topRow.appendChild(subject);
+                    topRow.appendChild(pill);
+
+                    const bottomRow = document.createElement("div");
+                    bottomRow.className = "flex items-center justify-between text-[10px] text-slate-400 mt-0.5";
+
+                    const school = document.createElement("span");
+                    school.textContent = `School: ${t.schoolId.substring(0, 8)}…`;
+
+                    const stats = document.createElement("span");
+                    stats.textContent = `${t.studentCount} students`;
+
+                    bottomRow.appendChild(school);
+                    bottomRow.appendChild(stats);
+
+                    btn.appendChild(topRow);
+                    btn.appendChild(bottomRow);
+
+                    btn.addEventListener("click", () => {
+                        selectTicket(t.id);
+                    });
+
+                    ticketListEl.appendChild(btn);
+                });
+            }
+
+            function appendMessage(messageBody, fromSchoolAdmin) {
+                const wrapper = document.createElement("div");
+                wrapper.className =
+                    "flex " + (fromSchoolAdmin ? "justify-start" : "justify-end");
+
+                const bubble = document.createElement("div");
+                bubble.className =
+                    "max-w-[70%] rounded-2xl px-3 py-2 text-xs shadow-sm " +
+                    (fromSchoolAdmin
+                        ? "bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-sm"
+                        : "bg-indigo-500 text-white rounded-br-sm");
+                bubble.textContent = messageBody;
+
+                wrapper.appendChild(bubble);
+                conversationEl.appendChild(wrapper);
+                conversationEl.scrollTop = conversationEl.scrollHeight;
+            }
+
+            async function loadTickets() {
+                const resp = await fetch("/api/support/tickets");
+                if (!resp.ok) return;
+                tickets = await resp.json();
+                renderTickets();
+            }
+
+            async function loadMessages(ticketId) {
+                const resp = await fetch(`/api/support/tickets/${ticketId}/messages`);
+                if (!resp.ok) return;
+                const messages = await resp.json();
+                conversationEl.innerHTML = "";
+                messages.forEach(m => appendMessage(m.messageBody, m.fromSchoolAdmin));
+            }
+
+            async function selectTicket(ticketId) {
+                currentTicketId = ticketId;
+                const t = tickets.find(x => x.id === ticketId);
+                if (!t) return;
+
+                subjectEl.textContent = t.subject;
+                metaEl.textContent =
+                    `School ${t.schoolId.substring(0, 8)}… • ${t.studentCount} students • ${t.status} • Priority: ${t.priority}`;
+                jumpBtn.classList.remove("hidden");
+                jumpBtn.onclick = () => {
+                    // Placeholder: wire this to an impersonation route later.
+                    alert(`Jump to dashboard for school ${t.schoolId}`);
+                };
+
+                await loadMessages(ticketId);
+            }
+
+            async function ensureConnection() {
+                if (connectionStarted) return;
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("/hubs/support")
+                    .withAutomaticReconnect()
+                    .build();
+
+                connection.on("TicketCreated", (ticketId, schoolId, subject, priority) => {
+                    tickets.unshift({
+                        id: ticketId,
+                        schoolId,
+                        subject,
+                        status: "Open",
+                        priority,
+                        createdAtUtc: new Date().toISOString(),
+                        studentCount: 0,
+                        isPriorityCustomer: false
+                    });
+                    renderTickets();
+                });
+
+                connection.on("ReceiveSupportMessageAdminView", (ticketId, schoolId, messageBody, fromSchoolAdmin) => {
+                    if (ticketId === currentTicketId) {
+                        appendMessage(messageBody, fromSchoolAdmin);
+                    }
+                });
+
+                await connection.start();
+                connectionStarted = true;
+                await connection.invoke("JoinSuperAdminWarRoom");
+            }
+
+            replyForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const text = replyInput.value.trim();
+                if (!text || !currentTicketId) return;
+                try {
+                    await ensureConnection();
+                    await connection.invoke("SendMessage", currentTicketId, text, false);
+                    appendMessage(text, false);
+                    replyInput.value = "";
+                } catch (err) {
+                    console.error(err);
+                    appendMessage("Could not send reply. Please try again.", true);
+                }
+            });
+
+            (async () => {
+                await loadTickets();
+                await ensureConnection();
+            })();
+        })();
+    </script>
+</body>
+</html>
+

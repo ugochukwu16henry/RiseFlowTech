@@ -26,47 +26,66 @@ public class SchoolOnboardingService
 
     public async Task<SchoolOnboardingResult> OnboardSchoolAsync(OnboardSchoolRequest request, CancellationToken ct = default)
     {
-        var school = new School
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        try
         {
-            Id = Guid.NewGuid(),
-            Name = request.SchoolName,
-            Address = request.Address,
-            PrincipalName = request.PrincipalName,
-            Phone = request.Phone,
-            Email = request.Email,
-            CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
-            CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
-            IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow,
-            TermsAndDpaAgreedAt = request.AgreedToTermsAndDpa ? DateTime.UtcNow : (DateTime?)null
-        };
-
-        _db.Schools.Add(school);
-
-        if (!string.IsNullOrWhiteSpace(request.AdminEmail))
-        {
-            var user = new ApplicationUser
+            var school = new School
             {
                 Id = Guid.NewGuid(),
-                UserName = request.AdminEmail,
-                Email = request.AdminEmail,
-                EmailConfirmed = false,
-                SchoolId = school.Id,
-                FullName = request.AdminFullName ?? request.AdminEmail,
+                Name = request.SchoolName,
+                Address = request.Address,
+                SchoolType = request.SchoolType,
+                PrincipalName = request.PrincipalName,
+                Phone = request.Phone,
+                Email = request.Email,
+                CacNumber = request.CacNumber,
+                CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
+                CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
                 IsActive = true,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = DateTime.UtcNow,
+                TermsAndDpaAgreedAt = request.AgreedToTermsAndDpa ? DateTime.UtcNow : (DateTime?)null
             };
 
-            var createResult = await _userManager.CreateAsync(user, request.AdminPassword ?? throw new ArgumentException("Admin password required when admin email is provided."));
-            if (!createResult.Succeeded)
-                return SchoolOnboardingResult.CreateFailed(createResult.Errors.Select(e => e.Description).ToList());
+            _db.Schools.Add(school);
 
-            await _userManager.AddToRoleAsync(user, Roles.SchoolAdmin);
-            await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim("SchoolId", school.Id.ToString()));
+            if (!string.IsNullOrWhiteSpace(request.AdminEmail))
+            {
+                if (string.IsNullOrWhiteSpace(request.AdminPassword))
+                    throw new ArgumentException("Admin password required when admin email is provided.");
+
+                var user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = request.AdminEmail,
+                    Email = request.AdminEmail,
+                    EmailConfirmed = false,
+                    SchoolId = school.Id,
+                    FullName = request.AdminFullName ?? request.AdminEmail,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+
+                var createResult = await _userManager.CreateAsync(user, request.AdminPassword);
+                if (!createResult.Succeeded)
+                {
+                    await transaction.RollbackAsync(ct);
+                    return SchoolOnboardingResult.CreateFailed(createResult.Errors.Select(e => e.Description).ToList());
+                }
+
+                await _userManager.AddToRoleAsync(user, Roles.SchoolAdmin);
+                await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim("SchoolId", school.Id.ToString()));
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return SchoolOnboardingResult.CreateSuccess(school.Id, school.Name);
         }
-
-        await _db.SaveChangesAsync(ct);
-        return SchoolOnboardingResult.CreateSuccess(school.Id, school.Name);
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     /// <summary>Onboard a school with optional logo and CAC document upload. Use from multipart/form-data endpoint.</summary>
@@ -135,9 +154,11 @@ public class SchoolOnboardingService
 public record OnboardSchoolRequest(
     string SchoolName,
     string? Address,
+    string? SchoolType,
     string? PrincipalName,
     string? Phone,
     string? Email,
+    string? CacNumber,
     string? CountryCode,
     string? CurrencyCode,
     string? AdminEmail,

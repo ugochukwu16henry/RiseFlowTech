@@ -23,8 +23,9 @@ public class StudentsController : ControllerBase
     private readonly StudentBulkUploadService _bulkUpload;
     private readonly ExcelService _excelService;
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
+    private readonly BillingService _billing;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing)
     {
         _db = db;
         _tenant = tenant;
@@ -32,6 +33,7 @@ public class StudentsController : ControllerBase
         _bulkUpload = bulkUpload;
         _excelService = excelService;
         _parentLetterPdf = parentLetterPdf;
+        _billing = billing;
     }
 
     [HttpGet]
@@ -78,10 +80,22 @@ public class StudentsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+
+        // "First 50 Free" guardrail: after the free tier, require an active subscription.
+        var activeCount = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
+        if (activeCount >= CountryBillingConfig.FreeTierStudentCount)
+        {
+            var hasActiveSubscription = await _billing.IsSubscriptionActiveAsync(schoolId, ct);
+            if (!hasActiveSubscription)
+            {
+                return BadRequest($"Free tier limit ({CountryBillingConfig.FreeTierStudentCount} students) reached. Please upgrade to add more students.");
+            }
+        }
         var student = new Student
         {
             Id = Guid.NewGuid(),
-            SchoolId = _tenant.CurrentSchoolId.Value,
+            SchoolId = schoolId,
             FirstName = request.FirstName,
             LastName = request.LastName,
             MiddleName = request.MiddleName,

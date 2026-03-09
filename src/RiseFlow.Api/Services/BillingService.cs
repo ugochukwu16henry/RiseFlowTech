@@ -54,6 +54,32 @@ public class BillingService
         return record;
     }
 
+    /// <summary>
+    /// Check if a school's subscription is currently active.
+    /// A subscription is considered active when the latest billing record for the school:
+    /// - Covers today's date (PeriodEnd >= today), and
+    /// - Has AmountPaid &gt;= AmountDue (fully paid).
+    /// </summary>
+    public async Task<bool> IsSubscriptionActiveAsync(Guid schoolId, CancellationToken ct = default)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var record = await _db.BillingRecords
+            .Where(b => b.SchoolId == schoolId)
+            .OrderByDescending(b => b.PeriodEnd)
+            .FirstOrDefaultAsync(ct);
+
+        if (record == null)
+            return false;
+
+        if (record.PeriodEnd < today)
+            return false;
+
+        if (!record.AmountPaid.HasValue)
+            return false;
+
+        return record.AmountPaid.Value >= record.AmountDue;
+    }
+
     /// <summary>Total revenue in USD (converts all paid amounts using current exchange rates).</summary>
     public async Task<decimal> GetTotalRevenueUsdAsync(CancellationToken ct = default)
     {

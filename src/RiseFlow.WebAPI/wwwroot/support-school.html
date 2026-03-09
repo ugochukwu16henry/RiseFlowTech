@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <title>RiseFlow Support - School Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body class="h-full bg-slate-50">
+    <!-- Floating support bubble -->
+    <button id="support-bubble"
+            class="fixed bottom-4 right-4 h-14 w-14 rounded-full bg-indigo-600 shadow-lg flex items-center justify-center text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        <span class="sr-only">Open support chat</span>
+        <!-- Chat icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M8 10.5h8M8 14h5.25M5.25 20.25 4 21.5v-3.75A2.75 2.75 0 0 1 6.75 15h10.5A2.75 2.75 0 0 1 20 17.75v1.5A2.75 2.75 0 0 1 17.25 22h-8.5a2.75 2.75 0 0 1-1.5-.44Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M6.75 3h10.5A2.75 2.75 0 0 1 20 5.75V12A2.75 2.75 0 0 1 17.25 14.75h-8.5A2.75 2.75 0 0 1 6 14.31L4 12.5V5.75A2.75 2.75 0 0 1 6.75 3Z" />
+        </svg>
+    </button>
+
+    <!-- Chat panel -->
+    <div id="support-panel"
+         class="fixed bottom-20 right-4 w-96 max-w-full bg-white shadow-2xl rounded-xl border border-slate-200 flex flex-col overflow-hidden hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <div>
+                <p class="text-sm font-semibold text-slate-900">RiseFlow Support</p>
+                <p class="text-xs text-slate-500">Ask us anything about your school setup</p>
+            </div>
+            <button id="support-close" class="text-slate-400 hover:text-slate-600">
+                <span class="sr-only">Close</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                     stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="support-messages" class="flex-1 px-4 py-3 space-y-2 overflow-y-auto text-sm bg-slate-50">
+            <div class="text-xs text-slate-500 text-center">
+                Start a conversation with RiseFlow Support. We typically respond in a few minutes.
+            </div>
+        </div>
+
+        <form id="support-form" class="border-t border-slate-200 bg-white px-3 py-2">
+            <input id="support-subject"
+                   type="text"
+                   placeholder="Short subject (e.g. Billing, Results, Setup)"
+                   class="mb-2 block w-full rounded-md border-slate-300 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+
+            <div class="flex items-end gap-2">
+                <textarea id="support-input"
+                          rows="2"
+                          placeholder="Type your message..."
+                          class="flex-1 resize-none rounded-md border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                <button type="submit"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span class="sr-only">Send message</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                         stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                              d="M4.5 19.5 19.5 12 4.5 4.5 7.5 12l-3 7.5z" />
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        (() => {
+            const bubble = document.getElementById("support-bubble");
+            const panel = document.getElementById("support-panel");
+            const closeBtn = document.getElementById("support-close");
+            const form = document.getElementById("support-form");
+            const input = document.getElementById("support-input");
+            const subjectInput = document.getElementById("support-subject");
+            const messagesEl = document.getElementById("support-messages");
+
+            let connection = null;
+            let currentTicketId = null;
+            let connectionStarted = false;
+
+            function appendMessage(text, fromSelf) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "flex " + (fromSelf ? "justify-end" : "justify-start");
+
+                const bubble = document.createElement("div");
+                bubble.className =
+                    "max-w-[80%] rounded-2xl px-3 py-2 text-xs shadow-sm " +
+                    (fromSelf
+                        ? "bg-indigo-600 text-white rounded-br-sm"
+                        : "bg-white text-slate-900 border border-slate-200 rounded-bl-sm");
+                bubble.textContent = text;
+
+                wrapper.appendChild(bubble);
+                messagesEl.appendChild(wrapper);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+
+            async function ensureConnection() {
+                if (connectionStarted) return;
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("/hubs/support")
+                    .withAutomaticReconnect()
+                    .build();
+
+                connection.on("ReceiveSupportMessage", (ticketId, message, fromSchoolAdmin) => {
+                    currentTicketId = currentTicketId || ticketId;
+                    appendMessage(message, fromSchoolAdmin);
+                });
+
+                connection.onreconnected(() => {
+                    connection.invoke("JoinSupportGroup").catch(console.error);
+                });
+
+                await connection.start();
+                connectionStarted = true;
+                await connection.invoke("JoinSupportGroup");
+            }
+
+            bubble.addEventListener("click", async () => {
+                panel.classList.toggle("hidden");
+                if (!panel.classList.contains("hidden")) {
+                    await ensureConnection();
+                    input.focus();
+                }
+            });
+
+            closeBtn.addEventListener("click", () => {
+                panel.classList.add("hidden");
+            });
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const text = input.value.trim();
+                const subject = subjectInput.value.trim() || "Support request from school admin";
+                if (!text) return;
+
+                try {
+                    await ensureConnection();
+                    if (!currentTicketId) {
+                        const ticketId = await connection.invoke("CreateTicket", subject, text);
+                        currentTicketId = ticketId;
+                    } else {
+                        await connection.invoke("SendMessage", currentTicketId, text, true);
+                    }
+                    appendMessage(text, true);
+                    input.value = "";
+                } catch (err) {
+                    console.error(err);
+                    appendMessage("Could not send message. Please try again.", false);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
+
