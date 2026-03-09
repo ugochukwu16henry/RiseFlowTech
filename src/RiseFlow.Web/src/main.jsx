@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
+import HomePage from './pages/HomePage.jsx'
 import VerifyTranscriptPage from './pages/VerifyTranscriptPage.jsx'
 import OnboardingPage from './pages/OnboardingPage.jsx'
 import SuperAdminPage from './pages/SuperAdminPage.jsx'
@@ -16,13 +17,16 @@ import ClaimChildPage from './pages/ClaimChildPage.jsx'
 import ParentSignupPage from './pages/ParentSignupPage.jsx'
 import AddStudentPage from './pages/AddStudentPage.jsx'
 import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
+import LoginPage from './pages/LoginPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/verify/transcript/:token" element={<VerifyTranscriptPage />} />
         <Route path="/onboard" element={<OnboardingPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
         <Route path="/parent" element={<ParentPage />} />
         <Route path="/teacher" element={<TeacherPage />} />

@@ -13,11 +13,22 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
   color: var(--color-neutral-text);
-  background-color: var(--color-white);
+}
+
+:root[data-theme='dark'] {
+  --color-white: #020617;
+  --color-neutral-text: #E5E7EB;
+  --color-neutral-text-secondary: #9CA3AF;
+  --color-neutral-border: #1E293B;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-height: 100vh; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-white);
+  color: var(--color-neutral-text);
+}
 #root { min-height: 100vh; }
 a { color: var(--color-deep-blue); text-decoration: none; }
 h1, h2, h3 { color: var(--color-deep-blue); font-weight: 600; margin: 0 0 0.5em; }

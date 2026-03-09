@@ -1,0 +1,113 @@
+.login-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(5, 150, 105, 0.18), transparent 55%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.28);
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.login-logo-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--color-deep-blue), var(--color-success-green));
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.4);
+}
+
+.login-header h1 {
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+}
+
+.login-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.login-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.login-field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.login-field span {
+  color: var(--color-neutral-text);
+  font-weight: 500;
+}
+
+.login-field input {
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-neutral-border);
+  font-size: 0.9rem;
+}
+
+.login-field input:focus {
+  outline: 2px solid var(--color-deep-blue);
+  outline-offset: 1px;
+}
+
+.login-error {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #7f1d1d;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.login-submit {
+  margin-top: 0.35rem;
+  min-height: 46px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--color-deep-blue), var(--color-success-green));
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-submit:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.login-footer-text {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-neutral-text-secondary);
+  text-align: center;
+}
+
+.login-footer-text a {
+  color: var(--color-deep-blue);
+  font-weight: 600;
+}
+
