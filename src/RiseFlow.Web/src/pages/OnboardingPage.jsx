@@ -1,22 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './OnboardingPage.css';
-import { apiFetch } from '../api';
+import { apiFetch, getApiBase } from '../api';
 
 export default function OnboardingPage() {
-  const [form, setForm] = useState({
-    schoolName: '',
-    address: '',
-    phone: '',
-    email: '',
-    countryCode: 'NG',
-    currencyCode: 'NGN',
-    adminEmail: '',
-    adminPassword: '',
-    adminFullName: '',
-    agreedToTermsAndDpa: false,
-  });
+  const [form, setForm] = useState({ schoolName: '', email: '' });
   const [logo, setLogo] = useState(null);
+  const [cacDocument, setCacDocument] = useState(null);
+  const [step, setStep] = useState(1);
+  const [createdSchool, setCreatedSchool] = useState(null);
   const [status, setStatus] = useState({ type: null, message: null });
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,52 +17,57 @@ export default function OnboardingPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleContinue = (e) => {
     e.preventDefault();
     if (!form.schoolName?.trim()) {
       setStatus({ type: 'error', message: 'School name is required.' });
       return;
     }
-    if (form.adminEmail?.trim() && !form.adminPassword?.trim()) {
-      setStatus({ type: 'error', message: 'Admin password is required when you provide an admin email.' });
+    if (!form.email?.trim()) {
+      setStatus({ type: 'error', message: 'School email is required.' });
       return;
     }
-    if (form.adminEmail?.trim() && !form.agreedToTermsAndDpa) {
-      setStatus({ type: 'error', message: 'You must agree to the RiseFlow Terms of Service and Data Processing Agreement to register.' });
+    setStatus({ type: null, message: null });
+    setStep(2);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.schoolName?.trim() || !form.email?.trim()) {
+      setStatus({ type: 'error', message: 'Complete step 1 before finishing setup.' });
       return;
     }
+
     setSubmitting(true);
     setStatus({ type: null, message: null });
+
     try {
       const fd = new FormData();
       fd.append('SchoolName', form.schoolName.trim());
-      fd.append('Address', form.address || '');
-      fd.append('Phone', form.phone || '');
-      fd.append('Email', form.email || '');
-      fd.append('CountryCode', form.countryCode || '');
-      fd.append('CurrencyCode', form.currencyCode || '');
-      fd.append('AdminEmail', form.adminEmail || '');
-      fd.append('AdminPassword', form.adminPassword || '');
-      fd.append('AdminFullName', form.adminFullName || '');
-      fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
+      fd.append('Email', form.email.trim());
+      fd.append('CountryCode', 'NG');
+      fd.append('CurrencyCode', 'NGN');
+      fd.append('AgreedToTermsAndDpa', 'true');
       if (logo) fd.append('Logo', logo);
+      if (cacDocument) fd.append('CacDocument', cacDocument);
 
       const res = await apiFetch('/api/schools/onboard-with-logo', {
         method: 'POST',
         body: fd,
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data.errors?.length ? data.errors.join(' ') : data.message || 'Registration failed.';
         setStatus({ type: 'error', message: msg });
         return;
       }
-      setStatus({
-        type: 'success',
-        message: `School "${data.schoolName}" has been created. You can now sign in with your admin email.`,
+
+      setCreatedSchool({
+        schoolName: data.schoolName || form.schoolName,
+        schoolId: data.schoolId || null,
       });
-      setForm({ schoolName: '', address: '', phone: '', email: '', countryCode: 'NG', currencyCode: 'NGN', adminEmail: '', adminPassword: '', adminFullName: '', agreedToTermsAndDpa: false });
-      setLogo(null);
+      setStep(3);
     } catch (err) {
       setStatus({ type: 'error', message: err.message || 'Network error.' });
     } finally {
@@ -78,102 +75,158 @@ export default function OnboardingPage() {
     }
   };
 
+  const progressIndex = step === 3 ? 3 : step;
+
+  if (step === 3 && createdSchool) {
+    return (
+      <div className="onboarding-page">
+        <div className="onboarding-card onboarding-success-card">
+          <div className="success-check" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="30" />
+              <path d="M18 33L28 43L46 24" />
+            </svg>
+          </div>
+
+          <h1 className="onboarding-title onboarding-success-title">Congratulations, {createdSchool.schoolName} is now live!</h1>
+          <p className="onboarding-intro onboarding-success-intro">Your setup is complete. Welcome to RiseFlow.</p>
+
+          <div className="school-id-box">
+            <span className="school-id-label">RiseFlow ID</span>
+            <strong className="school-id-value">{createdSchool.schoolId || 'Generated'}</strong>
+          </div>
+
+          <div className="success-actions">
+            <Link to="/school/import" className="action-card">
+              <h3>Import Students</h3>
+              <p>Upload your student list to go live faster.</p>
+            </Link>
+            <Link to="/teacher/signup" className="action-card">
+              <h3>Add Teachers</h3>
+              <p>Create teacher accounts and assign classes.</p>
+            </Link>
+            <Link to="/school" className="action-card">
+              <h3>Set Up Classes</h3>
+              <p>Organize classes, subjects, and academic terms.</p>
+            </Link>
+          </div>
+
+          <div className="next-checklist">
+            <p className="next-checklist-title">Next Steps</p>
+            <ul>
+              <li><a href={`${getApiBase()}/api/public/teacher-quick-start`} target="_blank" rel="noopener noreferrer">Download the Teacher Guide</a></li>
+              <li><Link to="/school">Add your first class</Link></li>
+              <li><Link to="/school/access-codes">Print Parent Access Codes</Link></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="onboarding-page">
       <div className="onboarding-card">
         <Link to="/" className="onboarding-back">← Back to RiseFlow</Link>
-        <h1 className="onboarding-title">Register your school</h1>
-        <p className="onboarding-intro">Create your school account, set your school name, and upload your logo. You’ll get an admin account to manage everything.</p>
+        <h1 className="onboarding-title">Welcome to RiseFlow</h1>
+        <p className="onboarding-intro">Let’s get your school digitalized in 2 minutes.</p>
 
-        <form onSubmit={handleSubmit} className="onboarding-form">
-          <fieldset className="onboarding-fieldset">
-            <legend>School details</legend>
-            <label className="onboarding-label">
-              School name <span className="required">*</span>
-              <input type="text" name="schoolName" value={form.schoolName} onChange={handleChange} required placeholder="e.g. Excellence Academy" className="onboarding-input" autoComplete="organization" />
-            </label>
-            <label className="onboarding-label">
-              Address
-              <input type="text" name="address" value={form.address} onChange={handleChange} placeholder="Full address" className="onboarding-input" />
-            </label>
-            <label className="onboarding-label">
-              Phone
-              <input type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="+234..." className="onboarding-input" />
-            </label>
-            <label className="onboarding-label">
-              School email
-              <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="school@example.com" className="onboarding-input" />
-            </label>
-            <div className="onboarding-row">
-              <label className="onboarding-label">
-                Country
-                <select name="countryCode" value={form.countryCode} onChange={handleChange} className="onboarding-input">
-                  <option value="NG">Nigeria</option>
-                  <option value="GH">Ghana</option>
-                  <option value="KE">Kenya</option>
-                  <option value="ZA">South Africa</option>
-                  <option value="TZ">Tanzania</option>
-                  <option value="UG">Uganda</option>
-                </select>
-              </label>
-              <label className="onboarding-label">
-                Currency
-                <select name="currencyCode" value={form.currencyCode} onChange={handleChange} className="onboarding-input">
-                  <option value="NGN">NGN</option>
-                  <option value="GHS">GHS</option>
-                  <option value="KES">KES</option>
-                  <option value="ZAR">ZAR</option>
-                  <option value="USD">USD</option>
-                </select>
-              </label>
-            </div>
-          </fieldset>
+        <div className="progress-strip" aria-label="Onboarding progress">
+          <div className={`progress-dot ${progressIndex >= 1 ? 'is-active' : ''}`} />
+          <div className={`progress-dot ${progressIndex >= 2 ? 'is-active' : ''}`} />
+          <div className={`progress-dot ${progressIndex >= 3 ? 'is-active' : ''}`} />
+        </div>
 
-          <fieldset className="onboarding-fieldset">
-            <legend>Logo</legend>
+        {step === 1 ? (
+          <form onSubmit={handleContinue} className="onboarding-form">
             <label className="onboarding-label">
-              School logo (optional)
-              <input type="file" accept=".png,.jpg,.jpeg,.gif,.webp" onChange={(e) => setLogo(e.target.files?.[0] || null)} className="onboarding-file" />
-              {logo && <span className="onboarding-filename">{logo.name}</span>}
-            </label>
-          </fieldset>
-
-          <fieldset className="onboarding-fieldset">
-            <legend>Admin account</legend>
-            <label className="onboarding-label">
-              Admin email
-              <input type="email" name="adminEmail" value={form.adminEmail} onChange={handleChange} placeholder="principal@school.com" className="onboarding-input" autoComplete="email" />
-            </label>
-            <label className="onboarding-label">
-              Admin full name
-              <input type="text" name="adminFullName" value={form.adminFullName} onChange={handleChange} placeholder="Principal name" className="onboarding-input" autoComplete="name" />
-            </label>
-            <label className="onboarding-label">
-              Admin password
-              <input type="password" name="adminPassword" value={form.adminPassword} onChange={handleChange} placeholder="Min 8 characters" className="onboarding-input" autoComplete="new-password" minLength={8} />
-            </label>
-            <label className="onboarding-label onboarding-checkbox">
+              School Name
               <input
-                type="checkbox"
-                name="agreedToTermsAndDpa"
-                checked={form.agreedToTermsAndDpa}
-                onChange={(e) => setForm((prev) => ({ ...prev, agreedToTermsAndDpa: e.target.checked }))}
+                type="text"
+                name="schoolName"
+                value={form.schoolName}
+                onChange={handleChange}
+                required
+                placeholder="e.g. Bright Future Academy"
                 className="onboarding-input"
+                autoComplete="organization"
               />
-              <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">RiseFlow Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Data Processing Agreement</a>.</span>
             </label>
-          </fieldset>
 
-          {status.message && (
-            <div className={`onboarding-status onboarding-status--${status.type}`} role="alert">
-              {status.message}
+            <label className="onboarding-label">
+              School Email
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                required
+                placeholder="school@example.com"
+                className="onboarding-input"
+                autoComplete="email"
+              />
+            </label>
+
+            {status.message && (
+              <div className={`onboarding-status onboarding-status--${status.type}`} role="alert">
+                {status.message}
+              </div>
+            )}
+
+            <button type="submit" className="onboarding-submit">Continue Setup</button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="onboarding-form">
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">School Logo</p>
+              <label className="upload-dropzone" htmlFor="logo-upload">
+                <span className="upload-icon" aria-hidden="true">+</span>
+                <span>Click to upload or drag and drop</span>
+                <small>PNG, JPG up to 5MB</small>
+              </label>
+              <input
+                id="logo-upload"
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp"
+                onChange={(e) => setLogo(e.target.files?.[0] || null)}
+                className="sr-only"
+              />
+              {logo && <span className="onboarding-filename">{logo.name}</span>}
             </div>
-          )}
 
-          <button type="submit" className="onboarding-submit" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Register school'}
-          </button>
-        </form>
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">CAC Document</p>
+              <label className="upload-dropzone" htmlFor="cac-upload">
+                <span className="upload-icon" aria-hidden="true">+</span>
+                <span>Upload CAC certificate</span>
+                <small>PDF, PNG, JPG up to 10MB</small>
+              </label>
+              <input
+                id="cac-upload"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={(e) => setCacDocument(e.target.files?.[0] || null)}
+                className="sr-only"
+              />
+              {cacDocument && <span className="onboarding-filename">{cacDocument.name}</span>}
+            </div>
+
+            {status.message && (
+              <div className={`onboarding-status onboarding-status--${status.type}`} role="alert">
+                {status.message}
+              </div>
+            )}
+
+            <div className="wizard-actions">
+              <button type="button" className="onboarding-secondary" onClick={() => setStep(1)} disabled={submitting}>Back</button>
+              <button type="submit" className="onboarding-submit" disabled={submitting}>
+                {submitting ? 'Finishing setup…' : 'Continue to Dashboard'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <p className="onboarding-footnote">Mobile-friendly setup: complete onboarding in under 60 seconds.</p>
       </div>
     </div>
   );
