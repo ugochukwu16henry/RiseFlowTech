@@ -129,6 +129,23 @@ public class SchoolsController : ControllerBase
             return NotFound();
         return Ok(school);
     }
+
+    /// <summary>
+    /// Mark that the school's signed Data Consent forms have been received (NDPA compliance). SuperAdmin only.
+    /// </summary>
+    [HttpPatch("{id:guid}/data-consent-received")]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> MarkDataConsentReceived(Guid id, CancellationToken ct)
+    {
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (school == null)
+            return NotFound();
+        school.DataConsentFormReceivedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }
 
 public record SchoolDashboardDto(int ActiveStudentCount, decimal UnpaidFeesTotal, string CurrencyCode);

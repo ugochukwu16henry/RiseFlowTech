@@ -125,3 +125,17 @@
 }
 .btn-upload-photo:hover:not(:disabled) { background: #f1f5f9; }
 .btn-upload-photo:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.control-room-intro { font-size: 0.875rem; color: var(--color-neutral-text-secondary); margin: 0 0 0.5rem; }
+.compliance-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.compliance-item {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.6rem 0; border-bottom: 1px solid var(--color-neutral-border);
+}
+.compliance-item:last-child { border-bottom: none; }
+.btn-mark-received {
+  font-size: 0.8125rem; padding: 0.4rem 0.75rem; font-weight: 600;
+  background: var(--color-success-green); color: var(--color-white); border: none; border-radius: 6px; cursor: pointer;
+}
+.btn-mark-received:hover:not(:disabled) { opacity: 0.92; }
+.btn-mark-received:disabled { opacity: 0.7; cursor: not-allowed; }

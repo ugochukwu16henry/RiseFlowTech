@@ -62,6 +62,35 @@ public class SuperAdminController : ControllerBase
             .Select(x => new SchoolsByCountryDto(x.Code, CountryNames.GetValueOrDefault(x.Code, x.Code), x.Count))
             .ToList();
 
+        // Payment delinquency: schools with >50 students and at least one unpaid billing record
+        var over50Ids = await _db.Students.Where(st => st.IsActive).GroupBy(st => st.SchoolId)
+            .Where(g => g.Count() > CountryBillingConfig.FreeTierStudentCount)
+            .Select(g => g.Key).ToListAsync(ct);
+        var unpaidRecords = over50Ids.Count > 0
+            ? await _db.BillingRecords
+                .Where(b => over50Ids.Contains(b.SchoolId) && b.AmountDue > 0 && (b.AmountPaid == null || b.AmountPaid < b.AmountDue))
+                .OrderByDescending(b => b.CreatedAtUtc)
+                .ToListAsync(ct)
+            : new List<BillingRecord>();
+        var latestUnpaidBySchool = unpaidRecords.GroupBy(b => b.SchoolId).ToDictionary(g => g.Key, g => g.First());
+        var studentCountBySchool = await _db.Students.Where(st => st.IsActive && over50Ids.Contains(st.SchoolId))
+            .GroupBy(st => st.SchoolId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
+        var countDict = studentCountBySchool.ToDictionary(x => x.Key, x => x.Count);
+        var schoolsOver50 = await _db.Schools.AsNoTracking().Where(s => over50Ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct);
+        var paymentDelinquency = schoolsOver50
+            .Where(s => latestUnpaidBySchool.ContainsKey(s.Id))
+            .Select(s => new PaymentDelinquencyDto(s.Id, s.Name, countDict.GetValueOrDefault(s.Id, 0), latestUnpaidBySchool[s.Id].AmountDue, latestUnpaidBySchool[s.Id].CurrencyCode))
+            .ToList();
+
+        // Data health: schools that have completed term results (at least one StudentResult)
+        var schoolsWithTermResultsCount = await _db.Students.Where(s => s.Results.Any()).Select(s => s.SchoolId).Distinct().CountAsync(ct);
+
+        // Compliance: schools that have not yet had signed Data Consent forms recorded
+        var compliancePending = await _db.Schools.AsNoTracking()
+            .Where(s => s.IsActive && s.DataConsentFormReceivedAt == null)
+            .Select(s => new ComplianceSchoolDto(s.Id, s.Name))
+            .ToListAsync(ct);
+
         return Ok(new SuperAdminDashboardDto(
             TotalSchools: totalSchools,
             ActiveSchools: activeSchools,
@@ -71,7 +100,10 @@ public class SuperAdminController : ControllerBase
             MonthlyRevenueUsd: monthlyRevenueUsd,
             BillingRecordsCount: billingRecordsCount,
             TotalResultsProcessed: totalResultsProcessed,
-            SchoolsByCountry: schoolsByCountry));
+            SchoolsByCountry: schoolsByCountry,
+            PaymentDelinquency: paymentDelinquency,
+            SchoolsWithTermResultsCount: schoolsWithTermResultsCount,
+            CompliancePending: compliancePending));
     }
 
     /// <summary>Audit log: who did what (e.g. grade changes). Super Admin only.</summary>

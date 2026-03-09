@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -14,9 +14,9 @@ export default function SuperAdminPage() {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [markingId, setMarkingId] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([
@@ -24,18 +24,26 @@ export default function SuperAdminPage() {
       apiFetch('/api/schools').then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([dash, list]) => {
-        if (cancelled) return;
         setDashboard(dash || null);
         setSchools(Array.isArray(list) ? list : []);
       })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load data');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+      .catch((err) => setError(err.message || 'Failed to load data'))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function markDataConsentReceived(schoolId) {
+    setMarkingId(schoolId);
+    try {
+      const r = await apiFetch(`/api/schools/${schoolId}/data-consent-received`, { method: 'PATCH' });
+      if (r.ok) load();
+    } finally {
+      setMarkingId(null);
+    }
+  }
 
   if (loading) return <PageLayout title="Super Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
   if (error) return <PageLayout title="Super Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
@@ -44,28 +52,75 @@ export default function SuperAdminPage() {
     <PageLayout title="Super Admin — Control Room">
       <h2 className="section-title">Platform overview</h2>
       {dashboard && (
-        <div className="summary-cards">
-          <div className="summary-card">
-            <span className="summary-value">{dashboard.totalSchools ?? 0}</span>
-            <span className="summary-label">Total schools</span>
+        <>
+          <p className="control-room-intro">Top metrics for platform health (African markets — NDPA/NDPC aware).</p>
+          <div className="summary-cards">
+            <div className="summary-card">
+              <span className="summary-value">{formatMoney(dashboard.monthlyRevenueUsd)}</span>
+              <span className="summary-label">Total revenue (MRR) — this month</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value">{dashboard.activeStudents ?? 0}</span>
+              <span className="summary-label">Active students</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value">{dashboard.totalSchools ?? 0}</span>
+              <span className="summary-label">Total schools</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value">{dashboard.schoolsWithTermResultsCount ?? 0} / {dashboard.activeSchools ?? 0}</span>
+              <span className="summary-label">Data health — schools with term results</span>
+            </div>
+            <div className="summary-card">
+              <span className="summary-value">{formatMoney(dashboard.totalRevenueUsd)}</span>
+              <span className="summary-label">Total revenue (all time)</span>
+            </div>
           </div>
-          <div className="summary-card">
-            <span className="summary-value">{dashboard.activeSchools ?? 0}</span>
-            <span className="summary-label">Active schools</span>
+        </>
+      )}
+
+      {dashboard?.paymentDelinquency?.length > 0 && (
+        <>
+          <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Payment delinquency</h3>
+          <p className="card-desc">Schools with more than 50 students that have not paid (may result in read-only access).</p>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>School</th>
+                  <th>Students</th>
+                  <th>Amount due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboard.paymentDelinquency.map((d) => (
+                  <tr key={d.schoolId}>
+                    <td>{d.schoolName}</td>
+                    <td>{d.studentCount}</td>
+                    <td>{formatMoney(d.amountDue, d.currencyCode)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="summary-card">
-            <span className="summary-value">{dashboard.totalStudents ?? 0}</span>
-            <span className="summary-label">Total students</span>
-          </div>
-          <div className="summary-card">
-            <span className="summary-value">{formatMoney(dashboard.monthlyRevenueUsd)}</span>
-            <span className="summary-label">Monthly revenue</span>
-          </div>
-          <div className="summary-card">
-            <span className="summary-value">{formatMoney(dashboard.totalRevenueUsd)}</span>
-            <span className="summary-label">Total revenue</span>
-          </div>
-        </div>
+        </>
+      )}
+
+      {dashboard?.compliancePending?.length > 0 && (
+        <>
+          <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Compliance status — signed Data Consent not yet received</h3>
+          <p className="card-desc">Schools that have not yet uploaded their signed Data Consent forms (NDPA 2023). Mark when you receive them.</p>
+          <ul className="compliance-list">
+            {dashboard.compliancePending.map((s) => (
+              <li key={s.schoolId} className="compliance-item">
+                <span>{s.schoolName}</span>
+                <button type="button" className="btn-mark-received" onClick={() => markDataConsentReceived(s.schoolId)} disabled={markingId === s.schoolId}>
+                  {markingId === s.schoolId ? 'Saving…' : 'Mark received'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {dashboard?.schoolsByCountry?.length > 0 && (
@@ -82,7 +137,7 @@ export default function SuperAdminPage() {
         </>
       )}
 
-      <h2 className="section-title" style={{ marginTop: '2rem' }}>All schools (from database)</h2>
+      <h2 className="section-title" style={{ marginTop: '2rem' }}>All schools</h2>
       {schools.length === 0 ? (
         <p className="empty-state">No schools yet. Schools register via the onboarding page.</p>
       ) : (
