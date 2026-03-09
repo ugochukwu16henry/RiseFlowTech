@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
-import { apiFetch, getApiBase } from '../api';
+import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 
 function formatMoney(amount, currencyCode) {
@@ -20,6 +20,7 @@ export default function SchoolAdminPage() {
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const fileInputRefs = useRef({});
+  const [paying, setPaying] = useState(false);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -41,6 +42,31 @@ export default function SchoolAdminPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const currentBilling = billing.length > 0 ? billing[0] : null;
+  const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
+
+  const handlePayWithPaystack = async () => {
+    if (!currentBilling || outstanding <= 0 || paying) return;
+    setPaying(true);
+    try {
+      const res = await apiFetch('/api/billing/initiate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingRecordId: currentBilling.id }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (data.authorizationUrl) {
+        window.location.assign(data.authorizationUrl);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-alert
+      alert(e.message || 'Could not start payment. Try again or contact support.');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const onPhotoFileChange = async (studentId, e) => {
     const file = e.target?.files?.[0];
@@ -64,6 +90,22 @@ export default function SchoolAdminPage() {
 
   return (
     <PageLayout title="School Admin">
+      {outstanding > 0 && (
+        <div className="access-codes-result access-codes-result--error" style={{ marginBottom: '1rem' }}>
+          <p style={{ margin: 0 }}>
+            You have an outstanding balance of <strong>{formatMoney(outstanding, currencyCode)}</strong> for {currentBilling?.periodLabel || 'this period'}.
+          </p>
+          <button
+            type="button"
+            className="btn-excel btn-generate"
+            style={{ marginTop: '0.5rem' }}
+            onClick={handlePayWithPaystack}
+            disabled={paying}
+          >
+            {paying ? 'Redirecting…' : 'Pay with Paystack'}
+          </button>
+        </div>
+      )}
       <h2 className="section-title">Dashboard (from database)</h2>
       {dashboard && (
         <div className="summary-cards">
@@ -169,6 +211,10 @@ export default function SchoolAdminPage() {
         Manage access codes
       </Link>
 
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with teachers</h2>
+      <p className="card-desc">Share this link with teachers so they can sign up directly under your school.</p>
+      <TeacherSignupLink />
+
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
       <p className="card-desc">Import students from Excel with preview and validation. First 50 students free.</p>
       <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
@@ -203,3 +249,26 @@ export default function SchoolAdminPage() {
     </PageLayout>
   );
 }
+
+function TeacherSignupLink() {
+  const schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+  const teacherSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/teacher/signup?school=${schoolId}` : '';
+
+  const copyTeacherSignup = () => {
+    if (teacherSignupUrl) navigator.clipboard.writeText(teacherSignupUrl);
+  };
+
+  if (!teacherSignupUrl) {
+    return <p className="empty-state">Sign in as School Admin and select your school to see your teacher signup link here.</p>;
+  }
+
+  return (
+    <div className="parent-signup-link-box" style={{ marginTop: '0.5rem' }}>
+      <code className="parent-signup-url">{teacherSignupUrl}</code>
+      <button type="button" className="btn-copy" onClick={copyTeacherSignup} title="Copy teacher signup link">
+        Copy link
+      </button>
+    </div>
+  );
+}
+
