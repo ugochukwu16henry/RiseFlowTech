@@ -110,12 +110,14 @@ export default function OnboardingPage() {
           {createdSchool.logoPath && (
             <div className="logo-preview-box">
               <span className="school-id-label">School Logo Preview</span>
-              <img
-                src={buildPublicUrl(createdSchool.logoPath)}
-                alt={`${createdSchool.schoolName} logo`}
-                className="logo-preview-image"
-                loading="lazy"
-              />
+              <a href={buildPublicUrl(createdSchool.logoPath)} target="_blank" rel="noopener noreferrer" className="logo-preview-link" title="Open full logo">
+                <img
+                  src={buildPublicUrl(createdSchool.logoPath)}
+                  alt={`${createdSchool.schoolName} logo`}
+                  className="logo-preview-image"
+                  loading="lazy"
+                />
+              </a>
             </div>
           )}
 
