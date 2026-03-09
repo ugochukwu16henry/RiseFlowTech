@@ -24,12 +24,24 @@
   margin-bottom: 1.25rem;
 }
 
+.login-logo-img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .login-logo-dot {
   width: 40px;
   height: 40px;
   border-radius: 14px;
   background: linear-gradient(135deg, var(--color-deep-blue), var(--color-success-green));
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.4);
+  flex-shrink: 0;
+}
+
+.login-header-text {
+  min-width: 0;
 }
 
 .login-header h1 {

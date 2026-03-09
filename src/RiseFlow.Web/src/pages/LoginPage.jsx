@@ -65,8 +65,19 @@ export default function LoginPage() {
     <div className="login-root">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo-dot" aria-hidden="true" />
-          <div>
+          <img
+            src="/logos/RiseFlow%20logo.jpg"
+            alt=""
+            className="login-logo-img"
+            aria-hidden="true"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              const fallback = e.target.nextElementSibling;
+              if (fallback) fallback.style.display = 'block';
+            }}
+          />
+          <div className="login-logo-dot" style={{ display: 'none' }} aria-hidden="true" />
+          <div className="login-header-text">
             <h1>Sign in to RiseFlow</h1>
             <p>School Admins, Teachers, Parents and Super Admins sign in here.</p>
           </div>
