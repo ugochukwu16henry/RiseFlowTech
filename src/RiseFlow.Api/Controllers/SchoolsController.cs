@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
+using RiseFlow.Api.Models;
 using RiseFlow.Api.Services;
 
 namespace RiseFlow.Api.Controllers;

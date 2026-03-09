@@ -132,7 +132,7 @@ public class StudentsController : ControllerBase
                 var label = $"{first.Term.Name} {first.Term.AcademicYear}";
                 return new PerformanceTrendPoint(first.TermId, label, decimal.Round(avgPct, 1));
             })
-            .OrderBy(p => p.Label)
+            .OrderBy(p => p.Term)
             .TakeLast(3)
             .ToList();
 
