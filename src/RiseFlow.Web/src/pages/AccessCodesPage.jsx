@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../components/PageLayout';
-import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 import './AccessCodesPage.css';
 
 export default function AccessCodesPage() {
   const [list, setList] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -27,6 +29,15 @@ export default function AccessCodesPage() {
       .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/api/schools/classes')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => { if (!cancelled) setClasses(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setClasses([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGenerateAll = async () => {
     setGenerating(true);
@@ -82,6 +93,37 @@ export default function AccessCodesPage() {
         ) : (
           <p className="empty-state">Sign in as School Admin and select your school to see your parent signup link here.</p>
         )}
+      </section>
+
+      <section className="parent-welcome-letters-section" aria-label="Parent Welcome Letters">
+        <h2 className="section-title">Parent Welcome Letters (NDPA 2023)</h2>
+        <p className="card-desc">
+          Generate a PDF with one letter per student (school logo, access code, and data protection consent). Hand these to parents when onboarding. Students without a code will get one generated.
+        </p>
+        <div className="access-codes-actions" style={{ flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <label className="access-codes-label">
+            Class:
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="access-codes-class-select"
+              aria-label="Filter by class"
+            >
+              <option value="">All classes</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+          <a
+            href={`${getApiBase()}/api/students/parent-welcome-letters${selectedClassId ? `?classId=${selectedClassId}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-excel btn-download"
+          >
+            Print All Parent Letters (PDF)
+          </a>
+        </div>
       </section>
 
       <div className="access-codes-actions">

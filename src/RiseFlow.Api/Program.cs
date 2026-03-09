@@ -69,6 +69,7 @@ builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddSingleton<GradingReferencePdfService>();
+builder.Services.AddSingleton<ParentWelcomeLetterPdfService>();
 builder.Services.AddScoped<StudentBulkUploadService>();
 builder.Services.AddScoped<ExcelService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();

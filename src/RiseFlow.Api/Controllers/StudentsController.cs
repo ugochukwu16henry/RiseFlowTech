@@ -22,14 +22,16 @@ public class StudentsController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly StudentBulkUploadService _bulkUpload;
     private readonly ExcelService _excelService;
+    private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf)
     {
         _db = db;
         _tenant = tenant;
         _env = env;
         _bulkUpload = bulkUpload;
         _excelService = excelService;
+        _parentLetterPdf = parentLetterPdf;
     }
 
     [HttpGet]
@@ -304,6 +306,54 @@ public class StudentsController : ControllerBase
         var totalStudents = await _db.Students.CountAsync(s => s.SchoolId == schoolId, ct);
         var withCode = await _db.Students.CountAsync(s => s.SchoolId == schoolId && !string.IsNullOrEmpty(s.ParentAccessCode), ct);
         return Ok(new GenerateAccessCodesResult(generated, totalStudents, withCode));
+    }
+
+    /// <summary>Generate Parent Welcome Letters (one page per student) for printing. SchoolAdmin only. Optionally filter by classId. Students without a code get one generated.</summary>
+    [HttpGet("parent-welcome-letters")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetParentWelcomeLettersPdf([FromQuery] Guid? classId, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+        var query = _db.Students.Include(s => s.Class).Where(s => s.SchoolId == schoolId);
+        if (classId.HasValue)
+            query = query.Where(s => s.ClassId == classId.Value);
+        var students = await query.ToListAsync(ct);
+        for (var i = 0; i < students.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(students[i].ParentAccessCode))
+            {
+                students[i].ParentAccessCode = await GenerateUniqueAccessCodeAsync(schoolId, ct);
+            }
+        }
+        await _db.SaveChangesAsync(ct);
+        var list = students
+            .Select(s => (
+                StudentFullName: $"{s.FirstName} {s.LastName}".Trim(),
+                AccessCode: s.ParentAccessCode ?? ""
+            ))
+            .Where(x => !string.IsNullOrEmpty(x.AccessCode))
+            .ToList();
+        if (list.Count == 0)
+            return NotFound("No students to generate letters for.");
+        byte[]? logoBytes = null;
+        if (!string.IsNullOrEmpty(school.LogoFileName))
+        {
+            var root = _env.WebRootPath ?? _env.ContentRootPath;
+            var path = Path.Combine(root, school.LogoFileName.Replace('/', Path.DirectorySeparatorChar));
+            if (System.IO.File.Exists(path))
+            {
+                try { logoBytes = await System.IO.File.ReadAllBytesAsync(path, ct); } catch { /* ignore */ }
+            }
+        }
+        var pdfBytes = _parentLetterPdf.GeneratePdf(school.Name, logoBytes, list, DateTime.UtcNow);
+        return File(pdfBytes, "application/pdf", "RiseFlow-Parent-Welcome-Letters.pdf");
     }
 
     /// <summary>Generate a unique parent access code (e.g. RF-7G2B) for the school. 6-char format: RF- plus 4 from safe charset (no 0,O,1,I) so parents can type it easily. Parent enters this in the app to claim their child.</summary>

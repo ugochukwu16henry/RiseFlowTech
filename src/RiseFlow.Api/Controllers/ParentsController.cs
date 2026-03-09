@@ -114,7 +114,10 @@ public class ParentsController : ControllerBase
 
         var alreadyLinked = await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
         if (alreadyLinked)
-            return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Already linked."));
+        {
+            var linkedNames = await GetLinkedChildNamesAsync(parent.Id, ct);
+            return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Already linked.", linkedNames));
+        }
 
         _db.StudentParents.Add(new StudentParent
         {
@@ -124,7 +127,16 @@ public class ParentsController : ControllerBase
             CreatedAtUtc = DateTime.UtcNow
         });
         await _db.SaveChangesAsync(ct);
-        return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Linked successfully."));
+        var names = await GetLinkedChildNamesAsync(parent.Id, ct);
+        return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Linked successfully.", names));
+    }
+
+    private async Task<List<string>> GetLinkedChildNamesAsync(Guid parentId, CancellationToken ct)
+    {
+        var linkedIds = await _db.StudentParents.Where(sp => sp.ParentId == parentId).Select(sp => sp.StudentId).ToListAsync(ct);
+        if (linkedIds.Count == 0) return new List<string>();
+        var students = await _db.Students.AsNoTracking().Where(s => linkedIds.Contains(s.Id)).OrderBy(s => s.FirstName).ThenBy(s => s.LastName).ToListAsync(ct);
+        return students.Select(s => $"{s.FirstName} {s.LastName}".Trim()).ToList();
     }
 
     /// <summary>
@@ -206,4 +218,4 @@ public record ParentSignupRequest(Guid SchoolId, string Email, string? Password,
 public record ParentSignupResult(bool Success, string Message);
 
 public record LinkByCodeRequest(string Code);
-public record LinkByCodeResult(bool Success, Guid StudentId, string StudentName, string Message);
+public record LinkByCodeResult(bool Success, Guid StudentId, string StudentName, string Message, List<string>? LinkedChildNames = null);

@@ -87,9 +87,19 @@ export default function ClaimChildPage() {
 
         {result && (
           <div className="claim-success" role="status">
-            <p className="claim-success-title">Child linked</p>
-            <p className="claim-success-msg">{result.message}</p>
-            <p className="card-desc">You can now see {result.studentName}&apos;s results and teacher contacts on your Parent dashboard.</p>
+            <p className="claim-success-title">
+              {result.linkedChildNames?.length >= 2
+                ? `${result.studentName} added to your family`
+                : 'Child linked'}
+            </p>
+            <p className="claim-success-msg">
+              {result.linkedChildNames?.length >= 2
+                ? `Success! ${result.studentName} has been added to your family dashboard. You can now switch between ${result.linkedChildNames.join(' and ')} using the top menu.`
+                : result.message}
+            </p>
+            <p className="card-desc">
+              You can now see {result.studentName}&apos;s results and teacher contacts on your Parent dashboard.
+            </p>
           </div>
         )}
       </div>
