@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RiseFlow.Api.Data;
@@ -11,9 +12,11 @@ using RiseFlow.Api.Data;
 namespace RiseFlow.Api.Migrations
 {
     [DbContext(typeof(RiseFlowDbContext))]
-    partial class RiseFlowDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260309030038_AddPrimaryAssessments")]
+    partial class AddPrimaryAssessments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

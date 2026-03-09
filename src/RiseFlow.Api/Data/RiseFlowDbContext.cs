@@ -36,6 +36,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<StudentResult> StudentResults => Set<StudentResult>();
     public DbSet<BillingRecord> BillingRecords => Set<BillingRecord>();
     public DbSet<TranscriptVerification> TranscriptVerifications => Set<TranscriptVerification>();
+    public DbSet<AssessmentCategory> AssessmentCategories => Set<AssessmentCategory>();
+    public DbSet<AssessmentItem> AssessmentItems => Set<AssessmentItem>();
+    public DbSet<StudentAssessment> StudentAssessments => Set<StudentAssessment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -217,6 +220,33 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Name).IsRequired().HasMaxLength(64);
             e.Property(x => x.AcademicYear).IsRequired().HasMaxLength(16);
             e.HasOne(x => x.School).WithMany(s => s.AcademicTerms).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AssessmentCategory
+        builder.Entity<AssessmentCategory>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            e.HasOne(x => x.School).WithMany(s => s.AssessmentCategories).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AssessmentItem
+        builder.Entity<AssessmentItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Label).IsRequired().HasMaxLength(256);
+            e.HasOne(x => x.Category).WithMany(c => c.Items).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // StudentAssessment
+        builder.Entity<StudentAssessment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Value).HasMaxLength(32);
+            e.Property(x => x.Comment).HasMaxLength(512);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Term).WithMany(t => t.StudentAssessments).HasForeignKey(x => x.TermId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Item).WithMany(i => i.StudentAssessments).HasForeignKey(x => x.AssessmentItemId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // StudentResult

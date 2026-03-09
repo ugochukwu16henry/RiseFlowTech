@@ -17,4 +17,5 @@ public class AcademicTerm : ITenantEntity
 
     public School School { get; set; } = null!;
     public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
+    public ICollection<StudentAssessment> StudentAssessments { get; set; } = new List<StudentAssessment>();
 }

@@ -188,9 +188,19 @@ public class ResultsController : ControllerBase
             })
             .OrderByDescending(x => x.TotalScore)
             .ToList();
+
+        // Dense ranking: students with the same total share the same position; next distinct score increments by 1 (1,2,2,3…)
         var rankings = new List<ClassRankingDto>();
+        int position = 0;
+        decimal? lastScore = null;
         for (var i = 0; i < byStudent.Count; i++)
-            rankings.Add(new ClassRankingDto(byStudent[i].StudentId, byStudent[i].StudentName, byStudent[i].TotalScore, byStudent[i].MaxTotal, byStudent[i].Percentage, i + 1));
+        {
+            var current = byStudent[i];
+            if (lastScore == null || current.TotalScore < lastScore.Value)
+                position++;
+            rankings.Add(new ClassRankingDto(current.StudentId, current.StudentName, current.TotalScore, current.MaxTotal, current.Percentage, position));
+            lastScore = current.TotalScore;
+        }
         return Ok(rankings);
     }
 

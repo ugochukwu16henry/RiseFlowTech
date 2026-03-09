@@ -31,4 +31,5 @@ public class School
     public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
     public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
+    public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
 }

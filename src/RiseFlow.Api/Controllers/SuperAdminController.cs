@@ -40,6 +40,7 @@ public class SuperAdminController : ControllerBase
         var activeStudents = await _db.Students.CountAsync(s => s.IsActive, ct);
         var totalRevenue = await _billing.GetTotalRevenueUsdAsync(ct);
         var billingRecordsCount = await _db.BillingRecords.CountAsync(ct);
+        var totalResultsProcessed = await _db.StudentResults.LongCountAsync(ct);
 
         var now = DateTime.UtcNow;
         var firstOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -68,6 +69,7 @@ public class SuperAdminController : ControllerBase
             TotalRevenueUsd: totalRevenue,
             MonthlyRevenueUsd: monthlyRevenueUsd,
             BillingRecordsCount: billingRecordsCount,
+            TotalResultsProcessed: totalResultsProcessed,
             SchoolsByCountry: schoolsByCountry));
     }
 }
