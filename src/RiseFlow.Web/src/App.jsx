@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import './App.css';
 import { apiFetch, getApiBase } from './api';
 
@@ -96,32 +97,32 @@ function card(id, to, title, desc, icon, className) {
 
 const DASHBOARD_BY_ROLE = {
   [ROLES.Parent]: [
-    card('results', '#results', 'View Results', 'See latest grades and report cards', IconResults, 'card--results'),
-    card('message', '#message', 'Message Teacher', 'Contact your child’s teacher', IconMessage, 'card--message'),
-    card('pay', '#pay', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
+    card('results', '/parent', 'View Results', 'See latest grades and report cards', IconResults, 'card--results'),
+    card('message', '/parent', 'Message Teacher', 'Contact your child’s teacher', IconMessage, 'card--message'),
+    card('pay', '/parent', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
   ],
   [ROLES.Teacher]: [
-    card('upload', '#upload', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
-    card('classes', '#classes', 'My Classes', 'View and manage your classes', IconBook, 'card--message'),
-    card('students', '#students', 'My Students', 'See student lists by class', IconUsers, 'card--pay'),
-    card('parents', '#parents', 'Contact Parents', 'Message parents and guardians', IconMessage, 'card--message'),
+    card('upload', '/teacher', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
+    card('classes', '/teacher', 'My Classes', 'View and manage your classes', IconBook, 'card--message'),
+    card('students', '/teacher', 'My Students', 'See student lists by class', IconUsers, 'card--pay'),
+    card('parents', '/teacher', 'Contact Parents', 'Message parents and guardians', IconMessage, 'card--message'),
   ],
   [ROLES.SchoolAdmin]: [
-    card('school', '#school', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
-    card('billing', '#billing', 'Billing & Fees', 'View billing and collect fees', IconPay, 'card--results'),
-    card('people', '#people', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
-    card('reports', '#reports', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
+    card('school', '/school', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
+    card('billing', '/school', 'Billing & Fees', 'View billing and collect fees', IconPay, 'card--results'),
+    card('people', '/school', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
+    card('reports', '/school', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
   ],
   [ROLES.Student]: [
-    card('results', '#results', 'My Results', 'View your grades', IconResults, 'card--results'),
-    card('classes', '#classes', 'My Classes', 'See your class and timetable', IconBook, 'card--message'),
-    card('teachers', '#teachers', 'My Teachers', 'Contact your teachers', IconMessage, 'card--pay'),
+    card('results', '/student', 'My Results', 'View your grades', IconResults, 'card--results'),
+    card('classes', '/student', 'My Classes', 'See your class and timetable', IconBook, 'card--message'),
+    card('teachers', '/student', 'My Teachers', 'Contact your teachers', IconMessage, 'card--pay'),
   ],
   [ROLES.SuperAdmin]: [
-    card('control', '#control', 'Control Room', 'Platform stats and overview', IconChart, 'card--message'),
-    card('billing', '#billing', 'Billing', 'All schools billing and revenue', IconPay, 'card--results'),
-    card('schools', '#schools', 'Schools', 'Manage all schools', IconSchool, 'card--pay'),
-    card('transcripts', '#transcripts', 'Transcripts', 'Transcript verification', IconResults, 'card--message'),
+    card('control', '/super-admin', 'Control Room', 'Platform stats and overview', IconChart, 'card--message'),
+    card('billing', '/super-admin', 'Billing', 'All schools billing and revenue', IconPay, 'card--results'),
+    card('schools', '/super-admin', 'Schools', 'Manage all schools', IconSchool, 'card--pay'),
+    card('transcripts', '/super-admin', 'Transcripts', 'Transcript verification', IconResults, 'card--message'),
   ],
 };
 
@@ -359,7 +360,12 @@ function App() {
             )}
           </a>
           <nav className="header-nav">
-            <a href="/onboard" className="header-link">Register school</a>
+            <Link to="/school" className="header-link">School Admin</Link>
+            <Link to="/teacher" className="header-link">Teacher</Link>
+            <Link to="/student" className="header-link">Student</Link>
+            <Link to="/parent" className="header-link">Parent</Link>
+            <Link to="/super-admin" className="header-link">Super Admin</Link>
+            <Link to="/onboard" className="header-link">Register school</Link>
           </nav>
           <label className="role-switcher">
             <span className="role-switcher-label">View as</span>
@@ -507,9 +513,9 @@ function App() {
         <h2 className="section-title">Quick actions</h2>
         <div className="cards" role="navigation" aria-label="Quick actions">
           {cards.map(({ id, to, title, desc, icon: Icon, className }) => (
-            <a
+            <Link
               key={id}
-              href={to}
+              to={to}
               className={`card ${className}`}
               style={{ minHeight: 'var(--touch-min)' }}
             >
@@ -518,7 +524,7 @@ function App() {
               </div>
               <h3 className="card-title">{title}</h3>
               <p className="card-desc">{desc}</p>
-            </a>
+            </Link>
           ))}
         </div>
 
