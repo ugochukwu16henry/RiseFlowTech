@@ -83,7 +83,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="home-hero-meta">
-              <span>• First 50 students free every month</span>
+              <span>• First 50 students free after you register your school</span>
               <span>• Paystack-powered billing in Naira</span>
               <span>• Designed for primary &amp; secondary schools</span>
             </div>

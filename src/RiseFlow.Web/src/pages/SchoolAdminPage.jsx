@@ -216,7 +216,7 @@ export default function SchoolAdminPage() {
       <TeacherSignupLink />
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
-      <p className="card-desc">Import students from Excel with preview and validation. First 50 students free.</p>
+      <p className="card-desc">Import students from Excel with preview and validation. First 50 students free after you register your school.</p>
       <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
         Open Excel import
       </Link>
