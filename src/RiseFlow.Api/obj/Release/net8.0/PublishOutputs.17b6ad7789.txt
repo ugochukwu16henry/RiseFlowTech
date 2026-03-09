@@ -1,6 +1,7 @@
 C:\Users\Dell\Documents\RiseFlowTech\out\RiseFlow.Api.exe
 C:\Users\Dell\Documents\RiseFlowTech\out\appsettings.Development.json
 C:\Users\Dell\Documents\RiseFlowTech\out\appsettings.json
+C:\Users\Dell\Documents\RiseFlowTech\out\railpack.json
 C:\Users\Dell\Documents\RiseFlowTech\out\LatoFont\Lato-Black.ttf
 C:\Users\Dell\Documents\RiseFlowTech\out\LatoFont\Lato-BlackItalic.ttf
 C:\Users\Dell\Documents\RiseFlowTech\out\LatoFont\Lato-Bold.ttf

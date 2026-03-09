@@ -154,3 +154,4 @@ C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Release\net8.0\RiseFlo
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Release\net8.0\RiseFlow.Api.genruntimeconfig.cache
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\obj\Release\net8.0\ref\RiseFlow.Api.dll
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Release\net8.0\railpack.json
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Release\net8.0\RiseFlow.Api.staticwebassets.runtime.json
