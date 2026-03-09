@@ -45,11 +45,11 @@ export default function SuperAdminPage() {
     }
   }
 
-  if (loading) return <PageLayout title="Founder Dashboard" showRoleLinks={false}><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="Founder Dashboard" showRoleLinks={false}><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading) return <PageLayout title="Super Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (error) return <PageLayout title="Super Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   return (
-    <PageLayout title="Founder Dashboard" showRoleLinks={false}>
+    <PageLayout title="Super Admin — Control Room">
       <h2 className="section-title">Platform overview</h2>
       {dashboard && (
         <>

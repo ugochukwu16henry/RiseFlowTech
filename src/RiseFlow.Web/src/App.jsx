@@ -120,7 +120,9 @@ const DASHBOARD_BY_ROLE = {
   ],
   [ROLES.SuperAdmin]: [
     card('control', '/super-admin', 'Control Room', 'Platform stats and overview', IconChart, 'card--message'),
-    card('schools', '/super-admin', 'Schools', 'Manage registered schools', IconSchool, 'card--pay'),
+    card('billing', '/super-admin', 'Billing', 'All schools billing and revenue', IconPay, 'card--results'),
+    card('schools', '/super-admin', 'Schools', 'Manage all schools', IconSchool, 'card--pay'),
+    card('transcripts', '/super-admin', 'Transcripts', 'Transcript verification', IconResults, 'card--message'),
   ],
 };
 

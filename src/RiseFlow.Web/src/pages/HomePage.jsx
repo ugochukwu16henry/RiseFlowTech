@@ -239,17 +239,9 @@ export default function HomePage() {
           <p>RiseFlow &mdash; School management built for African schools.</p>
           <p className="home-footer-meta">Day &amp; night view for busy school owners and parents.</p>
           <p className="home-footer-legal">
-            <span>Help (Owner Desk)</span>
+            <Link to="/terms">Terms of Service</Link>
             {' · '}
-            <span>Support (Direct Owner)</span>
-            {' · '}
-            <span>FAQs (Owner Answers)</span>
-            {' · '}
-            <span>Legal (Sole Owner)</span>
-            {' · '}
-            <Link to="/terms">Terms (Sole Owner)</Link>
-            {' · '}
-            <Link to="/privacy">Privacy (Sole Owner)</Link>
+            <Link to="/privacy">Privacy &amp; Data Processing</Link>
           </p>
         </div>
       </footer>
