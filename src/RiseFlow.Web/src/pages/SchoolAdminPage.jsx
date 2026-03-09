@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
 import './RolePages.css';
@@ -118,9 +119,10 @@ export default function SchoolAdminPage() {
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
-      <form method="GET" action={`${getApiBase()}/api/students/bulk-upload-template`} target="_blank" className="bulk-download-form">
-        <button type="submit" className="btn-download-template">Download Excel template</button>
-      </form>
+      <p className="card-desc">Import students from Excel with preview and validation. First 50 students free.</p>
+      <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+        Open Excel import
+      </Link>
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Billing records (from database)</h2>
       {billing.length === 0 ? (

@@ -19,12 +19,14 @@ public class StudentsController : ControllerBase
     private readonly ITenantContext _tenant;
 
     private readonly StudentBulkUploadService _bulkUpload;
+    private readonly ExcelService _excelService;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, StudentBulkUploadService bulkUpload)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, StudentBulkUploadService bulkUpload, ExcelService excelService)
     {
         _db = db;
         _tenant = tenant;
         _bulkUpload = bulkUpload;
+        _excelService = excelService;
     }
 
     [HttpGet]
@@ -102,7 +104,7 @@ public class StudentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
     }
 
-    /// <summary>Download Excel template for bulk student upload. Headers: FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth.</summary>
+    /// <summary>Download Excel template for bulk student upload. Aligned with African ministry requirements (NIN, Class, Parent, etc.).</summary>
     [HttpGet("bulk-upload-template")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
@@ -113,13 +115,42 @@ public class StudentsController : ControllerBase
         ws.Cell(1, 1).Value = "FirstName";
         ws.Cell(1, 2).Value = "LastName";
         ws.Cell(1, 3).Value = "MiddleName";
-        ws.Cell(1, 4).Value = "AdmissionNumber";
-        ws.Cell(1, 5).Value = "Gender";
-        ws.Cell(1, 6).Value = "DateOfBirth";
+        ws.Cell(1, 4).Value = "Gender";
+        ws.Cell(1, 5).Value = "DateOfBirth";
+        ws.Cell(1, 6).Value = "NIN";
+        ws.Cell(1, 7).Value = "NationalIdType";
+        ws.Cell(1, 8).Value = "NationalIdNumber";
+        ws.Cell(1, 9).Value = "Class";
+        ws.Cell(1, 10).Value = "AdmissionNumber";
+        ws.Cell(1, 11).Value = "StateOfOrigin";
+        ws.Cell(1, 12).Value = "LGA";
+        ws.Cell(1, 13).Value = "Nationality";
+        ws.Cell(1, 14).Value = "ParentName";
+        ws.Cell(1, 15).Value = "ParentPhone";
+        ws.Cell(1, 16).Value = "BloodGroup";
+        ws.Cell(1, 17).Value = "Genotype";
+        ws.Cell(1, 18).Value = "EmergencyContactName";
+        ws.Cell(1, 19).Value = "EmergencyContactPhone";
         ws.Row(1).Style.Font.Bold = true;
         ws.Cell(2, 1).Value = "John";
         ws.Cell(2, 2).Value = "Doe";
-        ws.Cell(2, 6).Value = "2015-09-01";
+        ws.Cell(2, 4).Value = "Male";
+        ws.Cell(2, 5).Value = "2015-09-01";
+        ws.Cell(2, 9).Value = "Grade 1A";
+        ws.Cell(2, 14).Value = "Jane Doe";
+        ws.Cell(2, 15).Value = "+2348012345678";
+        var countrySheet = workbook.Worksheets.Add("Country_Columns");
+        countrySheet.Cell(1, 1).Value = "Country";
+        countrySheet.Cell(1, 2).Value = "Required / Recommended columns";
+        countrySheet.Row(1).Style.Font.Bold = true;
+        countrySheet.Cell(2, 1).Value = "Nigeria";
+        countrySheet.Cell(2, 2).Value = "NIN (National ID), StateOfOrigin, LGA required for ministry alignment.";
+        countrySheet.Cell(3, 1).Value = "Ghana";
+        countrySheet.Cell(3, 2).Value = "NationalIdType=GHANA_CARD, NationalIdNumber.";
+        countrySheet.Cell(4, 1).Value = "Kenya";
+        countrySheet.Cell(4, 2).Value = "NationalIdType=KENYA_ID, NationalIdNumber.";
+        countrySheet.Cell(5, 1).Value = "All";
+        countrySheet.Cell(5, 2).Value = "FirstName, LastName required. Class = class name (create class in RiseFlow first). ParentName, ParentPhone for guardian.";
         using var stream = new MemoryStream();
         workbook.SaveAs(stream, false);
         stream.Position = 0;
@@ -127,22 +158,39 @@ public class StudentsController : ControllerBase
         return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
-    /// <summary>Bulk upload students from Excel. SchoolAdmin only. Template: Row 1 = headers (FirstName, LastName, MiddleName, AdmissionNumber, Gender, DateOfBirth).</summary>
-    [HttpPost("bulk-upload")]
+    /// <summary>Preview Excel import: first 5 rows and validation errors. Does not save.</summary>
+    [HttpPost("bulk-upload-preview")]
     [Authorize(Roles = Roles.SchoolAdmin)]
-    [ProducesResponseType(typeof(BulkUploadResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ExcelPreviewResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<BulkUploadResult>> BulkUpload(IFormFile file, CancellationToken ct)
+    public async Task<ActionResult<ExcelPreviewResult>> BulkUploadPreview(IFormFile file, [FromQuery] int previewRows = 5, CancellationToken ct = default)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
-        var ext = Path.GetExtension(file.FileName);
-        if (!string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        if (Path.GetExtension(file.FileName)?.Equals(".xlsx", StringComparison.OrdinalIgnoreCase) != true)
             return BadRequest("Only .xlsx files are supported.");
         await using var stream = file.OpenReadStream();
-        var result = await _bulkUpload.UploadFromExcelAsync(stream, _tenant.CurrentSchoolId.Value, ct);
+        var result = await _excelService.GetPreviewAsync(stream, _tenant.CurrentSchoolId.Value, previewRows, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Bulk import students from Excel. Returns imported count, billing message, and error rows for download.</summary>
+    [HttpPost("bulk-upload")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(ExcelImportResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ExcelImportResult>> BulkUpload(IFormFile file, CancellationToken ct = default)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+        if (Path.GetExtension(file.FileName)?.Equals(".xlsx", StringComparison.OrdinalIgnoreCase) != true)
+            return BadRequest("Only .xlsx files are supported.");
+        await using var stream = file.OpenReadStream();
+        var result = await _excelService.ImportAsync(stream, _tenant.CurrentSchoolId.Value, ct);
         return Ok(result);
     }
 
