@@ -2,8 +2,7 @@
 # Set service "Root Directory" to src/RiseFlow.Api (or this directory).
 
 [build]
-# Railpack auto-detects .NET; override if needed:
-# buildCommand = "dotnet publish -c Release -o out"
+# railpack.json runs: dotnet publish -c Release -o out (single step with restore, avoids NETSDK1064)
 
 [deploy]
 # Start command (Railway may auto-detect):
