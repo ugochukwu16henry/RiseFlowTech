@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
+using RiseFlow.Api.Entities;
 using RiseFlow.Api.Services;
 
 namespace RiseFlow.Api.Controllers;
@@ -23,25 +24,61 @@ public class ContactsController : ControllerBase
 
     /// <summary>
     /// Contact directory: teachers who teach the current user's children (Parent only).
-    /// Returns teacher name, email, phone, WhatsApp for authorized parents.
+    /// Optional studentId: when provided, returns only teachers for that child's class with Subject (for Family View).
     /// </summary>
     [HttpGet("teachers")]
     [Authorize(Roles = Roles.Parent)]
     [ProducesResponseType(typeof(List<TeacherContactDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<TeacherContactDto>>> GetTeachersForMyChildren(CancellationToken ct)
+    public async Task<ActionResult<List<TeacherContactDto>>> GetTeachersForMyChildren([FromQuery] Guid? studentId, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        var studentIds = await GetParentLinkedStudentIdsAsync(ct);
-        if (studentIds.Count == 0)
+        var linkedIds = await GetParentLinkedStudentIdsAsync(ct);
+        if (linkedIds.Count == 0)
             return Ok(new List<TeacherContactDto>());
-        var classIds = await _db.Students
-            .Where(s => studentIds.Contains(s.Id) && s.ClassId != null)
-            .Select(s => s.ClassId!.Value)
-            .Distinct()
-            .ToListAsync(ct);
+
+        List<Guid> classIds;
+        if (studentId.HasValue)
+        {
+            if (!linkedIds.Contains(studentId.Value))
+                return Forbid();
+            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == studentId.Value, ct);
+            if (student?.ClassId == null)
+                return Ok(new List<TeacherContactDto>());
+            classIds = new List<Guid> { student.ClassId.Value };
+        }
+        else
+        {
+            classIds = await _db.Students
+                .Where(s => linkedIds.Contains(s.Id) && s.ClassId != null)
+                .Select(s => s.ClassId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+        }
+
         if (classIds.Count == 0)
             return Ok(new List<TeacherContactDto>());
+
+        if (studentId.HasValue)
+        {
+            var tcsList = await _db.Set<TeacherClassSubject>()
+                .AsNoTracking()
+                .Include(tcs => tcs.Teacher)
+                .Include(tcs => tcs.Subject)
+                .Where(tcs => classIds.Contains(tcs.ClassId) && tcs.Teacher.IsActive)
+                .ToListAsync(ct);
+            var list = tcsList
+                .Select(tcs => new TeacherContactDto(
+                    tcs.TeacherId,
+                    (tcs.Teacher.FirstName + " " + tcs.Teacher.LastName + (tcs.Teacher.MiddleName != null ? " " + tcs.Teacher.MiddleName : "")).Trim(),
+                    tcs.Subject.Name,
+                    tcs.Teacher.Email,
+                    tcs.Teacher.Phone,
+                    tcs.Teacher.WhatsAppNumber ?? tcs.Teacher.Phone))
+                .ToList();
+            return Ok(list);
+        }
+
         var teacherIds = await _db.TeacherClasses
             .Where(tc => classIds.Contains(tc.ClassId))
             .Select(tc => tc.TeacherId)
@@ -55,6 +92,7 @@ public class ContactsController : ControllerBase
             .Select(t => new TeacherContactDto(
                 t.Id,
                 t.FirstName + " " + t.LastName + (t.MiddleName != null ? " " + t.MiddleName : ""),
+                null,
                 t.Email,
                 t.Phone,
                 t.WhatsAppNumber ?? t.Phone))
@@ -79,4 +117,4 @@ public class ContactsController : ControllerBase
     }
 }
 
-public record TeacherContactDto(Guid TeacherId, string FullName, string? Email, string? Phone, string? WhatsAppNumber);
+public record TeacherContactDto(Guid TeacherId, string FullName, string? Subject, string? Email, string? Phone, string? WhatsAppNumber);

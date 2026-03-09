@@ -92,8 +92,17 @@ export default function SchoolAdminPage() {
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Students</h2>
+      <p className="card-desc">Register students one at a time or import many from Excel — whichever you prefer.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem', marginBottom: '0.75rem' }}>
+        <Link to="/school/students/add" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
+          Add one student
+        </Link>
+        <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', background: 'var(--color-neutral-border)', color: 'var(--color-neutral-text)' }}>
+          Bulk upload (Excel)
+        </Link>
+      </div>
       {students.length === 0 ? (
-        <p className="empty-state">No students yet. Use bulk upload or add manually.</p>
+        <p className="empty-state">No students yet. Add one student or bulk upload from Excel.</p>
       ) : (
         <div className="data-table-wrap">
           <table className="data-table">

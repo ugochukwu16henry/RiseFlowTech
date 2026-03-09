@@ -1,0 +1,97 @@
+.add-student { max-width: 480px; }
+.add-student-form { margin-top: 1.25rem; }
+.form-row { margin-bottom: 1rem; }
+.form-label {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-deep-blue);
+  margin-bottom: 0.375rem;
+}
+.form-label .required { color: #b91c1c; }
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-deep-blue);
+}
+.form-input:disabled { background: #f1f5f9; cursor: not-allowed; }
+.form-hint { font-size: 0.8125rem; color: var(--color-neutral-text-secondary); margin-top: 0.25rem; }
+.form-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+  color: #b91c1c;
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.btn-submit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--color-deep-blue);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-submit:hover:not(:disabled) { opacity: 0.92; }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-cancel {
+  font-size: 0.9375rem;
+  color: var(--color-deep-blue);
+  text-decoration: none;
+}
+.btn-cancel:hover { text-decoration: underline; }
+
+.add-student-success { max-width: 420px; }
+.add-student-success-msg {
+  font-size: 0.9375rem;
+  color: var(--color-neutral-text);
+  margin: 0 0 1rem;
+}
+.add-student-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.btn-add-another {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  background: var(--color-success-green);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-add-another:hover { opacity: 0.92; }
+.btn-back-dashboard {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-deep-blue);
+  text-decoration: none;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+}
+.btn-back-dashboard:hover { background: #f1f5f9; color: var(--color-deep-blue); }

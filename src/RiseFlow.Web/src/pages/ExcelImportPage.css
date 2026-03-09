@@ -104,6 +104,7 @@
 }
 
 .excel-error { color: #b45309; font-size: 0.9375rem; margin-top: 0.5rem; }
+.excel-duplicate-note { color: #b45309; font-size: 0.875rem; }
 .text-red { color: #b91c1c; }
 .excel-hint { font-size: 0.875rem; color: var(--color-neutral-text-secondary); margin-top: 0.5rem; }
 

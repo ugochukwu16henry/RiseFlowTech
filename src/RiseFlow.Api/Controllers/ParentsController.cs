@@ -126,7 +126,81 @@ public class ParentsController : ControllerBase
         await _db.SaveChangesAsync(ct);
         return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Linked successfully."));
     }
+
+    /// <summary>
+    /// List children linked to the current parent (Family View). Returns student id, name, class, and current term average.
+    /// </summary>
+    [HttpGet("my-children")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(List<MyChildDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<MyChildDto>>> MyChildren(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var email = _tenant.CurrentUserEmail;
+        if (string.IsNullOrEmpty(email))
+            return Unauthorized();
+
+        var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == schoolId && p.Email == email, ct);
+        if (parent == null)
+            return Ok(new List<MyChildDto>());
+
+        var linkedIds = await _db.StudentParents
+            .Where(sp => sp.ParentId == parent.Id)
+            .Select(sp => sp.StudentId)
+            .ToListAsync(ct);
+        if (linkedIds.Count == 0)
+            return Ok(new List<MyChildDto>());
+
+        var students = await _db.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .Where(s => linkedIds.Contains(s.Id))
+            .OrderBy(s => s.FirstName).ThenBy(s => s.LastName)
+            .ToListAsync(ct);
+
+        var currentTerm = await _db.AcademicTerms
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.IsCurrent, ct);
+        var termAverages = new Dictionary<Guid, decimal>();
+        if (currentTerm != null)
+        {
+            var results = await _db.StudentResults
+                .AsNoTracking()
+                .Where(r => r.TermId == currentTerm.Id && linkedIds.Contains(r.StudentId))
+                .ToListAsync(ct);
+            var byStudent = results.GroupBy(r => r.StudentId);
+            foreach (var g in byStudent)
+            {
+                var totalScore = g.Sum(r => r.Score);
+                var maxTotal = g.Sum(r => r.MaxScore);
+                termAverages[g.Key] = maxTotal > 0 ? Math.Round((totalScore / maxTotal) * 100, 1) : 0;
+            }
+        }
+
+        var list = students.Select(s => new MyChildDto(
+            s.Id,
+            s.FirstName,
+            s.LastName,
+            s.MiddleName,
+            s.Class?.Name ?? "—",
+            termAverages.TryGetValue(s.Id, out var avg) ? avg : (decimal?)null
+        )).ToList();
+        return Ok(list);
+    }
+
+    private async Task<Parent?> GetCurrentParentAsync(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue || string.IsNullOrEmpty(_tenant.CurrentUserEmail))
+            return null;
+        return await _db.Parents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == _tenant.CurrentUserEmail, ct);
+    }
 }
+
+public record MyChildDto(Guid StudentId, string FirstName, string LastName, string? MiddleName, string ClassName, decimal? TermAverage);
 
 public record ParentSignupRequest(Guid SchoolId, string Email, string? Password, string? FirstName, string? LastName, string? Phone);
 public record ParentSignupResult(bool Success, string Message);

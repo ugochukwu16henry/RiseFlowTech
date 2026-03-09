@@ -41,6 +41,23 @@ public class SchoolsController : ControllerBase
         return Ok(new SchoolDashboardDto(activeStudents, unpaidFeesTotal, currencyCode));
     }
 
+    /// <summary>List classes for the current school (for dropdowns e.g. Add student). SchoolAdmin/Teacher.</summary>
+    [HttpGet("classes")]
+    [Authorize]
+    [ProducesResponseType(typeof(List<SchoolClassDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SchoolClassDto>>> GetClasses(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var list = await _db.Classes
+            .AsNoTracking()
+            .Where(c => c.SchoolId == _tenant.CurrentSchoolId.Value)
+            .OrderBy(c => c.Name)
+            .Select(c => new SchoolClassDto(c.Id, c.Name))
+            .ToListAsync(ct);
+        return Ok(list);
+    }
+
     /// <summary>
     /// Onboard a new school (tenant). SuperAdmin only, or allow anonymous for self-service signup depending on policy.
     /// </summary>
@@ -111,3 +128,4 @@ public class SchoolsController : ControllerBase
 }
 
 public record SchoolDashboardDto(int ActiveStudentCount, decimal UnpaidFeesTotal, string CurrencyCode);
+public record SchoolClassDto(Guid Id, string Name);

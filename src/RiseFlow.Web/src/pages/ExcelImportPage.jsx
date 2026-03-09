@@ -98,6 +98,7 @@ export default function ExcelImportPage() {
   };
 
   const hasValidationErrors = preview?.validationErrors?.length > 0;
+  const duplicateWarningCount = preview?.duplicateWarnings?.length ?? 0;
 
   return (
     <PageLayout title="Import students (Excel)">
@@ -146,7 +147,10 @@ export default function ExcelImportPage() {
           {preview && preview.previewRows?.length > 0 && (
             <>
               <p className="card-desc" style={{ marginTop: '1rem' }}>
-                First 5 rows below. {hasValidationErrors ? <strong className="text-red">Rows with errors are highlighted in red — fix before importing.</strong> : 'Data looks good.'}
+                First 5 rows below. {hasValidationErrors ? <strong className="text-red">Rows with errors are highlighted — fix before importing.</strong> : 'Data looks good.'}
+                {duplicateWarningCount > 0 && (
+                  <span className="excel-duplicate-note"> {duplicateWarningCount} row(s) are duplicates (already in school or repeated in file) and will be skipped on import.</span>
+                )}
               </p>
               <div className="data-table-wrap">
                 <table className="data-table">
@@ -208,7 +212,12 @@ export default function ExcelImportPage() {
                 <>
                   <p className="excel-success-msg">{importResult.billingMessage}</p>
                   {importResult.importedCount != null && (
-                    <p className="card-desc">Imported: {importResult.importedCount} student(s). Total students: {importResult.totalStudentsAfter}.</p>
+                    <p className="card-desc">
+                      Imported: {importResult.importedCount} new student(s). Total students: {importResult.totalStudentsAfter}.
+                      {importResult.skippedDuplicateCount > 0 && (
+                        <span> {importResult.skippedDuplicateCount} row(s) skipped (duplicates).</span>
+                      )}
+                    </p>
                   )}
                   {importResult.errorRows?.length > 0 && (
                     <p className="card-desc">

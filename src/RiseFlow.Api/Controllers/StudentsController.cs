@@ -64,7 +64,9 @@ public class StudentsController : ControllerBase
         return Ok(student);
     }
 
+    /// <summary>Register a single student. SchoolAdmin only. Use this to add new students one-by-one; use bulk upload for many at once.</summary>
     [HttpPost]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(Student), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Student>> Create([FromBody] CreateStudentRequest request, CancellationToken ct)
@@ -299,10 +301,10 @@ public class StudentsController : ControllerBase
         return Ok(new GenerateAccessCodesResult(generated, totalStudents, withCode));
     }
 
-    /// <summary>Generate a unique parent access code (e.g. RF-8821) for the school. Parent enters this in the app to claim their child.</summary>
+    /// <summary>Generate a unique parent access code (e.g. RF-7G2B) for the school. 6-char format: RF- plus 4 from safe charset (no 0,O,1,I) so parents can type it easily. Parent enters this in the app to claim their child.</summary>
     private async Task<string> GenerateUniqueAccessCodeAsync(Guid schoolId, CancellationToken ct)
     {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excludes 0, O, 1, I to avoid confusion
         var rng = Random.Shared;
         for (var attempt = 0; attempt < 50; attempt++)
         {

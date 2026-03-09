@@ -25,7 +25,7 @@ public class ExcelService
         _db = db;
     }
 
-    /// <summary>Parse and validate Excel; return preview rows and per-row errors. Does not save.</summary>
+    /// <summary>Parse and validate Excel; return preview rows and per-row errors. Marks rows that are duplicates (already in school) so admin knows they will be skipped on import. Does not save.</summary>
     public async Task<ExcelPreviewResult> GetPreviewAsync(Stream excelStream, Guid schoolId, int previewMaxRows = 5, CancellationToken ct = default)
     {
         var previewRows = new List<ExcelPreviewRow>();
@@ -36,12 +36,16 @@ public class ExcelService
         var ws = workbook.Worksheet(1);
         var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
         if (lastRow < 2)
-            return new ExcelPreviewResult(previewRows, validationErrors, 0);
+            return new ExcelPreviewResult(previewRows, validationErrors, new List<ExcelRowValidation>(), 0);
 
         var classes = await _db.Classes
             .AsNoTracking()
             .Where(c => c.SchoolId == schoolId)
             .ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
+
+        var existingKeys = await GetExistingStudentKeysAsync(schoolId, ct);
+        var withinFileKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var duplicateWarnings = new List<ExcelRowValidation>();
 
         for (var row = 2; row <= lastRow; row++)
         {
@@ -51,6 +55,14 @@ public class ExcelService
                  stateOfOrigin, lga, nationality, parentName, parentPhone, bloodGroup, genotype, emergencyName, emergencyPhone) = ReadRow(ws, row);
 
             var errors = ValidateRow(row, firstName, lastName, nin, nationalIdNumber, nationalIdType, className, classes);
+
+            var dupKey = StudentDuplicateKey(admissionNumber, firstName ?? "", lastName ?? "", dob);
+            var isDuplicate = existingKeys.Contains(dupKey) || withinFileKeys.Contains(dupKey);
+            if (isDuplicate)
+                duplicateWarnings.Add(new ExcelRowValidation(row, "Duplicate: student already in school (same admission number or name + date of birth). Will be skipped on import."));
+            else if (!string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName))
+                withinFileKeys.Add(dupKey);
+
             foreach (var e in errors)
                 validationErrors.Add(e);
 
@@ -77,31 +89,43 @@ public class ExcelService
                 emergencyName,
                 emergencyPhone,
                 classId,
-                errors.Count > 0
+                errors.Count > 0 || isDuplicate
             );
             if (row <= 1 + previewMaxRows)
                 previewRows.Add(preview);
         }
 
-        return new ExcelPreviewResult(previewRows, validationErrors, totalRows);
+        return new ExcelPreviewResult(previewRows, validationErrors, duplicateWarnings, totalRows);
     }
 
-    /// <summary>Import valid rows; return created count, error rows for download, and billing message.</summary>
+    /// <summary>Import valid rows; skips duplicates (same admission number or same first+last+DOB in school). Returns created count, skipped count, and billing message.</summary>
     public async Task<ExcelImportResult> ImportAsync(Stream excelStream, Guid schoolId, CancellationToken ct = default)
     {
         var (validStudents, errorRows, validationErrors) = await ParseAndValidateAllAsync(excelStream, schoolId, ct);
         if (validStudents.Count == 0 && errorRows.Count == 0)
-            return new ExcelImportResult(0, 0, errorRows, validationErrors, "No valid rows to import.");
+            return new ExcelImportResult(0, 0, 0, errorRows, validationErrors, "No valid rows to import.");
 
+        var existingKeys = await GetExistingStudentKeysAsync(schoolId, ct);
+        var withinFileKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingCount = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
         var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         var currencyCode = school?.CurrencyCode?.Trim() ?? "NGN";
         var classes = await _db.Classes.Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c, StringComparer.OrdinalIgnoreCase, ct);
         var parentCache = new Dictionary<string, Parent>(StringComparer.OrdinalIgnoreCase);
+        var imported = 0;
+        var skippedDuplicate = 0;
 
         foreach (var dto in validStudents)
         {
             if (ct.IsCancellationRequested) break;
+            var key = StudentDuplicateKey(dto.AdmissionNumber, dto.FirstName, dto.LastName, dto.DateOfBirth);
+            if (existingKeys.Contains(key) || withinFileKeys.Contains(key))
+            {
+                skippedDuplicate++;
+                continue;
+            }
+            withinFileKeys.Add(key);
+
             Guid? classId = ResolveClassId(dto.ClassName, classes.ToDictionary(c => c.Key, c => c.Value.Id));
 
             var student = new Student
@@ -129,6 +153,7 @@ public class ExcelService
                 CreatedAtUtc = DateTime.UtcNow
             };
             _db.Students.Add(student);
+            imported++;
 
             if (!string.IsNullOrWhiteSpace(dto.ParentName) || !string.IsNullOrWhiteSpace(dto.ParentPhone))
             {
@@ -143,15 +168,39 @@ public class ExcelService
             }
         }
 
-        if (validStudents.Count > 0)
+        if (imported > 0)
             await _db.SaveChangesAsync(ct);
 
-        var newTotal = existingCount + validStudents.Count;
+        var newTotal = existingCount + imported;
         var billingMessage = BillingService.ComputeAmountDue(newTotal, currencyCode) == 0
-            ? $"Successfully imported {validStudents.Count} student(s). Your first {CountryBillingConfig.FreeTierStudentCount} students are free."
-            : $"Successfully imported {validStudents.Count} student(s). Your first {CountryBillingConfig.FreeTierStudentCount} students are free; your billing will now reflect {Math.Max(0, newTotal - CountryBillingConfig.FreeTierStudentCount)} paid students.";
+            ? $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are free."
+            : $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are free; your billing will now reflect {Math.Max(0, newTotal - CountryBillingConfig.FreeTierStudentCount)} paid students.";
 
-        return new ExcelImportResult(validStudents.Count, existingCount + validStudents.Count, errorRows, validationErrors, billingMessage);
+        return new ExcelImportResult(imported, skippedDuplicate, newTotal, errorRows, validationErrors, billingMessage);
+    }
+
+    /// <summary>Build a key for duplicate detection: by admission number if provided, else by first+last+DOB.</summary>
+    private static string StudentDuplicateKey(string? admissionNumber, string firstName, string lastName, DateOnly? dateOfBirth)
+    {
+        if (!string.IsNullOrWhiteSpace(admissionNumber))
+            return "A:" + admissionNumber.Trim().ToUpperInvariant();
+        var first = (firstName ?? "").Trim().ToUpperInvariant();
+        var last = (lastName ?? "").Trim().ToUpperInvariant();
+        var dob = dateOfBirth?.ToString("O") ?? "";
+        return "N:" + first + "|" + last + "|" + dob;
+    }
+
+    private async Task<HashSet<string>> GetExistingStudentKeysAsync(Guid schoolId, CancellationToken ct)
+    {
+        var students = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.SchoolId == schoolId && s.IsActive)
+            .Select(s => new { s.AdmissionNumber, s.FirstName, s.LastName, s.DateOfBirth })
+            .ToListAsync(ct);
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in students)
+            set.Add(StudentDuplicateKey(s.AdmissionNumber, s.FirstName, s.LastName, s.DateOfBirth));
+        return set;
     }
 
     private async Task<(List<StudentExcelRow> valid, List<ExcelErrorRow> errorRows, List<ExcelRowValidation> errors)> ParseAndValidateAllAsync(Stream excelStream, Guid schoolId, CancellationToken ct)
@@ -268,10 +317,10 @@ public class ExcelService
     }
 }
 
-public record ExcelPreviewResult(IReadOnlyList<ExcelPreviewRow> PreviewRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, int TotalRows);
+public record ExcelPreviewResult(IReadOnlyList<ExcelPreviewRow> PreviewRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, IReadOnlyList<ExcelRowValidation> DuplicateWarnings, int TotalRows);
 public record ExcelPreviewRow(int RowIndex, string FirstName, string LastName, string? MiddleName, string? Gender, DateOnly? DateOfBirth, string? NIN, string? NationalIdType, string? NationalIdNumber, string? ClassName, string? AdmissionNumber, string? StateOfOrigin, string? LGA, string? Nationality, string? ParentName, string? ParentPhone, string? BloodGroup, string? Genotype, string? EmergencyContactName, string? EmergencyContactPhone, Guid? ClassId, bool HasErrors);
 public record ExcelRowValidation(int RowIndex, string Error);
 public record ExcelErrorRow(int RowIndex, string FirstName, string LastName, string Errors);
-public record ExcelImportResult(int ImportedCount, int TotalStudentsAfter, IReadOnlyList<ExcelErrorRow> ErrorRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, string BillingMessage);
+public record ExcelImportResult(int ImportedCount, int SkippedDuplicateCount, int TotalStudentsAfter, IReadOnlyList<ExcelErrorRow> ErrorRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, string BillingMessage);
 
 internal record StudentExcelRow(string FirstName, string LastName, string? MiddleName, string? Gender, DateOnly? DateOfBirth, string? NIN, string? NationalIdType, string? NationalIdNumber, string? ClassName, string? AdmissionNumber, string? StateOfOrigin, string? LGA, string? Nationality, string? ParentName, string? ParentPhone, string? BloodGroup, string? Genotype, string? EmergencyContactName, string? EmergencyContactPhone);
