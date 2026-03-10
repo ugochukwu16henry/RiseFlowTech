@@ -1,13 +1,15 @@
-# RiseFlow API – Railway deploy config
-# Set service "Root Directory" to src/RiseFlow.Api (or this directory).
+# RiseFlow API Railway config.
+# Use when service Root Directory is set to src/RiseFlow.Api.
+
+"$schema" = "https://railway.com/railway.schema.json"
 
 [build]
-# railpack.json runs: dotnet publish -c Release -o out (single step with restore, avoids NETSDK1064)
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-# Start command (Railway may auto-detect):
-# startCommand = "dotnet RiseFlow.Api.dll"
-# If using publish: startCommand = "dotnet out/RiseFlow.Api.dll"
+# Dockerfile contains the runtime entrypoint.
+healthcheckPath = "/"
 
 # Environment variables (set in Railway dashboard or link Postgres for DATABASE_URL):
 # - DATABASE_URL          (auto when Postgres is linked)

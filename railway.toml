@@ -1,8 +1,12 @@
-# Railway deploy config for monorepo root deployment
-# Ensures Railpack builds the API project directly and does not rely on --no-restore.
+# Railway deploy config for monorepo root deployment.
+# Railpack currently does not support C#/.NET, so deploy via Dockerfile.
+
+"$schema" = "https://railway.com/railway.schema.json"
 
 [build]
-buildCommand = "dotnet restore src/RiseFlow.Api/RiseFlow.Api.csproj && dotnet publish src/RiseFlow.Api/RiseFlow.Api.csproj -c Release -o out"
+builder = "DOCKERFILE"
+dockerfilePath = "src/RiseFlow.Api/Dockerfile"
 
 [deploy]
-startCommand = "dotnet out/RiseFlow.Api.dll"
+# Dockerfile defines ENTRYPOINT ["dotnet", "RiseFlow.Api.dll"].
+healthcheckPath = "/"
