@@ -90,7 +90,7 @@ export default function HomePage() {
             </span>
           </Link>
           <div className="home-header-actions flex items-center gap-3">
-            <nav className="hidden text-xs font-medium text-slate-600 dark:text-slate-300 sm:flex sm:gap-4">
+            <nav className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-300 sm:gap-4">
               <a href="#how" className="hover:text-indigo-600 dark:hover:text-indigo-400">
                 How it works
               </a>
