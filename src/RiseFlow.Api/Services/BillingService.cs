@@ -6,8 +6,12 @@ using RiseFlow.Api.Entities;
 namespace RiseFlow.Api.Services;
 
 /// <summary>
-/// Calculates monthly billing per tenant (school). First 50 students free; thereafter charge per student in the school's currency.
-/// Supports conversion to USD and other African currencies via provided exchange rates.
+/// Calculates billing per tenant (school) using the "First 50 Free" model:
+/// - Students 1–50: lifetime free tier.
+/// - From the 51st student onward:
+///   - One-time activation fee (e.g. ₦500 per student, once when they become billable).
+///   - Recurring monthly subscription (e.g. ₦100/month per billable student).
+/// Also supports conversion to USD and other African currencies via provided exchange rates.
 /// </summary>
 public class BillingService
 {
@@ -20,12 +24,47 @@ public class BillingService
         _exchangeRates = exchangeRates;
     }
 
-    /// <summary>Compute amount due in the given currency: first 50 free, then rate per student.</summary>
+    /// <summary>
+    /// Compute total amount due in the given currency for a simple "all at once" estimate.
+    /// First 50 students are free; all additional students are treated as billable and
+    /// charged both activation and monthly subscription in this calculation.
+    /// This is primarily used for rough previews (e.g. Excel import messaging).
+    /// </summary>
     public static decimal ComputeAmountDue(int studentCount, string currencyCode)
     {
         if (studentCount <= CountryBillingConfig.FreeTierStudentCount) return 0;
-        var rate = CountryBillingConfig.GetRatePerStudent(currencyCode);
-        return (studentCount - CountryBillingConfig.FreeTierStudentCount) * rate;
+        var billable = studentCount - CountryBillingConfig.FreeTierStudentCount;
+        var activationFee = CountryBillingConfig.GetActivationFeePerStudent(currencyCode);
+        var monthlyRate = CountryBillingConfig.GetMonthlyRatePerStudent(currencyCode);
+        return (billable * activationFee) + (billable * monthlyRate);
+    }
+
+    /// <summary>
+    /// Compute recurring monthly subscription only (no activation) for a given student count.
+    /// First 50 students are free; from 51st student onward apply monthly rate.
+    /// Mirrors the monthly side of the homepage pricing calculator.
+    /// </summary>
+    public static decimal ComputeMonthlyAmount(int studentCount, string currencyCode)
+    {
+        if (studentCount <= CountryBillingConfig.FreeTierStudentCount) return 0;
+        var billable = studentCount - CountryBillingConfig.FreeTierStudentCount;
+        var monthlyRate = CountryBillingConfig.GetMonthlyRatePerStudent(currencyCode);
+        return billable * monthlyRate;
+    }
+
+    /// <summary>
+    /// Compute one-time activation fees for newly billable students in this period.
+    /// previousBillableStudents is the number of students that were already billable
+    /// (i.e. max(0, previousTotalStudents - FreeTierStudentCount)) in the previous period.
+    /// </summary>
+    public static decimal ComputeActivationAmount(int currentStudentCount, int previousBillableStudents, string currencyCode)
+    {
+        if (currentStudentCount <= CountryBillingConfig.FreeTierStudentCount) return 0;
+        var billableNow = currentStudentCount - CountryBillingConfig.FreeTierStudentCount;
+        var newBillable = Math.Max(0, billableNow - Math.Max(0, previousBillableStudents));
+        if (newBillable <= 0) return 0;
+        var activationFee = CountryBillingConfig.GetActivationFeePerStudent(currencyCode);
+        return newBillable * activationFee;
     }
 
     /// <summary>Calculate monthly billing for a school. Uses school's country/currency and creates a BillingRecord.</summary>
@@ -35,7 +74,23 @@ public class BillingService
             ?? throw new InvalidOperationException("School not found.");
         var currencyCode = string.IsNullOrWhiteSpace(school.CurrencyCode) ? "NGN" : school.CurrencyCode.Trim().ToUpperInvariant();
         var studentCount = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
-        var amountDue = ComputeAmountDue(studentCount, currencyCode);
+
+        // Look at previous billing record to know how many students were already billable.
+        var lastRecord = await _db.BillingRecords
+            .Where(b => b.SchoolId == schoolId)
+            .OrderByDescending(b => b.PeriodEnd)
+            .FirstOrDefaultAsync(ct);
+
+        var previousBillable = 0;
+        if (lastRecord != null)
+        {
+            var previousTotal = lastRecord.StudentCount;
+            previousBillable = Math.Max(0, previousTotal - CountryBillingConfig.FreeTierStudentCount);
+        }
+
+        var monthlyAmount = ComputeMonthlyAmount(studentCount, currencyCode);
+        var activationAmount = ComputeActivationAmount(studentCount, previousBillable, currencyCode);
+        var amountDue = monthlyAmount + activationAmount;
 
         var record = new BillingRecord
         {
@@ -46,6 +101,8 @@ public class BillingService
             PeriodEnd = periodEnd,
             StudentCount = studentCount,
             AmountDue = amountDue,
+            MonthlyAmountDue = monthlyAmount,
+            ActivationAmountDue = activationAmount,
             CurrencyCode = currencyCode,
             CreatedAtUtc = DateTime.UtcNow
         };

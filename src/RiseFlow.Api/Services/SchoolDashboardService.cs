@@ -30,8 +30,9 @@ public class SchoolDashboardService
         var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         var currencyCode = school?.CurrencyCode?.Trim().ToUpperInvariant() ?? "NGN";
 
-        // "First 50 Free" billing logic using shared BillingService helper.
-        var monthlyFee = BillingService.ComputeAmountDue(totalStudents, currencyCode);
+        // "First 50 Free" billing logic (monthly subscription only, no activation)
+        // to match the homepage pricing calculator's monthly card.
+        var monthlyFee = BillingService.ComputeMonthlyAmount(totalStudents, currencyCode);
 
         var recentActivities = await _db.AuditLogs
             .AsNoTracking()

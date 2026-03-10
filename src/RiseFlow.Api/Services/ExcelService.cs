@@ -172,9 +172,11 @@ public class ExcelService
             await _db.SaveChangesAsync(ct);
 
         var newTotal = existingCount + imported;
-        var billingMessage = BillingService.ComputeAmountDue(newTotal, currencyCode) == 0
-            ? $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are free."
-            : $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are free; your billing will now reflect {Math.Max(0, newTotal - CountryBillingConfig.FreeTierStudentCount)} paid students.";
+        var billableStudents = Math.Max(0, newTotal - CountryBillingConfig.FreeTierStudentCount);
+
+        var billingMessage = billableStudents == 0
+            ? $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are free for life."
+            : $"Imported {imported} new student(s). {skippedDuplicate} row(s) skipped (already in school or duplicate in file). Your first {CountryBillingConfig.FreeTierStudentCount} students are lifetime free; your billing will now reflect {billableStudents} billable student(s) for activation + monthly subscription.";
 
         return new ExcelImportResult(imported, skippedDuplicate, newTotal, errorRows, validationErrors, billingMessage);
     }
