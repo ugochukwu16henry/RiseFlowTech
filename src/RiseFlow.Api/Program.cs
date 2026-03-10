@@ -140,10 +140,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// In containerized hosting (Railway, etc.) HTTPS is typically terminated at the proxy,
+// so we skip UseHttpsRedirection here to avoid interfering with health checks.
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Simple health/root endpoint so Railway health check on "/" receives 200 OK.
+app.MapGet("/", () => Results.Ok("RiseFlow API OK"));
+
 app.MapControllers();
 
 app.Run();
