@@ -27,8 +27,16 @@ const HERO_ICONS = [
 
 export default function HomePage() {
   const [theme, setTheme] = useState(getInitialTheme);
-  const [studentCount, setStudentCount] = useState(60);
-  const monthlyCost = useMemo(
+  const [studentCount, setStudentCount] = useState(50);
+
+  // Pricing model: first 50 students are lifetime free.
+  // From 51st student: ₦500 one-time activation and ₦100 monthly subscription each.
+  const monthlySubscription = useMemo(
+    () => (studentCount <= 50 ? 0 : (studentCount - 50) * 100),
+    [studentCount],
+  );
+
+  const oneTimeActivation = useMemo(
     () => (studentCount <= 50 ? 0 : (studentCount - 50) * 500),
     [studentCount],
   );
@@ -57,7 +65,7 @@ export default function HomePage() {
   };
 
   const currentHeroIcon = HERO_ICONS[heroIconIndex];
-  const formatCost = () => (monthlyCost === 0 ? 'FREE' : `₦${monthlyCost.toLocaleString()}/month`);
+  const formatNaira = (amount) => `₦${amount.toLocaleString('en-NG')}`;
 
   return (
     <div className="home-root min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -297,88 +305,117 @@ export default function HomePage() {
         </section>
 
         {/* Pricing calculator + skeleton grid */}
-        <section id="pricing" className="home-section space-y-6">
+        <section id="pricing" className="home-section">
           <div className="home-section-header">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Simple pricing for growing schools
+              Transparent pricing for growing schools
             </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              First 50 students are lifetime free. From student 51, you pay a one‑time activation and a small monthly fee.
+            </p>
           </div>
-          <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-              <label className="flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
-                <span>Number of active students</span>
-                <span>{studentCount} students</span>
-              </label>
+
+          <div className="home-section--pricing">
+            {/* Left: slider + cost cards */}
+            <div className="home-pricing-card">
+              <div className="home-pricing-header">
+                <label className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  Number of students
+                </label>
+                <span className="text-3xl font-black text-slate-900 dark:text-slate-50">
+                  {studentCount}
+                </span>
+              </div>
               <input
                 type="range"
                 min={0}
                 max={1000}
-                step={10}
+                step={5}
                 value={studentCount}
                 onChange={(e) => setStudentCount(Number(e.target.value))}
-                className="mt-3 w-full accent-emerald-500"
+                className="home-pricing-slider"
               />
-              <div className="mt-4 flex items-center justify-between">
+              <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                <span>0</span>
+                <span>50 (Free Limit)</span>
+                <span>500</span>
+                <span>1000+</span>
+              </div>
+
+              <div className="home-pricing-body">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Your estimated monthly fee
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-bold uppercase tracking-wide">
+                    Monthly subscription
                   </p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-50">
-                    {formatCost()}
+                  <p className="home-pricing-cost">
+                    {formatNaira(monthlySubscription)}{' '}
+                    <span className="text-xs font-normal text-slate-500 italic">/month</span>
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    First 50 students are completely free. After that, it’s ₦500 per student per
-                    month.
+                  <p className="home-pricing-note">
+                    ({studentCount > 50 ? studentCount - 50 : 0} billable students at ₦100 each)
                   </p>
                 </div>
-                <button className="inline-flex items-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400">
-                  Talk to billing
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
+                    One‑time activation
+                  </p>
+                  <p className="home-pricing-cost">
+                    {formatNaira(oneTimeActivation)}
+                  </p>
+                  <p className="home-pricing-note">
+                    ₦500 per new student added after first 50
+                  </p>
+                </div>
+              </div>
+
+              {studentCount <= 50 && (
+                <div className="mt-4 flex items-center justify-center gap-2 bg-yellow-100 text-yellow-800 py-2 rounded-full font-bold text-sm animate-bounce">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  100% Free Tier Active
+                </div>
+              )}
+
+              <div className="mt-6 text-center">
+                <button className="home-pricing-cta">
+                  Get started with {studentCount} students
                 </button>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-                <p className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-                  Fast grid entry preview
-                </p>
-                <div className="hidden text-[11px] text-slate-500 sm:block">
-                  <div className="grid grid-cols-4 gap-1 pb-1 text-[10px] text-slate-400">
-                    <span>Student</span>
-                    <span>Math</span>
-                    <span>English</span>
-                    <span>Science</span>
-                  </div>
-                  <div className="space-y-1">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="grid grid-cols-4 gap-1 animate-pulse">
-                        <div className="h-4 rounded bg-slate-200 dark:bg-slate-700" />
-                        <div className="h-4 rounded bg-slate-200 dark:bg-slate-700" />
-                        <div className="h-4 rounded bg-slate-200 dark:bg-slate-700" />
-                        <div className="h-4 rounded bg-slate-200 dark:bg-slate-700" />
-                      </div>
-                    ))}
-                  </div>
+            {/* Right: fast grid entry preview */}
+            <div className="home-grid-preview">
+              <p className="home-grid-preview-header">Fast grid entry preview</p>
+              <div className="home-grid-preview-table">
+                <div className="home-grid-preview-row home-grid-preview-row--head">
+                  <span>Student</span>
+                  <span>Math</span>
+                  <span>English</span>
+                  <span>Science</span>
                 </div>
-                <div className="sm:hidden text-[11px] text-slate-500">
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] dark:border-slate-700 dark:bg-slate-900/80"
-                      >
-                        <div className="flex-1">
-                          <div className="h-3 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-                          <div className="mt-1 flex gap-1">
-                            <div className="h-2 w-8 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-                            <div className="h-2 w-8 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-                          </div>
-                        </div>
-                        <span className="ml-2 text-[10px] text-slate-400">Grid view</span>
-                      </div>
-                    ))}
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="home-grid-preview-row">
+                    <div className="home-grid-preview-skeleton" />
+                    <div className="home-grid-preview-skeleton" />
+                    <div className="home-grid-preview-skeleton" />
+                    <div className="home-grid-preview-skeleton" />
                   </div>
-                </div>
+                ))}
+              </div>
+              <div className="home-grid-preview-mobile">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="home-grid-preview-mobile-card">
+                    <div>
+                      <div className="home-grid-preview-skeleton home-grid-preview-skeleton--wide" />
+                      <div className="home-grid-preview-mobile-metrics">
+                        <div className="home-grid-preview-skeleton home-grid-preview-skeleton--pill" />
+                        <div className="home-grid-preview-skeleton home-grid-preview-skeleton--pill" />
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400">Grid view</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
