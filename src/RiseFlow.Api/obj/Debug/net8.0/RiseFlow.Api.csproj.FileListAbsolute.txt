@@ -154,3 +154,4 @@ C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\RBush.dll
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\SixLabors.Fonts.dll
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\System.IO.Packaging.dll
 C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\railpack.json
+C:\Users\Dell\Documents\RiseFlowTech\src\RiseFlow.Api\bin\Debug\net8.0\RiseFlow.Api.staticwebassets.runtime.json
