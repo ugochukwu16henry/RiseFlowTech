@@ -106,6 +106,89 @@ public class SuperAdminController : ControllerBase
             CompliancePending: compliancePending));
     }
 
+    /// <summary>
+    /// Revenue hub view: split global revenue into one‑time activation fees vs recurring monthly subscriptions,
+    /// and surface top revenue‑generating schools.
+    /// </summary>
+    [HttpGet("revenue")]
+    [ProducesResponseType(typeof(SuperAdminRevenueViewModel), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SuperAdminRevenueViewModel>> GetRevenue(CancellationToken ct)
+    {
+        // Only consider paid billing records to avoid counting unpaid invoices as revenue.
+        var paid = await _db.BillingRecords
+            .AsNoTracking()
+            .Where(b => b.AmountPaid != null && b.AmountPaid > 0)
+            .ToListAsync(ct);
+
+        // Global totals in original currency (SuperAdmin UI can show per‑currency or convert to NGN/USD if needed).
+        var totalOneTime = paid.Sum(b => b.ActivationAmountDue);
+        var totalMonthly = paid.Sum(b => b.MonthlyAmountDue);
+
+        // Billable students: students above the 50‑student free tier across all active schools.
+        var billableBySchool = await _db.Students
+            .Where(s => s.IsActive)
+            .GroupBy(s => s.SchoolId)
+            .Select(g => new
+            {
+                SchoolId = g.Key,
+                Total = g.Count(),
+                Billable = g.Count() > CountryBillingConfig.FreeTierStudentCount
+                    ? g.Count() - CountryBillingConfig.FreeTierStudentCount
+                    : 0
+            })
+            .ToListAsync(ct);
+
+        var totalBillableStudents = billableBySchool.Sum(x => x.Billable);
+        var totalSchools = await _db.Schools.CountAsync(ct);
+
+        // Top revenue schools: based on total AmountPaid to date.
+        var paidBySchool = paid
+            .GroupBy(b => b.SchoolId)
+            .Select(g => new
+            {
+                SchoolId = g.Key,
+                TotalPaid = g.Sum(x => x.AmountPaid ?? 0),
+                MonthlyIncome = g.Sum(x => x.MonthlyAmountDue)
+            })
+            .ToList();
+
+        var schoolIds = paidBySchool.Select(x => x.SchoolId).ToHashSet();
+        var schoolMeta = await _db.Schools
+            .AsNoTracking()
+            .Where(s => schoolIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Name })
+            .ToListAsync(ct);
+        var studentCounts = billableBySchool.ToDictionary(x => x.SchoolId, x => x.Total);
+
+        var topRevenueSchools = paidBySchool
+            .OrderByDescending(x => x.TotalPaid)
+            .Take(10)
+            .Join(
+                schoolMeta,
+                x => x.SchoolId,
+                s => s.Id,
+                (x, s) => new SchoolRevenueBreakdown
+                {
+                    SchoolId = s.Id,
+                    SchoolName = s.Name,
+                    StudentCount = studentCounts.GetValueOrDefault(s.Id, 0),
+                    MonthlyIncome = x.MonthlyIncome,
+                    TotalPaidToDate = x.TotalPaid
+                })
+            .ToList();
+
+        var vm = new SuperAdminRevenueViewModel
+        {
+            TotalOneTimeFees = totalOneTime,
+            TotalMonthlySubscriptions = totalMonthly,
+            TotalSchools = totalSchools,
+            TotalBillableStudents = totalBillableStudents,
+            TopRevenueSchools = topRevenueSchools
+        };
+
+        return Ok(vm);
+    }
+
     /// <summary>Audit log: who did what (e.g. grade changes). Super Admin only.</summary>
     [HttpGet("audit")]
     [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]

@@ -15,16 +15,19 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [markingId, setMarkingId] = useState(null);
+  const [revenue, setRevenue] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([
       apiFetch('/api/superadmin/dashboard').then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/superadmin/revenue').then((r) => (r.ok ? r.json() : null)),
       apiFetch('/api/schools').then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([dash, list]) => {
+      .then(([dash, revenueStats, list]) => {
         setDashboard(dash || null);
+        setRevenue(revenueStats || null);
         setSchools(Array.isArray(list) ? list : []);
       })
       .catch((err) => setError(err.message || 'Failed to load data'))
@@ -50,6 +53,81 @@ export default function SuperAdminPage() {
 
   return (
     <PageLayout title="Super Admin — Control Room">
+      {/* Revenue hub: cash flow vs recurring revenue */}
+      {revenue && (
+        <>
+          <h2 className="section-title">Revenue hub</h2>
+          <div className="sa-revenue-grid">
+            <div className="sa-revenue-card sa-revenue-card--total">
+              <p className="sa-revenue-label">Total combined revenue</p>
+              <h3 className="sa-revenue-value-big">
+                {formatMoney(revenue.totalRevenue, 'NGN')}
+              </h3>
+              <div className="sa-revenue-chip-row">
+                <span className="sa-revenue-chip">+12% from last month</span>
+              </div>
+            </div>
+
+            <div className="sa-revenue-card">
+              <p className="sa-revenue-label-muted">Activation fees (one‑time)</p>
+              <h3 className="sa-revenue-value">
+                {formatMoney(revenue.totalOneTimeFees, 'NGN')}
+              </h3>
+              <p className="sa-revenue-sub">Generated from ₦500/new student after 50.</p>
+            </div>
+
+            <div className="sa-revenue-card">
+              <p className="sa-revenue-label-accent">Monthly subscriptions (MRR)</p>
+              <h3 className="sa-revenue-value">
+                {formatMoney(revenue.totalMonthlySubscriptions, 'NGN')}
+              </h3>
+              <p className="sa-revenue-sub">Recurring ₦100 per billable student.</p>
+            </div>
+          </div>
+
+          {revenue.topRevenueSchools?.length > 0 && (
+            <div className="sa-revenue-table">
+              <div className="sa-revenue-table-header">
+                <h4>Highest revenue schools</h4>
+                {/* Future: link to full schools list / filters */}
+                <button type="button" className="sa-revenue-view-all">
+                  View all schools
+                </button>
+              </div>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>School name</th>
+                      <th>Students</th>
+                      <th>Monthly income</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenue.topRevenueSchools.map((s) => {
+                      const billable = Math.max(0, (s.studentCount || 0) - 50);
+                      return (
+                        <tr key={s.schoolId}>
+                          <td className="sa-revenue-school-name">{s.schoolName}</td>
+                          <td>{s.studentCount} ({billable} billable)</td>
+                          <td className="sa-revenue-monthly">
+                            {formatMoney(s.monthlyIncome, 'NGN')}
+                          </td>
+                          <td>
+                            <span className="sa-revenue-status-pill">Active</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       <h2 className="section-title">Platform overview</h2>
       {dashboard && (
         <>
