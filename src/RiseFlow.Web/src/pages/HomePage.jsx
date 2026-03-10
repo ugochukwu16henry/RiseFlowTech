@@ -269,7 +269,7 @@ export default function HomePage() {
           </div>
           <div className="home-grid grid gap-4 md:grid-cols-3">
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
-              <img src="/media/Hero Icon1.png" alt="For owners" className="h-8 w-8" />
+              <img src="/media/hero-icon-1.png" alt="For owners" className="h-8 w-8" />
               <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
                 For owners
               </h3>
@@ -280,7 +280,7 @@ export default function HomePage() {
             </article>
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
               <img
-                src="/media/Hero Icon6 Teacher Workspace – Lesson & Checklist.png"
+                src="/media/hero-icon-6-teacher-workspace.png"
                 alt="For teachers"
                 className="h-8 w-8"
               />
@@ -293,7 +293,7 @@ export default function HomePage() {
               </p>
             </article>
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
-              <img src="/media/Hero Icon2.png" alt="For parents" className="h-8 w-8" />
+              <img src="/media/hero-icon-2.png" alt="For parents" className="h-8 w-8" />
               <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
                 For parents
               </h3>
