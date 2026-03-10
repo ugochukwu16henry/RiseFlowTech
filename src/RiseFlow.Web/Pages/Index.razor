@@ -1,0 +1,338 @@
+@page "/"
+
+@inject IJSRuntime JS
+
+@code {
+    private int studentCount = 60;
+    private decimal monthlyCost => studentCount <= 50 ? 0 : (studentCount - 50) * 500m;
+
+    private bool isDark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            isDark = await JS.InvokeAsync<bool>("riseFlowTheme.init");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDark = await JS.InvokeAsync<bool>("riseFlowTheme.toggle");
+        StateHasChanged();
+    }
+
+    private string FormatCost() => monthlyCost == 0 ? "FREE" : $"₦{monthlyCost:N0}/month";
+}
+
+<div class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
+
+    <!-- Sticky glass nav -->
+    <header class="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
+        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white">
+                    RF
+                </div>
+                <div>
+                    <p class="text-sm font-semibold">RiseFlow</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">All‑in‑one school OS</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <nav class="hidden text-xs font-medium text-slate-600 dark:text-slate-300 sm:flex sm:gap-4">
+                    <a href="#how" class="hover:text-indigo-600 dark:hover:text-indigo-400">How it works</a>
+                    <a href="#pricing" class="hover:text-indigo-600 dark:hover:text-indigo-400">Pricing</a>
+                    <a href="#compare" class="hover:text-indigo-600 dark:hover:text-indigo-400">Compare</a>
+                </nav>
+                <button @onclick="ToggleTheme"
+                        class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    @if (isDark)
+                    {
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="4" stroke-width="1.6" />
+                            <path stroke-width="1.6" d="M12 3v2.5M12 18.5V21M4.22 4.22L5.8 5.8M18.2 18.2l1.58 1.58M3 12h2.5M18.5 12H21M4.22 19.78L5.8 18.2M18.2 5.8L19.78 4.22" />
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-width="1.6" d="M20 14.5A7.5 7.5 0 0 1 11.5 6 6 6 0 1 0 20 14.5Z" />
+                        </svg>
+                    }
+                </button>
+                <a href="#pricing"
+                   class="hidden rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-black dark:bg-white dark:text-slate-900 sm:inline-flex">
+                    Get started
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 pb-20 pt-10 space-y-16">
+
+        <!-- Hero -->
+        <section class="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] items-center">
+            <div class="relative">
+                <div class="pointer-events-none absolute -inset-8 rounded-3xl bg-gradient-to-br from-indigo-500/20 via-emerald-400/10 to-sky-500/10 blur-2xl dark:from-indigo-500/40 dark:via-emerald-400/20 dark:to-sky-500/20"></div>
+                <div class="relative rounded-3xl border border-slate-200/80 bg-white/70 p-6 shadow-xl backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
+                    <p class="mb-2 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                        Built for African schools • First 50 students free
+                    </p>
+                    <h1 class="mt-2 text-balance text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
+                        All‑in‑one school OS for African schools
+                    </h1>
+                    <p class="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                        RiseFlow keeps your enrollment, results, parents, and billing in one secure control room.
+                        School owners get clarity. Teachers get speed. Parents get a real‑time window into learning.
+                    </p>
+
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                        <a href="#pricing"
+                           class="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-950">
+                            Register your school
+                        </a>
+                        <button type="button"
+                                class="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/70 px-5 py-2.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800">
+                            <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] dark:border-slate-600 dark:bg-slate-900">
+                                ▶
+                            </span>
+                            <span class="ml-2">Watch demo</span>
+                        </button>
+                    </div>
+
+                    <!-- Trust bar -->
+                    <div class="mt-6 border-t border-slate-200 pt-4 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        <p class="mb-2 font-medium text-slate-500 dark:text-slate-300">Trusted by schools across Lagos, Abuja &amp; Nairobi</p>
+                        <div class="relative overflow-hidden">
+                            <div class="flex animate-[scroll_20s_linear_infinite] gap-8 whitespace-nowrap">
+                                <span class="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Gracefield College</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Unity Academy</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Queens Park Schools</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Prime College</span>
+                                <span class="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">BrightFuture Int’l</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard / intro media -->
+            <div class="space-y-4">
+                <video src="/media/how-schools-get-started.mp4" autoplay muted loop playsinline
+                       class="w-full rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700">
+                </video>
+
+                <div class="grid gap-3 sm:grid-cols-3 text-[11px]">
+                    <div class="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                        <p class="text-slate-500 dark:text-slate-300">Real‑time results</p>
+                        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-50">“Chinedu • A in Math”</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                        <p class="text-slate-500 dark:text-slate-300">Parent view</p>
+                        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-50">WhatsApp‑ready updates</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                        <p class="text-slate-500 dark:text-slate-300">Control room</p>
+                        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-50">One screen, all schools</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bento grid -->
+        <section id="bento" class="space-y-6">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-50">One platform, three superpowers</h2>
+            <div class="grid gap-4 md:grid-cols-3">
+                <article class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
+                    <img src="/media/hero-icons/school-operations-hero.svg" alt="Owners" class="h-8 w-8" />
+                    <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">For Owners</h3>
+                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                        See enrollment, revenue, and compliance in a single “Nerve Center” dashboard for your school.
+                    </p>
+                </article>
+                <article class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
+                    <img src="/media/hero-icons/teacher-workspace-hero.svg" alt="Teachers" class="h-8 w-8" />
+                    <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">For Teachers</h3>
+                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                        Fast grid entry for scores, automated grades, and QR‑ready transcripts without touching Excel.
+                    </p>
+                </article>
+                <article class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
+                    <img src="/media/hero-icons/parent-communication-hero.svg" alt="Parents" class="h-8 w-8" />
+                    <h3 class="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">For Parents</h3>
+                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                        Secure access codes, mobile‑friendly transcripts, and WhatsApp‑ready updates in one family dashboard.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Pricing calculator -->
+        <section id="pricing" class="space-y-6">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-50">Simple pricing for growing schools</h2>
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] items-center">
+                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                    <label class="flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+                        <span>Number of active students</span>
+                        <span>@studentCount students</span>
+                    </label>
+                    <input type="range" min="0" max="1000" step="10" @bind="studentCount"
+                           class="mt-3 w-full accent-emerald-500" />
+                    <div class="mt-4 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Your estimated monthly fee</p>
+                            <p class="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-50">@FormatCost()</p>
+                            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                First 50 students are completely free. After that, it’s ₦500 per student per month.
+                            </p>
+                        </div>
+                        <button class="inline-flex items-center rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400">
+                            Talk to billing
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Fast grid entry preview -->
+                <div class="space-y-3">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                        <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">Fast grid entry preview</p>
+                        <div class="hidden text-[11px] text-slate-500 sm:block">
+                            <div class="grid grid-cols-4 gap-1 pb-1 text-[10px] text-slate-400">
+                                <span>Student</span><span>Math</span><span>English</span><span>Science</span>
+                            </div>
+                            <div class="space-y-1">
+                                @for (var i = 0; i < 3; i++)
+                                {
+                                    <div class="grid grid-cols-4 gap-1 animate-pulse">
+                                        <div class="h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
+                                        <div class="h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
+                                        <div class="h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
+                                        <div class="h-4 rounded bg-slate-200 dark:bg-slate-700"></div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="sm:hidden text-[11px] text-slate-500">
+                            <div class="space-y-2">
+                                @for (var i = 0; i < 3; i++)
+                                {
+                                    <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-[11px] dark:border-slate-700 dark:bg-slate-900/80">
+                                        <div class="flex-1">
+                                            <div class="h-3 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700"></div>
+                                            <div class="mt-1 flex gap-1">
+                                                <div class="h-2 w-8 animate-pulse rounded bg-slate-200 dark:bg-slate-700"></div>
+                                                <div class="h-2 w-8 animate-pulse rounded bg-slate-200 dark:bg-slate-700"></div>
+                                            </div>
+                                        </div>
+                                        <span class="ml-2 text-[10px] text-slate-400">Grid view</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How schools get started -->
+        <section id="how" class="space-y-6">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-50">How schools get started</h2>
+            <div class="grid gap-6 md:grid-cols-[0.5fr_1.5fr]">
+                <div class="relative">
+                    <div class="sticky top-24 rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                        <p class="font-semibold text-slate-900 dark:text-slate-50">Three steps, one control room</p>
+                        <p class="mt-2 text-slate-600 dark:text-slate-300">
+                            Register your school, import your students, and share secure access codes with families — all in under 30 minutes.
+                        </p>
+                    </div>
+                </div>
+                <ol class="relative space-y-6 border-l border-slate-200 pl-6 text-xs dark:border-slate-700">
+                    <li class="relative">
+                        <div class="absolute -left-3 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-semibold text-white">1</div>
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-50">Register your school</h3>
+                        <p class="mt-1 text-slate-600 dark:text-slate-300">
+                            Principal signs up, uploads the logo, and creates the first School Admin account.
+                        </p>
+                    </li>
+                    <li class="relative">
+                        <div class="absolute -left-3 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-semibold text-white">2</div>
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-50">Import your students</h3>
+                        <p class="mt-1 text-slate-600 dark:text-slate-300">
+                            Drag‑and‑drop your Excel sheet. RiseFlow generates access codes and parent letters automatically.
+                        </p>
+                    </li>
+                    <li class="relative">
+                        <div class="absolute -left-3 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-[10px] font-semibold text-white">3</div>
+                        <h3 class="font-semibold text-slate-900 dark:text-slate-50">Share &amp; go live</h3>
+                        <p class="mt-1 text-slate-600 dark:text-slate-300">
+                            Teachers start recording results; parents log in with their code; SuperAdmin watches everything from the Control Room.
+                        </p>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- Comparison -->
+        <section id="compare" class="space-y-4">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-50">RiseFlow vs. Paper</h2>
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                <table class="min-w-full text-xs">
+                    <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">Feature</th>
+                            <th class="px-4 py-3 text-left font-medium">Paper</th>
+                            <th class="px-4 py-3 text-left font-medium">RiseFlow</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        <tr>
+                            <td class="px-4 py-3">Records &amp; storage</td>
+                            <td class="px-4 py-3 text-slate-500">Easy to lose, hard to search, no parent view.</td>
+                            <td class="px-4 py-3 text-emerald-400">Cloud‑safe, instant search, family dashboard.</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3">Results</td>
+                            <td class="px-4 py-3 text-slate-500">Manual calculation, no QR verification.</td>
+                            <td class="px-4 py-3 text-emerald-400">Automatic grading, QR‑verified transcripts.</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3">Communication</td>
+                            <td class="px-4 py-3 text-slate-500">Phone calls and paper notes.</td>
+                            <td class="px-4 py-3 text-emerald-400">WhatsApp‑ready updates &amp; parent portal.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Lead magnet -->
+        <section class="space-y-4">
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-50">Get our guide on digitalizing your school</h2>
+                <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    Practical steps Nigerian school owners are using to move from paper to a secure, parent‑friendly platform.
+                </p>
+                <form class="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input type="email" required placeholder="Your work email"
+                           class="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100" />
+                    <button type="submit"
+                            class="inline-flex h-9 items-center justify-center rounded-md bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500">
+                        Email me the guide
+                    </button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- WhatsApp floaty button -->
+    <a href="https://wa.me/234915718484?text=Hi%20RiseFlow%2C%20I%27d%20like%20to%20see%20a%20demo%20for%20my%20school."
+       target="_blank" rel="noopener"
+       class="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-950">
+        <span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[11px]">WA</span>
+        <span>Chat with an expert</span>
+    </a>
+</div>
+
