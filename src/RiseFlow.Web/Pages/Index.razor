@@ -120,9 +120,12 @@
 
             <!-- Dashboard / intro media -->
             <div class="space-y-4">
-                <video src="/media/how-schools-get-started.mp4" autoplay muted loop playsinline
-                       class="w-full rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700">
-                </video>
+                <!-- Lottie container: expects /media/how-schools-get-started.json -->
+                <div id="lottie-how"
+                     class="flex h-64 w-full items-center justify-center rounded-3xl border border-slate-200/80 bg-slate-900/80 shadow-xl dark:border-slate-700">
+                    <!-- Fallback text if animation is missing -->
+                    <p class="text-[11px] text-slate-400">Interactive onboarding animation loading…</p>
+                </div>
 
                 <div class="grid gap-3 sm:grid-cols-3 text-[11px]">
                     <div class="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
