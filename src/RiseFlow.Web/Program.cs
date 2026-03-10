@@ -35,5 +35,8 @@ app.MapHealthChecks("/health");
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
+app.Lifetime.ApplicationStarted.Register(() =>
+    Console.WriteLine($"RiseFlow.Web started on PORT={platformPort}"));
+
 app.Run();
 

@@ -9,4 +9,4 @@ dockerfilePath = "src/RiseFlow.Api/Dockerfile"
 
 [deploy]
 # Dockerfile defines ENTRYPOINT ["dotnet", "RiseFlow.Api.dll"].
-healthcheckPath = "/"
+healthcheckPath = "/health"

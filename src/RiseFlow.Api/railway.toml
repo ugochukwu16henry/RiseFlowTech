@@ -9,7 +9,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 # Dockerfile contains the runtime entrypoint.
-healthcheckPath = "/"
+healthcheckPath = "/health"
 
 # Environment variables (set in Railway dashboard or link Postgres for DATABASE_URL):
 # - DATABASE_URL          (auto when Postgres is linked)
