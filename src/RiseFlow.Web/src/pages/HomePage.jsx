@@ -16,13 +16,14 @@ function getInitialTheme() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+// Hero icons served from Vite public/media. Filenames are kebab-cased to avoid issues.
 const HERO_ICONS = [
-  { src: '/media/Hero Icon1.png', alt: 'School operations' },
-  { src: '/media/Hero Icon2.png', alt: 'Parent communication' },
-  { src: '/media/Hero Icon3 Shielded Data.png', alt: 'Compliance & Security' },
-  { src: '/media/Hero Icon4  Multi‑Tenant Platform.png', alt: 'Multi-tenant platform' },
-  { src: '/media/Hero Icon5 Bulk Onboarding – Magic Upload.png', alt: 'Bulk onboarding' },
-  { src: '/media/Hero Icon6 Teacher Workspace – Lesson & Checklist.png', alt: 'Teacher workspace' },
+  { src: '/media/hero-icon-1.png', alt: 'School operations' },
+  { src: '/media/hero-icon-2.png', alt: 'Parent communication' },
+  { src: '/media/hero-icon-3-shielded-data.png', alt: 'Compliance & Security' },
+  { src: '/media/hero-icon-4-multi-tenant-platform.png', alt: 'Multi-tenant platform' },
+  { src: '/media/hero-icon-5-bulk-onboarding.png', alt: 'Bulk onboarding' },
+  { src: '/media/hero-icon-6-teacher-workspace.png', alt: 'Teacher workspace' },
 ];
 
 export default function HomePage() {
@@ -208,7 +209,7 @@ export default function HomePage() {
           {/* Dashboard / intro media + rotating hero icon */}
           <div className="space-y-4">
             <video
-              src="/media/Lottie_Animations_for_School_Onboarding.mp4"
+              src="/media/lottie-animations-for-school-onboarding.mp4"
               autoPlay
               muted
               loop
