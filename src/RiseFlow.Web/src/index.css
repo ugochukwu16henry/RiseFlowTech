@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --color-success-green: #059669;
   --color-deep-blue: #1E40AF;
