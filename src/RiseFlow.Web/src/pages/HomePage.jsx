@@ -183,8 +183,8 @@ export default function HomePage() {
                 <p className="mb-2 font-medium text-slate-500 dark:text-slate-300">
                   Trusted by schools across Lagos, Abuja &amp; Nairobi
                 </p>
-                <div className="relative overflow-hidden">
-                  <div className="flex animate-[scroll_20s_linear_infinite] gap-8 whitespace-nowrap">
+                <div className="relative overflow-hidden" aria-hidden="true">
+                  <div className="flex home-trust-marquee gap-8 whitespace-nowrap w-max">
                     <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
                       Gracefield College
                     </span>
@@ -200,6 +200,11 @@ export default function HomePage() {
                     <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
                       BrightFuture Int’l
                     </span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Gracefield College</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Unity Academy</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Queens Park Schools</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Prime College</span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">BrightFuture Int'l</span>
                   </div>
                 </div>
               </div>
