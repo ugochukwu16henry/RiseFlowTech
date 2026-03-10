@@ -12,6 +12,7 @@ function formatMoney(amount, currencyCode = 'USD') {
 export default function SuperAdminPage() {
   const [dashboard, setDashboard] = useState(null);
   const [schools, setSchools] = useState([]);
+  const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [markingId, setMarkingId] = useState(null);
@@ -24,11 +25,13 @@ export default function SuperAdminPage() {
       apiFetch('/api/superadmin/dashboard').then((r) => (r.ok ? r.json() : null)),
       apiFetch('/api/superadmin/revenue').then((r) => (r.ok ? r.json() : null)),
       apiFetch('/api/schools').then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/superadmin/audit?limit=50').then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([dash, revenueStats, list]) => {
+      .then(([dash, revenueStats, list, auditLog]) => {
         setDashboard(dash || null);
         setRevenue(revenueStats || null);
         setSchools(Array.isArray(list) ? list : []);
+        setAudit(Array.isArray(auditLog) ? auditLog : []);
       })
       .catch((err) => setError(err.message || 'Failed to load data'))
       .finally(() => setLoading(false));
@@ -128,33 +131,39 @@ export default function SuperAdminPage() {
         </>
       )}
 
+      {/* Platform overview: enrollment, schools, data health, billing records */}
       <h2 className="section-title">Platform overview</h2>
       {dashboard && (
-        <>
-          <p className="control-room-intro">Top metrics for platform health (African markets — NDPA/NDPC aware).</p>
-          <div className="summary-cards">
-            <div className="summary-card">
-              <span className="summary-value">{formatMoney(dashboard.monthlyRevenueUsd)}</span>
-              <span className="summary-label">Total revenue (MRR) — this month</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{dashboard.activeStudents ?? 0}</span>
-              <span className="summary-label">Active students</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{dashboard.totalSchools ?? 0}</span>
-              <span className="summary-label">Total schools</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{dashboard.schoolsWithTermResultsCount ?? 0} / {dashboard.activeSchools ?? 0}</span>
-              <span className="summary-label">Data health — schools with term results</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{formatMoney(dashboard.totalRevenueUsd)}</span>
-              <span className="summary-label">Total revenue (all time)</span>
-            </div>
+        <div className="sa-revenue-grid" style={{ marginBottom: '1.5rem' }}>
+          <div className="sa-revenue-card">
+            <p className="sa-revenue-label-muted">Active students</p>
+            <h3 className="sa-revenue-value">
+              {dashboard.activeStudents ?? 0}
+            </h3>
+            <p className="sa-revenue-sub">Across all active schools.</p>
           </div>
-        </>
+          <div className="sa-revenue-card">
+            <p className="sa-revenue-label-muted">Total schools</p>
+            <h3 className="sa-revenue-value">
+              {dashboard.totalSchools ?? 0}
+            </h3>
+            <p className="sa-revenue-sub">{dashboard.activeSchools ?? 0} currently active.</p>
+          </div>
+          <div className="sa-revenue-card">
+            <p className="sa-revenue-label-muted">Data health</p>
+            <h3 className="sa-revenue-value">
+              {dashboard.schoolsWithTermResultsCount ?? 0} / {dashboard.activeSchools ?? 0}
+            </h3>
+            <p className="sa-revenue-sub">Schools with term results uploaded.</p>
+          </div>
+          <div className="sa-revenue-card">
+            <p className="sa-revenue-label-muted">Billing records</p>
+            <h3 className="sa-revenue-value">
+              {dashboard.billingRecordsCount ?? 0}
+            </h3>
+            <p className="sa-revenue-sub">Total invoices generated to date.</p>
+          </div>
+        </div>
       )}
 
       {dashboard?.paymentDelinquency?.length > 0 && (
@@ -212,6 +221,38 @@ export default function SuperAdminPage() {
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {/* Recent audit log: who did what, and where */}
+      {audit.length > 0 && (
+        <>
+          <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Recent activity (audit log)</h3>
+          <p className="card-desc">Grade changes, billing events, and sensitive actions across all schools.</p>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>School</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.map((a) => (
+                  <tr key={a.id}>
+                    <td>{new Date(a.createdAtUtc).toLocaleString()}</td>
+                    <td>{a.schoolId || '—'}</td>
+                    <td>{a.action}</td>
+                    <td>{a.entityType}</td>
+                    <td>{a.userEmail || a.userName || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
