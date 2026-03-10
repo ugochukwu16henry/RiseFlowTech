@@ -1,0 +1,16 @@
+# RiseFlow Web service Railway config.
+# Use this file when service Root Directory is set to src/RiseFlow.Web.
+
+"$schema" = "https://railway.com/railway.schema.json"
+
+[build]
+builder = "RAILPACK"
+buildCommand = "dotnet publish -c Release -o out"
+watchPatterns = ["src/RiseFlow.Web/**"]
+
+[deploy]
+startCommand = "dotnet out/RiseFlow.Web.dll"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
