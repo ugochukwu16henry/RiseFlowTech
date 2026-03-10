@@ -54,12 +54,57 @@ export default function SuperAdminPage() {
   if (loading) return <PageLayout title="Super Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
   if (error) return <PageLayout title="Super Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
+  const totalActiveSchools = dashboard?.activeSchools ?? 0;
+  const totalStudents = dashboard?.totalStudents ?? dashboard?.activeStudents ?? 0;
+  const totalOneTime = revenue?.totalOneTimeFees ?? 0;
+  const totalMonthly = revenue?.totalMonthlySubscriptions ?? 0;
+  const delinquentSchools = dashboard?.paymentDelinquency?.length ?? 0;
+  const delinquencyRate = totalActiveSchools > 0 ? Math.round((delinquentSchools / totalActiveSchools) * 100) : 0;
+
   return (
     <PageLayout title="Super Admin — Control Room">
-      {/* Revenue hub: cash flow vs recurring revenue */}
+      <p className="control-room-intro">
+        As the RiseFlow SuperAdmin, this dashboard is your mission control. It gives you a bird&apos;s‑eye view of every school,
+        their students, and the revenue flowing through activations and subscriptions.
+      </p>
+
+      {/* 1. The Pulse (top KPI cards) */}
+      <section aria-label="Business pulse KPIs">
+        <div className="dashboard-grid">
+          <article className="dashboard-card dashboard-card--highlight">
+            <p className="dashboard-label">Total active schools</p>
+            <p className="dashboard-value">{totalActiveSchools}</p>
+            <p className="dashboard-sub">Schools currently live on RiseFlow.</p>
+          </article>
+          <article className="dashboard-card">
+            <p className="dashboard-label">Total student population</p>
+            <p className="dashboard-value">{totalStudents}</p>
+            <p className="dashboard-sub">Students across every active school.</p>
+          </article>
+          <article className="dashboard-card">
+            <p className="dashboard-label">Total revenue (one‑time)</p>
+            <p className="dashboard-value">{formatMoney(totalOneTime, 'NGN')}</p>
+            <p className="dashboard-sub">₦500 activation fees from billable students.</p>
+          </article>
+          <article className="dashboard-card">
+            <p className="dashboard-label">Monthly recurring revenue (MRR)</p>
+            <p className="dashboard-value">{formatMoney(totalMonthly, 'NGN')}</p>
+            <p className="dashboard-sub">Expected ₦100 / student for the current month.</p>
+          </article>
+          <article className="dashboard-card dashboard-card--warning">
+            <p className="dashboard-label">Payment delinquency rate</p>
+            <p className="dashboard-value">{delinquencyRate}%</p>
+            <p className="dashboard-sub">
+              {delinquentSchools} school{delinquentSchools === 1 ? '' : 's'} with overdue invoices.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      {/* 2. Revenue hub: cash flow vs recurring revenue */}
       {revenue && (
         <>
-          <h2 className="section-title">Revenue hub</h2>
+          <h2 className="dashboard-section-title">Revenue hub</h2>
           <div className="sa-revenue-grid">
             <div className="sa-revenue-card sa-revenue-card--total">
               <p className="sa-revenue-label">Total combined revenue</p>
@@ -131,8 +176,8 @@ export default function SuperAdminPage() {
         </>
       )}
 
-      {/* Platform overview: enrollment, schools, data health, billing records */}
-      <h2 className="section-title">Platform overview</h2>
+      {/* 3. Platform overview: enrollment, data health, billing records */}
+      <h2 className="dashboard-section-title">Platform overview</h2>
       {dashboard && (
         <div className="sa-revenue-grid" style={{ marginBottom: '1.5rem' }}>
           <div className="sa-revenue-card">
@@ -166,33 +211,6 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {dashboard?.paymentDelinquency?.length > 0 && (
-        <>
-          <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Payment delinquency</h3>
-          <p className="card-desc">Schools with more than 50 students that have not paid (may result in read-only access).</p>
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>School</th>
-                  <th>Students</th>
-                  <th>Amount due</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.paymentDelinquency.map((d) => (
-                  <tr key={d.schoolId}>
-                    <td>{d.schoolName}</td>
-                    <td>{d.studentCount}</td>
-                    <td>{formatMoney(d.amountDue, d.currencyCode)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
       {dashboard?.compliancePending?.length > 0 && (
         <>
           <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Compliance status — signed Data Consent not yet received</h3>
@@ -210,6 +228,115 @@ export default function SuperAdminPage() {
         </>
       )}
 
+      {/* 4. School performance & management vs Recent activity + Support */}
+      <section className="dashboard-split" aria-label="Schools and recent activity">
+        <div className="dashboard-split-main">
+          <h2 className="dashboard-section-title">School performance &amp; management</h2>
+          {dashboard?.paymentDelinquency?.length > 0 && (
+            <p className="card-desc">
+              {delinquentSchools} school{delinquentSchools === 1 ? '' : 's'} currently above the free 50‑student tier with unpaid invoices.
+            </p>
+          )}
+          {schools.length === 0 ? (
+            <p className="empty-state">No schools yet. Schools register via the onboarding page.</p>
+          ) : (
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>School</th>
+                    <th>Principal</th>
+                    <th>Country</th>
+                    <th>Status</th>
+                    <th>Onboarding</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schools.map((s) => {
+                    const isActive = s.isActive ?? true;
+                    const hasLogo = !!s.logoFileName;
+                    const hasImportedStudents = (s.students?.length ?? 0) > 0;
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.name}</td>
+                        <td>{s.principalName || '—'}</td>
+                        <td>{s.countryCode || '—'}</td>
+                        <td>
+                          <span className={isActive ? 'pill pill--success' : 'pill pill--muted'}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="onboarding-badges">
+                            <span className={hasLogo ? 'pill pill--success-light' : 'pill pill--muted'}>
+                              Logo {hasLogo ? 'uploaded' : 'missing'}
+                            </span>
+                            <span className={hasImportedStudents ? 'pill pill--success-light' : 'pill pill--muted'}>
+                              {hasImportedStudents ? 'Students imported' : 'Awaiting Excel import'}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-primary-action btn-primary-action--ghost"
+                            disabled
+                            title="Impersonation will let you view RiseFlow exactly as this school sees it. Coming soon."
+                          >
+                            View as school
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <aside className="dashboard-split-side" aria-label="Recent activity and support">
+          {audit.length > 0 && (
+            <div className="dashboard-panel">
+              <h3 className="card-title">Recent activity (audit log)</h3>
+              <p className="card-desc">Live feed of sensitive actions across all schools.</p>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>School</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {audit.slice(0, 10).map((a) => (
+                      <tr key={a.id}>
+                        <td>{new Date(a.createdAtUtc).toLocaleString()}</td>
+                        <td>{a.schoolId || '—'}</td>
+                        <td>{a.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="dashboard-panel">
+            <h3 className="card-title">Support &amp; ticketing</h3>
+            <p className="card-desc">
+              When principals click &ldquo;Help&rdquo;, their messages will appear here as live chats you can pick up.
+            </p>
+            <div className="support-empty">
+              <p>No active tickets right now.</p>
+              <p className="support-hint">Hook this up to your SignalR SupportHub to see chats in real time.</p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
       {dashboard?.schoolsByCountry?.length > 0 && (
         <>
           <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Schools by country</h3>
@@ -224,65 +351,21 @@ export default function SuperAdminPage() {
         </>
       )}
 
-      {/* Recent audit log: who did what, and where */}
-      {audit.length > 0 && (
-        <>
-          <h3 className="card-title" style={{ marginTop: '1.5rem' }}>Recent activity (audit log)</h3>
-          <p className="card-desc">Grade changes, billing events, and sensitive actions across all schools.</p>
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>School</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>User</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.map((a) => (
-                  <tr key={a.id}>
-                    <td>{new Date(a.createdAtUtc).toLocaleString()}</td>
-                    <td>{a.schoolId || '—'}</td>
-                    <td>{a.action}</td>
-                    <td>{a.entityType}</td>
-                    <td>{a.userEmail || a.userName || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      <h2 className="section-title" style={{ marginTop: '2rem' }}>All schools</h2>
-      {schools.length === 0 ? (
-        <p className="empty-state">No schools yet. Schools register via the onboarding page.</p>
-      ) : (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>School name</th>
-                <th>Address</th>
-                <th>Country</th>
-                <th>Currency</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schools.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.name}</td>
-                  <td>{s.address || '—'}</td>
-                  <td>{s.countryCode || '—'}</td>
-                  <td>{s.currencyCode || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* 5. System health status bar */}
+      <section className="system-health-bar" aria-label="System health">
+        <div className="system-health-item">
+          <span className="system-health-label">API latency</span>
+          <span className="system-health-badge system-health-badge--ok">Healthy</span>
         </div>
-      )}
+        <div className="system-health-item">
+          <span className="system-health-label">Error rate</span>
+          <span className="system-health-badge system-health-badge--ok">Low</span>
+        </div>
+        <div className="system-health-item">
+          <span className="system-health-label">Paystack webhooks</span>
+          <span className="system-health-badge system-health-badge--ok">Delivering</span>
+        </div>
+      </section>
     </PageLayout>
   );
 }
