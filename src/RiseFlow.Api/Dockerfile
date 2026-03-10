@@ -2,16 +2,15 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# IMPORTANT: Railway is now building from the REPO ROOT as context.
-# That means the API project file lives at src/RiseFlow.Api/RiseFlow.Api.csproj inside the build context.
+# IMPORTANT: configure this Railway service with Root Directory = src/RiseFlow.Api
+# so the build context contains RiseFlow.Api.csproj at the context root.
 
-# Copy the API csproj into the image and restore it explicitly.
-COPY ["src/RiseFlow.Api/RiseFlow.Api.csproj", "src/RiseFlow.Api/"]
-RUN dotnet restore "src/RiseFlow.Api/RiseFlow.Api.csproj"
+# Copy the API csproj and restore it explicitly.
+COPY RiseFlow.Api.csproj ./
+RUN dotnet restore "RiseFlow.Api.csproj"
 
-# Copy the full source tree and publish the API project
+# Copy the rest of the project and publish
 COPY . .
-WORKDIR /src/src/RiseFlow.Api
 RUN dotnet publish "RiseFlow.Api.csproj" -c Release -o /app/publish
 
 ## Run stage
