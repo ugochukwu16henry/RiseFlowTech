@@ -10,7 +10,7 @@ watchPatterns = ["src/RiseFlow.Web/**"]
 
 [deploy]
 startCommand = "dotnet out/RiseFlow.Web.dll"
-healthcheckPath = "/"
+healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
