@@ -146,8 +146,9 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Simple health/root endpoint so Railway health check on "/" receives 200 OK.
+// Simple health endpoints so Railway health checks receive 200 OK.
 app.MapGet("/", () => Results.Ok("RiseFlow API OK"));
+app.MapGet("/health", () => Results.Ok("RiseFlow API OK"));
 
 app.MapControllers();
 

@@ -32,7 +32,7 @@ app.UseStaticFiles();
 app.UseRouting();
 
 // Fast liveness endpoint for platform health checks.
-app.MapGet("/healthz", () => Results.Ok("ok"));
+app.MapGet("/health", () => Results.Ok("RiseFlow Web OK"));
 
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
