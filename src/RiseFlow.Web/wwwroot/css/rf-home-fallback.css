@@ -196,6 +196,51 @@ html.dark {
   }
 }
 
+@media (min-width: 681px) and (max-width: 920px) {
+  .rf-main {
+    padding: 1.4rem 1rem 5.5rem;
+  }
+
+  .rf-nav-inner {
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+
+  .rf-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .rf-header-actions nav {
+    width: 100%;
+    order: 2;
+    justify-content: flex-end;
+  }
+
+  .rf-hero-card {
+    padding: 1.2rem;
+  }
+
+  .rf-hero-ctas {
+    gap: 0.55rem;
+  }
+
+  .rf-hero-ctas a,
+  .rf-hero-ctas button {
+    min-height: 42px;
+  }
+
+  .rf-pricing-summary {
+    gap: 0.7rem;
+  }
+
+  .rf-wa {
+    bottom: 0.8rem;
+    right: 0.8rem;
+  }
+}
+
 @media (max-width: 680px) {
   .rf-nav-inner {
     flex-direction: column;
