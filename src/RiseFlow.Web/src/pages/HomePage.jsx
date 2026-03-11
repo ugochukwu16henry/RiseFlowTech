@@ -272,7 +272,7 @@ export default function HomePage() {
               platform.
             </p>
           </div>
-          <div className="home-grid grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
               <img src="/media/hero-icon-1.png" alt="For owners" className="h-8 w-8" />
               <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
@@ -437,7 +437,7 @@ export default function HomePage() {
               match your community.
             </p>
           </div>
-          <div className="home-grid">
+          <div className="home-legacy-grid">
             <article className="home-tile">
               <h3>Secondary: Score &amp; rank engine</h3>
               <p>
