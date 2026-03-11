@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -25,7 +25,6 @@
   --color-neutral-text-secondary: #9CA3AF;
   --color-neutral-border: #1E293B;
 }
-
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -39,8 +38,4 @@ a { color: var(--color-deep-blue); text-decoration: none; }
 h1, h2, h3 { color: var(--color-deep-blue); font-weight: 600; margin: 0 0 0.5em; }
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1.25rem; }
-@media (min-width: 768px) {
-  h1 { font-size: 1.75rem; }
-  h2 { font-size: 1.375rem; }
-}
-
+@media (min-width: 768px) { h1 { font-size: 1.75rem; } h2 { font-size: 1.375rem; } }

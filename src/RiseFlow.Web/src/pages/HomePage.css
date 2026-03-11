@@ -1,4 +1,4 @@
-.home-root {
+﻿.home-root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -37,14 +37,10 @@
   display: block;
 }
 
-/* Fallback only shown when logo fails (JS sets display:flex); default hidden so Tailwind .hidden wins */
 .home-brand-fallback {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.home-brand-fallback[style*="display: flex"] {
-  display: flex !important;
 }
 
 .home-logo-dot {
@@ -466,15 +462,6 @@
 @keyframes home-skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-/* Trust bar marquee so content isn’t clipped by overflow-hidden */
-@keyframes home-trust-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.home-trust-marquee {
-  animation: home-trust-scroll 25s linear infinite;
 }
 
 @media (max-width: 640px) {
