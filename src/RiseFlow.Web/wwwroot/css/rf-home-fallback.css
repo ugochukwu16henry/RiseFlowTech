@@ -74,47 +74,11 @@ html.dark {
   letter-spacing: -0.01em;
 }
 
-.rf-main h1 {
-  font-size: clamp(2rem, 4.2vw, 2.8rem);
-}
-
-.rf-main h2 {
-  font-size: clamp(1.45rem, 3vw, 2rem);
-}
-
-.rf-main h3 {
-  font-size: clamp(1.05rem, 2vw, 1.25rem);
-}
-
 .rf-main p,
 .rf-main li,
 .rf-main th,
 .rf-main td {
   color: var(--rf-muted);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-/* Tailwind utility overrides for legibility on the homepage */
-.rf-home .text-xs {
-  font-size: 0.95rem !important;
-}
-
-.rf-home .text-sm {
-  font-size: 1.02rem !important;
-}
-
-.rf-home .text-\[11px\] {
-  font-size: 0.92rem !important;
-}
-
-.rf-home .text-\[10px\] {
-  font-size: 0.84rem !important;
-}
-
-.rf-home button,
-.rf-home a[class*="rounded"] {
-  font-size: 0.98rem;
 }
 
 .rf-hero {
@@ -292,21 +256,6 @@ html.dark {
 
   .rf-main {
     padding: 1rem 0.8rem 5.25rem;
-  }
-
-  .rf-main h1 {
-    font-size: 1.75rem;
-  }
-
-  .rf-main h2 {
-    font-size: 1.35rem;
-  }
-
-  .rf-main p,
-  .rf-main li,
-  .rf-main th,
-  .rf-main td {
-    font-size: 0.98rem;
   }
 
   .rf-main section {
