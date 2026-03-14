@@ -41,6 +41,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<StudentAssessment> StudentAssessments => Set<StudentAssessment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
+    public DbSet<FileAsset> FileAssets => Set<FileAsset>();
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -255,6 +257,31 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Term).WithMany(t => t.StudentAssessments).HasForeignKey(x => x.TermId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Item).WithMany(i => i.StudentAssessments).HasForeignKey(x => x.AssessmentItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // FileAsset (uploaded files/photos stored on disk; metadata in SQLite)
+        builder.Entity<FileAsset>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.OriginalFileName).IsRequired().HasMaxLength(256);
+            e.Property(x => x.StoredFileName).IsRequired().HasMaxLength(256);
+            e.Property(x => x.RelativePath).IsRequired().HasMaxLength(512);
+            e.Property(x => x.ContentType).HasMaxLength(128);
+            e.Property(x => x.Category).HasMaxLength(64);
+            e.Property(x => x.UploadedBy).HasMaxLength(256);
+        });
+
+        // AttendanceRecord (central daily attendance per student)
+        builder.Entity<AttendanceRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(16);
+            e.Property(x => x.Period).HasMaxLength(16);
+            e.Property(x => x.Note).HasMaxLength(256);
+            e.Property(x => x.SourceDeviceId).HasMaxLength(64);
+
+            // One logical record per (SchoolId, StudentId, Date, Period) to make sync idempotent
+            e.HasIndex(x => new { x.SchoolId, x.StudentId, x.Date, x.Period }).IsUnique();
         });
 
         // StudentResult

@@ -327,6 +327,7 @@ public class TeachersController : ControllerBase
 
         var list = students.Select(s => new MyStudentDto(
             s.Id,
+            s.ClassId!.Value,
             s.FirstName,
             s.LastName,
             s.MiddleName,
@@ -446,4 +447,12 @@ public class TeachersController : ControllerBase
     }
 }
 
-public record MyStudentDto(Guid StudentId, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? Gender);
+public record MyStudentDto(
+    Guid StudentId,
+    Guid ClassId,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? Gender);

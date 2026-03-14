@@ -11,6 +11,10 @@ export default function TeacherPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attendance, setAttendance] = useState({});
+  const [savingAttendance, setSavingAttendance] = useState(false);
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -24,7 +28,11 @@ export default function TeacherPage() {
       .then(([profile, list]) => {
         if (cancelled) return;
         setMe(profile);
-        setStudents(Array.isArray(list) ? list : []);
+        const arr = Array.isArray(list) ? list : [];
+        setStudents(arr);
+        if (arr.length > 0 && !selectedClassId) {
+          setSelectedClassId(arr[0].classId);
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(e.message || 'Failed to load teacher data');
@@ -50,6 +58,64 @@ export default function TeacherPage() {
     } finally {
       setUploadingPhoto(false);
       e.target.value = '';
+    }
+  };
+
+  const classes = Array.from(
+    new Map(students.map((s) => [s.classId, s.className || 'Unnamed class'])).entries(),
+  ).map(([id, name]) => ({ id, name }));
+
+  const loadAttendance = async () => {
+    if (!selectedClassId || !selectedDate) return;
+    try {
+      const res = await apiFetch(`/api/attendance/class/${selectedClassId}?date=${selectedDate}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const next = {};
+      (data.students || data.Students || []).forEach((s) => {
+        const att = s.attendance || s.Attendance;
+        next[s.id || s.Id] = att?.status || att?.Status || '';
+      });
+      setAttendance(next);
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.message || 'Could not load attendance.');
+    }
+  };
+
+  const handleAttendanceChange = (studentId, value) => {
+    setAttendance((prev) => ({ ...prev, [studentId]: value }));
+  };
+
+  const saveAttendance = async () => {
+    if (!selectedClassId || !selectedDate) return;
+    const items = students
+      .filter((s) => s.classId === selectedClassId)
+      .map((s) => ({
+        studentId: s.studentId,
+        date: selectedDate,
+        status: attendance[s.studentId] || 'Present',
+        period: null,
+        note: null,
+        sourceDeviceId: 'web-teacher',
+        clientTimestampUtc: new Date().toISOString(),
+      }));
+    setSavingAttendance(true);
+    try {
+      const res = await apiFetch('/api/attendance/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // eslint-disable-next-line no-alert
+      alert('Attendance saved.');
+      await loadAttendance();
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.message || 'Could not save attendance.');
+    } finally {
+      setSavingAttendance(false);
     }
   };
 
@@ -107,6 +173,7 @@ export default function TeacherPage() {
                 <th>Admission #</th>
                 <th>Class</th>
                 <th>Gender</th>
+                <th>Today&apos;s attendance</th>
               </tr>
             </thead>
             <tbody>
@@ -117,11 +184,68 @@ export default function TeacherPage() {
                   <td>{s.admissionNumber || '—'}</td>
                   <td>{s.className || '—'}</td>
                   <td>{s.gender || '—'}</td>
+                  <td>
+                    <select
+                      value={attendance[s.studentId] || ''}
+                      onChange={(e) => handleAttendanceChange(s.studentId, e.target.value)}
+                    >
+                      <option value="">—</option>
+                      <option value="Present">Present</option>
+                      <option value="Absent">Absent</option>
+                      <option value="Late">Late</option>
+                      <option value="Excused">Excused</option>
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {classes.length > 0 && (
+        <section style={{ marginTop: '1.5rem' }} aria-label="Quick attendance capture">
+          <h2 className="section-title">Quick attendance (online)</h2>
+          <p className="card-desc">
+            Choose a class and date, load any existing attendance, then update each student&apos;s status.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
+            <label style={{ fontSize: '0.875rem' }}>
+              Class:&nbsp;
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+              >
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: '0.875rem' }}>
+              Date:&nbsp;
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-excel btn-download"
+              onClick={loadAttendance}
+            >
+              Load attendance
+            </button>
+            <button
+              type="button"
+              className="btn-excel btn-generate"
+              onClick={saveAttendance}
+              disabled={savingAttendance}
+            >
+              {savingAttendance ? 'Saving…' : 'Save attendance'}
+            </button>
+          </div>
+        </section>
       )}
     </PageLayout>
   );

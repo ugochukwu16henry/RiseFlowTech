@@ -14,10 +14,18 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database (DATABASE_URL on Railway, or DefaultConnection in config)
+// Database: switch to SQLite (file-based, free, easy to run locally and in production).
+// The connection string comes from "ConnectionStrings:Sqlite" if present,
+// otherwise falls back to a riseflow.db file in the content root.
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
-    options.UseNpgsql(DatabaseConnectionHelper.GetConnectionString(builder.Configuration));
+    var sqliteConn = builder.Configuration.GetConnectionString("Sqlite");
+    if (string.IsNullOrWhiteSpace(sqliteConn))
+    {
+        var dbPath = Path.Combine(builder.Environment.ContentRootPath, "riseflow.db");
+        sqliteConn = $"Data Source={dbPath}";
+    }
+    options.UseSqlite(sqliteConn);
 });
 
 // Identity with Guid keys

@@ -22,8 +22,15 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
-        var conn = DatabaseConnectionHelper.GetConnectionString(config);
-        optionsBuilder.UseNpgsql(conn);
+
+        // Match runtime: prefer "ConnectionStrings:Sqlite", else local riseflow.db file.
+        var sqliteConn = config.GetConnectionString("Sqlite");
+        if (string.IsNullOrWhiteSpace(sqliteConn))
+        {
+            var dbPath = Path.Combine(basePath, "riseflow.db");
+            sqliteConn = $"Data Source={dbPath}";
+        }
+        optionsBuilder.UseSqlite(sqliteConn);
 
         return new RiseFlowDbContext(optionsBuilder.Options);
     }

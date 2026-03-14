@@ -8,13 +8,17 @@ using RiseFlow.Infrastructure.Support;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuration: PostgreSQL connection string (e.g. in appsettings.json)
-// "ConnectionStrings": { "DefaultConnection": "Host=localhost;Port=5432;Database=RiseFlow;Username=riseflow;Password=your_password" }
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                      ?? "Host=localhost;Port=5432;Database=RiseFlow;Username=riseflow;Password=changeme";
+// Configuration: SQLite connection string (e.g. in appsettings.json)
+// "ConnectionStrings": { "Sqlite": "Data Source=riseflow-webapi.db" }
+var sqliteConn = builder.Configuration.GetConnectionString("Sqlite");
+if (string.IsNullOrWhiteSpace(sqliteConn))
+{
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "riseflow-webapi.db");
+    sqliteConn = $"Data Source={dbPath}";
+}
 
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseSqlite(sqliteConn));
 
 // ASP.NET Core Identity with Guid keys and PostgreSQL-backed stores
 builder.Services

@@ -19,7 +19,9 @@ export default function SchoolAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [uploadingAsset, setUploadingAsset] = useState(false);
   const fileInputRefs = useRef({});
+  const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
 
   const loadData = useCallback(() => {
@@ -65,6 +67,31 @@ export default function SchoolAdminPage() {
       alert(e.message || 'Could not start payment. Try again or contact support.');
     } finally {
       setPaying(false);
+    }
+  };
+
+  const onSchoolFileChange = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || uploadingAsset) return;
+    setUploadingAsset(true);
+    const form = new FormData();
+    form.append('file', file);
+    form.append('category', 'school-document');
+    try {
+      const res = await apiFetch('/api/files/upload', { method: 'POST', body: form });
+      if (!res.ok) {
+        // eslint-disable-next-line no-alert
+        alert('Could not upload file. Please try again.');
+      } else {
+        // eslint-disable-next-line no-alert
+        alert('File uploaded successfully.');
+      }
+    } catch {
+      // eslint-disable-next-line no-alert
+      alert('Could not upload file. Please try again.');
+    } finally {
+      setUploadingAsset(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -214,6 +241,27 @@ export default function SchoolAdminPage() {
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with teachers</h2>
       <p className="card-desc">Share this link with teachers so they can sign up directly under your school.</p>
       <TeacherSignupLink />
+
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>School files &amp; documents</h2>
+      <p className="card-desc">
+        Upload photos or documents (e.g. letterhead, logo variations) so they are stored safely in your RiseFlow account.
+      </p>
+      <input
+        type="file"
+        ref={schoolFileInputRef}
+        style={{ display: 'none' }}
+        onChange={onSchoolFileChange}
+        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx"
+      />
+      <button
+        type="button"
+        className="btn-excel btn-download"
+        style={{ display: 'inline-flex', marginTop: '0.5rem' }}
+        onClick={() => schoolFileInputRef.current?.click()}
+        disabled={uploadingAsset}
+      >
+        {uploadingAsset ? 'Uploading…' : 'Upload a file'}
+      </button>
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
       <p className="card-desc">Import students from Excel with preview and validation. First 50 students free after you register your school.</p>
