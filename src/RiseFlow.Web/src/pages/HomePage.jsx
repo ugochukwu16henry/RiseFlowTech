@@ -219,7 +219,7 @@ export default function HomePage() {
               muted
               loop
               playsInline
-              className="w-full rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
+              className="w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
             />
 
             <div className="grid gap-3 text-[11px] sm:grid-cols-3">
@@ -243,11 +243,11 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
               <img
                 src={currentHeroIcon.src}
                 alt={currentHeroIcon.alt}
-                className="h-8 w-8 rounded-lg object-contain"
+                className="h-8 w-8 shrink-0 rounded-lg object-contain"
               />
               <div>
                 <p className="font-semibold text-slate-900 dark:text-slate-50">
