@@ -127,7 +127,7 @@ export default function HomePage() {
       <main className="home-main mx-auto max-w-6xl px-4 pb-20 pt-10 space-y-16">
         {/* Hero */}
         <section className="home-hero grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <div className="relative">
+          <div className="home-hero-copy relative overflow-hidden">
             <div className="pointer-events-none absolute -inset-8 rounded-3xl bg-gradient-to-br from-indigo-500/20 via-emerald-400/10 to-sky-500/10 blur-2xl dark:from-indigo-500/40 dark:via-emerald-400/20 dark:to-sky-500/20" />
             <div className="relative rounded-3xl border border-slate-200/80 bg-white/70 p-6 shadow-xl backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
               <p className="mb-2 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -212,17 +212,17 @@ export default function HomePage() {
           </div>
 
           {/* Dashboard / intro media + rotating hero icon */}
-          <div className="space-y-4">
+          <div className="home-hero-media space-y-4 min-w-0">
             <video
               src="/media/lottie-animations-for-school-onboarding.mp4"
               autoPlay
               muted
               loop
               playsInline
-              className="w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
+              className="home-hero-video w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
             />
 
-            <div className="grid gap-3 text-[11px] sm:grid-cols-3">
+            <div className="home-hero-stats grid gap-3 text-[11px] sm:grid-cols-3">
               <div className="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
                 <p className="text-slate-500 dark:text-slate-300">Real‑time results</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-50">
@@ -243,17 +243,17 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="home-hero-icon-callout flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
               <img
                 src={currentHeroIcon.src}
                 alt={currentHeroIcon.alt}
                 className="h-8 w-8 shrink-0 rounded-lg object-contain"
               />
-              <div>
-                <p className="font-semibold text-slate-900 dark:text-slate-50">
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900 break-words dark:text-slate-50">
                   {currentHeroIcon.alt}
                 </p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                <p className="text-[10px] text-slate-500 break-words dark:text-slate-400">
                   Rotating hero focus every 3 minutes.
                 </p>
               </div>
