@@ -14,6 +14,14 @@
   padding: 1rem 1.5rem;
 }
 
+.home-header-actions {
+  min-width: 0;
+}
+
+.home-header-actions nav {
+  min-width: 0;
+}
+
 .home-header-inner {
   max-width: 1120px;
   margin: 0 auto;
@@ -106,6 +114,27 @@
   .home-main {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .home-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    align-items: stretch;
+  }
+
+  .home-header-actions nav {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .home-theme-toggle,
+  .home-header-actions .home-link-button {
+    width: 100%;
+    justify-content: center;
   }
 
   .home-hero {
@@ -554,8 +583,20 @@
 }
 
 @media (max-width: 640px) {
-  .home-header-actions {
-    width: 100%;
-    justify-content: space-between;
+  .home-header-actions nav a {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .home-header {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .home-link-button {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
