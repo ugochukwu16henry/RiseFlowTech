@@ -136,6 +136,8 @@
   margin-top: 0.35rem;
   font-size: 0.8125rem;
   color: var(--color-neutral-text-secondary);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .wizard-actions {
@@ -301,6 +303,8 @@
 .school-files-list a {
   font-size: 0.88rem;
   color: var(--color-deep-blue);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .school-files-list a:hover {
@@ -353,6 +357,14 @@
   color: var(--color-neutral-text);
   display: grid;
   gap: 0.35rem;
+}
+
+.next-checklist li,
+.next-checklist a,
+.onboarding-intro,
+.onboarding-footnote {
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .sr-only {
