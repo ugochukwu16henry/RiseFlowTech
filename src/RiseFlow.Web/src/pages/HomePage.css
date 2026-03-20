@@ -1,3 +1,178 @@
+/* Base layout pieces referenced by HomePage.jsx.
+   Some custom class names (home-root, home-header, home-main, home-hero...) are
+   intentionally not covered by Tailwind because we want consistent spacing + background. */
+
+.home-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(5, 150, 105, 0.14), transparent 55%);
+}
+
+.home-header {
+  padding: 1rem 1.5rem;
+}
+
+.home-header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-deep-blue);
+  text-decoration: none;
+}
+
+.home-main {
+  flex: 1;
+  padding: 1rem 1.5rem 2.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.home-hero {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.23);
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 1.75rem;
+}
+
+@media (max-width: 900px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-header {
+    padding: 0.75rem 1rem;
+  }
+
+  .home-header-inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .home-main {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .home-hero {
+    padding: 1.1rem 1rem 1.4rem;
+    gap: 1rem;
+  }
+
+  .home-hero-text h1 {
+    font-size: 1.55rem;
+  }
+}
+
+.home-hero-text h1 {
+  font-size: 1.9rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .home-hero-text h1 {
+    font-size: 2.1rem;
+  }
+}
+
+.home-hero-subtitle {
+  margin: 0 0 1.25rem;
+  color: var(--color-neutral-text-secondary);
+  font-size: 0.95rem;
+}
+
+.home-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.home-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.home-hero-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.home-hero-card {
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  background: #eff6ff;
+}
+
+.home-hero-card h2 {
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.home-hero-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.home-hero-card--owner {
+  background: linear-gradient(120deg, #eff6ff, #e0f2fe);
+}
+.home-hero-card--teacher {
+  background: linear-gradient(120deg, #ecfdf5, #d1fae5);
+}
+.home-hero-card--parent {
+  background: linear-gradient(120deg, #fefce8, #fffbeb);
+}
+
+.home-section {
+  max-width: 1120px;
+  margin: 2rem auto 0;
+}
+
+.home-section-alt {
+  margin-bottom: 1rem;
+}
+
+.home-section-header h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.home-section-header p {
+  margin: 0;
+  color: var(--color-neutral-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
 .home-logo-img {
   height: 40px;
   width: auto;
@@ -5,6 +180,8 @@
   object-fit: contain;
   display: block;
 }
+
+/* (moved above in the base layout block) */
 
 .home-link-button {
   display: inline-flex;
