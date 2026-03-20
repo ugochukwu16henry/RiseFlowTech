@@ -1,20 +1,22 @@
 .onboarding-page {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--card-padding);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: var(--color-white);
+  overflow-x: hidden;
 }
 
 .onboarding-card {
   max-width: 560px;
   width: 100%;
   background: var(--color-white);
-  border-radius: 20px;
-  padding: var(--card-padding-lg);
+  border-radius: 16px;
+  padding: 1rem;
   border: 1px solid var(--color-neutral-border);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
 }
 
 .onboarding-back {
@@ -26,9 +28,11 @@
 
 .onboarding-title {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.375rem;
   color: var(--color-deep-blue);
   font-weight: 700;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .onboarding-intro {
@@ -230,7 +234,9 @@
 }
 
 .onboarding-success-title {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .onboarding-success-intro {
@@ -368,7 +374,22 @@
 
 @media (min-width: 700px) {
   .onboarding-page {
+    align-items: center;
     padding: var(--card-padding-lg);
+  }
+
+  .onboarding-card {
+    padding: var(--card-padding-lg);
+    border-radius: 20px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+  }
+
+  .onboarding-title {
+    font-size: 1.75rem;
+  }
+
+  .onboarding-success-title {
+    font-size: 1.35rem;
   }
 
   .wizard-actions {
