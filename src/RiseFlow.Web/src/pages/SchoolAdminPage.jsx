@@ -23,6 +23,7 @@ export default function SchoolAdminPage() {
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
+  const [activeView, setActiveView] = useState('overview');
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
@@ -161,6 +162,20 @@ export default function SchoolAdminPage() {
 
   return (
     <PageLayout title="School Admin">
+      <div className="school-admin-shell">
+        <aside className="school-admin-nav">
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
+            Overview
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => setActiveView('people')}>
+            People
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
+            Operations
+          </button>
+        </aside>
+
+        <section className="school-admin-view">
       {onboardingSummary?.schoolName && (
         <section className="school-welcome-panel" aria-label="School setup complete">
           <button type="button" className="school-welcome-close" onClick={dismissOnboardingSummary} aria-label="Dismiss welcome panel">×</button>
@@ -231,6 +246,8 @@ export default function SchoolAdminPage() {
         </section>
       )}
 
+      {activeView === 'overview' && (
+        <>
       {outstanding > 0 && (
         <div className="access-codes-result access-codes-result--error" style={{ marginBottom: '1rem' }}>
           <p style={{ margin: 0 }}>
@@ -260,7 +277,11 @@ export default function SchoolAdminPage() {
           </div>
         </div>
       )}
+        </>
+      )}
 
+      {activeView === 'people' && (
+        <>
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Teachers</h2>
       {teachers.length === 0 ? (
         <p className="empty-state">No teachers yet.</p>
@@ -355,7 +376,11 @@ export default function SchoolAdminPage() {
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with teachers</h2>
       <p className="card-desc">Share this link with teachers so they can sign up directly under your school.</p>
       <TeacherSignupLink />
+        </>
+      )}
 
+      {activeView === 'operations' && (
+        <>
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>School files &amp; documents</h2>
       <p className="card-desc">
         Upload photos or documents (e.g. letterhead, logo variations) so they are stored safely in your RiseFlow account.
@@ -408,6 +433,10 @@ export default function SchoolAdminPage() {
           </table>
         </div>
       )}
+        </>
+      )}
+        </section>
+      </div>
     </PageLayout>
   );
 }

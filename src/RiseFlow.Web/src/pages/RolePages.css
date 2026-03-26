@@ -289,6 +289,59 @@
   font-size: 0.9rem;
 }
 
+/* School Admin professional shell */
+.school-admin-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1rem;
+}
+.school-admin-nav {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+  display: grid;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 12px;
+  padding: 0.7rem;
+}
+.school-admin-nav-btn {
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  background: transparent;
+  cursor: pointer;
+}
+.school-admin-nav-btn:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+.school-admin-nav-btn.is-active {
+  background: #ecfeff;
+  border-color: #bae6fd;
+  color: #0f766e;
+}
+.school-admin-view {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .school-admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .school-admin-nav {
+    position: static;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .school-admin-nav-btn {
+    text-align: center;
+  }
+}
+
 /* ========== Mission Control (SuperAdmin split layout) ========== */
 .dashboard-split {
   display: grid;
