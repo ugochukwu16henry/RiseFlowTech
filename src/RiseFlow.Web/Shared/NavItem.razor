@@ -1,19 +1,22 @@
 @* NavItem — reusable accessible sidebar link *@
 @inject NavigationManager Nav
 
-<a href="@Href" class="@LinkClass" aria-current="@(IsActive ? "page" : null)">
+<NavLink href="@Href" class="@LinkClass" ActiveClass="@ActiveLinkClass" Match="@MatchMode"
+         aria-current="@(IsActive ? "page" : null)">
     <NavIcon Name="@Icon" />
     <span>@Label</span>
-</a>
+</NavLink>
 
 @code {
     [Parameter, EditorRequired] public string Href { get; set; } = "/";
     [Parameter, EditorRequired] public string Label { get; set; } = "";
     [Parameter] public string Icon { get; set; } = "dot";
+    [Parameter] public bool ExactMatch { get; set; }
 
     private bool IsActive => Nav.Uri.Contains(Href, StringComparison.OrdinalIgnoreCase);
 
-    private string LinkClass => IsActive
-        ? "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-        : "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors";
+    private static string BaseLinkClass => "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors";
+    private static string ActiveLinkClass => "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-semibold";
+    private string LinkClass => BaseLinkClass;
+    private NavLinkMatch MatchMode => ExactMatch ? NavLinkMatch.All : NavLinkMatch.Prefix;
 }

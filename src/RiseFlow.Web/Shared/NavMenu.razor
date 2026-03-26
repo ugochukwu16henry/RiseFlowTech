@@ -30,7 +30,7 @@
 
     <!-- ── SuperAdmin only ─────────────────────────────────────────── -->
     <AuthorizeView Roles="SuperAdmin">
-        <NavItem Href="/super-admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/super-admin/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
         <NavItem Href="/super-admin/schools" Icon="users" Label="School Management" />
         <NavItem Href="/super-admin/revenue" Icon="pay" Label="Billing & Revenue" />
         <NavItem Href="/super-admin/compliance" Icon="school" Label="System Settings" />
@@ -39,7 +39,7 @@
 
     <!-- ── SchoolAdmin only ────────────────────────────────────────── -->
     <AuthorizeView Roles="SchoolAdmin">
-        <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
         <NavItem Href="/admin/students" Icon="users" Label="Students" />
         <NavItem Href="/admin/import" Icon="upload" Label="Bulk Import" />
         <NavItem Href="/admin/access-codes" Icon="key" Label="Access Codes" />
@@ -48,18 +48,18 @@
 
     <!-- ── Teacher only ────────────────────────────────────────────── -->
     <AuthorizeView Roles="Teacher">
-        <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
         <NavItem Href="/teacher/grading" Icon="book" Label="Grading" />
     </AuthorizeView>
 
     <!-- ── Parent only ─────────────────────────────────────────────── -->
     <AuthorizeView Roles="Parent">
-        <NavItem Href="/parent/dashboard" Icon="users" Label="Dashboard" />
+        <NavItem Href="/parent/dashboard" Icon="users" Label="Dashboard" ExactMatch="true" />
     </AuthorizeView>
 
     <!-- ── Student only ────────────────────────────────────────────── -->
     <AuthorizeView Roles="Student">
-        <NavItem Href="/student/dashboard" Icon="book" Label="Dashboard" />
+        <NavItem Href="/student/dashboard" Icon="book" Label="Dashboard" ExactMatch="true" />
     </AuthorizeView>
 
     <div class="mt-auto border-t border-slate-200 dark:border-slate-700 pt-3">
