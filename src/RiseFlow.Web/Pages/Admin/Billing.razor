@@ -1,0 +1,50 @@
+@page "/admin/billing"
+@attribute [Authorize(Roles = "SchoolAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>Billing – RiseFlow</PageTitle>
+
+<div class="max-w-5xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">Billing Records</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Track invoices and payment status.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading billing records…</p>
+    }
+    else if (_billing.Count == 0)
+    {
+        <p class="text-sm text-slate-500">No billing records found.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <QuickGrid Items="@_billing.AsQueryable()" Class="w-full text-sm" Theme="default">
+                <PropertyColumn Property="@(b => b.PeriodLabel)" Title="Period" Sortable="true" />
+                <TemplateColumn Title="Due">
+                    @FormatMoney(context.AmountDue, context.CurrencyCode)
+                </TemplateColumn>
+                <TemplateColumn Title="Paid">
+                    @FormatMoney(context.AmountPaid ?? 0, context.CurrencyCode)
+                </TemplateColumn>
+            </QuickGrid>
+        </div>
+    }
+</div>
+
+@code {
+    private List<BillingRecord> _billing = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _billing = await Api.GetAsync<List<BillingRecord>>("/api/billing") ?? [];
+        _loading = false;
+    }
+
+    private static string FormatMoney(decimal amount, string? currency)
+        => $"{(string.IsNullOrWhiteSpace(currency) ? "NGN" : currency)} {amount:N0}";
+}

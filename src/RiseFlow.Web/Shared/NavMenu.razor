@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 
 @* Role-safe navigation sidebar.
-    Each role only sees its own dashboard link (no cross-role switching, no extra page links). *@
+    Each role only sees links for its own workspace (no cross-role switching). *@
 
 <nav class="flex flex-col gap-1 px-3 py-4 h-full" aria-label="Main navigation">
 
@@ -31,16 +31,25 @@
     <!-- ── SuperAdmin only ─────────────────────────────────────────── -->
     <AuthorizeView Roles="SuperAdmin">
         <NavItem Href="/super-admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/super-admin/schools" Icon="users" Label="School Management" />
+        <NavItem Href="/super-admin/revenue" Icon="pay" Label="Billing & Revenue" />
+        <NavItem Href="/super-admin/compliance" Icon="school" Label="System Settings" />
+        <NavItem Href="/super-admin/data-offboarding" Icon="upload" Label="Data Offboarding" />
     </AuthorizeView>
 
     <!-- ── SchoolAdmin only ────────────────────────────────────────── -->
     <AuthorizeView Roles="SchoolAdmin">
         <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/admin/students" Icon="users" Label="Students" />
+        <NavItem Href="/admin/import" Icon="upload" Label="Bulk Import" />
+        <NavItem Href="/admin/access-codes" Icon="key" Label="Access Codes" />
+        <NavItem Href="/admin/billing" Icon="pay" Label="Billing" />
     </AuthorizeView>
 
     <!-- ── Teacher only ────────────────────────────────────────────── -->
     <AuthorizeView Roles="Teacher">
         <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/teacher/grading" Icon="book" Label="Grading" />
     </AuthorizeView>
 
     <!-- ── Parent only ─────────────────────────────────────────────── -->

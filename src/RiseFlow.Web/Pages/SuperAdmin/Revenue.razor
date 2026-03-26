@@ -1,0 +1,58 @@
+@page "/super-admin/revenue"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>Revenue Hub – RiseFlow</PageTitle>
+
+<div class="max-w-6xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">Revenue Hub</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">One-time fees, subscriptions, and top earning
+            schools.</p>
+        </div>
+
+        @if (_loading)
+        {
+            <p class="text-sm text-slate-500" aria-busy="true">Loading revenue…</p>
+        }
+        else if (_data is null)
+        {
+            <p class="text-sm text-red-600">Unable to load revenue data.</p>
+        }
+        else
+        {
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <StatCard Label="One-time Fees" Value="@FormatMoney(_data.TotalOneTimeFees)" Color="sky" />
+                <StatCard Label="Monthly Subs" Value="@FormatMoney(_data.TotalMonthlySubscriptions)" Color="indigo" />
+                <StatCard Label="Total Revenue" Value="@FormatMoney(_data.TotalRevenue)" Color="emerald" />
+                <StatCard Label="Billable Students" Value="@_data.TotalBillableStudents.ToString()" Color="amber" />
+            </div>
+
+            <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                <QuickGrid Items="@_data.TopRevenueSchools.AsQueryable()" Class="w-full text-sm" Theme="default">
+                    <PropertyColumn Property="@(s => s.SchoolName)" Title="School" Sortable="true" />
+                    <PropertyColumn Property="@(s => s.StudentCount)" Title="Students" Sortable="true" />
+                    <TemplateColumn Title="Monthly">
+                        @FormatMoney(context.MonthlyIncome)
+                    </TemplateColumn>
+                    <TemplateColumn Title="Paid to Date">
+                        @FormatMoney(context.TotalPaidToDate)
+                    </TemplateColumn>
+                </QuickGrid>
+            </div>
+        }
+    </div>
+
+@code {
+    private SuperAdminRevenueVm? _data;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _data = await Api.GetAsync<SuperAdminRevenueVm>("/api/superadmin/revenue");
+        _loading = false;
+    }
+
+    private static string FormatMoney(decimal amount) => $"₦{amount:N0}";
+}

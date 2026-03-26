@@ -16,11 +16,13 @@ public class SuperAdminController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
+    private readonly SchoolOffboardingService _offboarding;
 
-    public SuperAdminController(RiseFlowDbContext db, BillingService billing)
+    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding)
     {
         _db = db;
         _billing = billing;
+        _offboarding = offboarding;
     }
 
     private static readonly IReadOnlyDictionary<string, string> CountryNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -107,6 +109,49 @@ public class SuperAdminController : ControllerBase
     }
 
     /// <summary>
+    /// School directory for command center operations. Returns tenant-level metadata and counts only.
+    /// </summary>
+    [HttpGet("schools")]
+    [ProducesResponseType(typeof(List<SuperAdminSchoolRowDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SuperAdminSchoolRowDto>>> GetSchools(CancellationToken ct)
+    {
+        var studentCounts = await _db.Students.AsNoTracking()
+            .GroupBy(x => x.SchoolId)
+            .Select(g => new { SchoolId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+
+        var teacherCounts = await _db.Teachers.AsNoTracking()
+            .GroupBy(x => x.SchoolId)
+            .Select(g => new { SchoolId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+
+        var parentCounts = await _db.Parents.AsNoTracking()
+            .GroupBy(x => x.SchoolId)
+            .Select(g => new { SchoolId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+
+        var schools = await _db.Schools.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        var rows = schools
+            .Select(x => new SuperAdminSchoolRowDto(
+                x.Id,
+                x.Name,
+                x.CountryCode,
+                x.CurrencyCode,
+                x.IsActive,
+                studentCounts.GetValueOrDefault(x.Id, 0),
+                teacherCounts.GetValueOrDefault(x.Id, 0),
+                parentCounts.GetValueOrDefault(x.Id, 0),
+                x.CreatedAtUtc,
+                x.Email))
+            .ToList();
+
+        return Ok(rows);
+    }
+
+    /// <summary>
     /// Revenue hub view: split global revenue into one‑time activation fees vs recurring monthly subscriptions,
     /// and surface top revenue‑generating schools.
     /// </summary>
@@ -187,6 +232,20 @@ public class SuperAdminController : ControllerBase
         };
 
         return Ok(vm);
+    }
+
+    /// <summary>
+    /// Safe offboarding: export school data package, notify school owner, then delete tenant records.
+    /// </summary>
+    [HttpPost("schools/{schoolId:guid}/offboard")]
+    [ProducesResponseType(typeof(OffboardSchoolResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OffboardSchoolResult>> OffboardSchool(Guid schoolId, [FromBody] OffboardSchoolRequest request, CancellationToken ct)
+    {
+        var result = await _offboarding.OffboardAsync(schoolId, request.Reason, request.ExportRecipientEmail, ct);
+        if (result is null)
+            return NotFound();
+        return Ok(result);
     }
 
     /// <summary>Audit log: who did what (e.g. grade changes). Super Admin only.</summary>

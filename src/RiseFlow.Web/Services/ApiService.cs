@@ -40,4 +40,26 @@ public sealed class ApiService(HttpClient http, RiseFlowAuthStateProvider authSt
         if (!response.IsSuccessStatusCode) return default;
         return await response.Content.ReadFromJsonAsync<TResponse>();
     }
+
+    public async Task<bool> DeleteAsync(string path)
+    {
+        ApplyTenantHeader();
+        var response = await http.DeleteAsync(path);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> PutJsonAsync<T>(string path, T body)
+    {
+        ApplyTenantHeader();
+        var response = await http.PutAsJsonAsync(path, body);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<TResponse?> PutJsonAsync<TRequest, TResponse>(string path, TRequest body)
+    {
+        ApplyTenantHeader();
+        var response = await http.PutAsJsonAsync(path, body);
+        if (!response.IsSuccessStatusCode) return default;
+        return await response.Content.ReadFromJsonAsync<TResponse>();
+    }
 }

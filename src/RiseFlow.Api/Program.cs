@@ -71,6 +71,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<SchoolOnboardingService>();
+builder.Services.AddScoped<SchoolOffboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();

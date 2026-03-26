@@ -1,0 +1,48 @@
+@page "/admin/students"
+@attribute [Authorize(Roles = "SchoolAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>Students – RiseFlow</PageTitle>
+
+<div class="max-w-5xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">Students</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Current student directory for your school.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading students…</p>
+    }
+    else if (_students.Count == 0)
+    {
+        <p class="text-sm text-slate-500">No students found.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <QuickGrid Items="@_students.AsQueryable()" Class="w-full text-sm" Theme="default">
+                <TemplateColumn Title="Name">
+                    @string.Join(" ", new[] { context.FirstName, context.MiddleName, context.LastName }.Where(x =>
+                !string.IsNullOrWhiteSpace(x)))
+                </TemplateColumn>
+                <PropertyColumn Property="@(s => s.AdmissionNumber)" Title="Adm #" />
+                <TemplateColumn Title="Class">
+                    @(context.Class?.Name ?? "—")
+                </TemplateColumn>
+            </QuickGrid>
+        </div>
+    }
+</div>
+
+@code {
+    private List<StudentInfo> _students = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _students = await Api.GetAsync<List<StudentInfo>>("/api/students") ?? [];
+        _loading = false;
+    }
+}

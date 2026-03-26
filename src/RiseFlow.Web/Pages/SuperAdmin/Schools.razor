@@ -1,0 +1,55 @@
+@page "/super-admin/schools"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>School Management – RiseFlow</PageTitle>
+
+<div class="max-w-6xl mx-auto space-y-6">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">School Management</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tenant-level directory and operational counts.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading schools…</p>
+    }
+    else if (_schools.Count == 0)
+    {
+        <p class="text-sm text-slate-500">No schools found.</p>
+    }
+    else
+    {
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <QuickGrid Items="@_schools.AsQueryable()" Class="w-full text-sm" Theme="default">
+                <PropertyColumn Property="@(s => s.Name)" Title="School" Sortable="true" />
+                <PropertyColumn Property="@(s => s.CountryCode)" Title="Country" />
+                <PropertyColumn Property="@(s => s.StudentCount)" Title="Students" Sortable="true" />
+                <PropertyColumn Property="@(s => s.TeacherCount)" Title="Teachers" Sortable="true" />
+                <PropertyColumn Property="@(s => s.ParentCount)" Title="Parents" Sortable="true" />
+                <PropertyColumn Property="@(s => s.OwnerEmail)" Title="Owner Email" />
+                <TemplateColumn Title="Status">
+                    <span class="text-xs font-semibold @((context.IsActive) ? "text-emerald-600" : "text-red-600")">
+                        @(context.IsActive ? "Active" : "Inactive")
+                    </span>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions">
+                    <a class="text-indigo-600 hover:underline"
+                       href="@($"/super-admin/data-offboarding?schoolId={context.Id}")">Offboard</a>
+                </TemplateColumn>
+            </QuickGrid>
+        </div>
+    }
+</div>
+
+@code {
+    private List<SuperAdminSchoolRow> _schools = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _schools = await Api.GetAsync<List<SuperAdminSchoolRow>>("/api/superadmin/schools") ?? [];
+        _loading = false;
+    }
+}
