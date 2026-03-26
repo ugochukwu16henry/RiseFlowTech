@@ -1,0 +1,87 @@
+@inject RiseFlowAuthStateProvider AuthState
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@* Role-safe navigation sidebar.
+   Each <AuthorizeView Roles="..."> block is ONLY rendered for that role.
+   A SchoolAdmin will never see Teacher/Parent/Student links and vice versa. *@
+
+<nav class="flex flex-col gap-1 px-3 py-4 h-full" aria-label="Main navigation">
+
+    <div class="mb-6 px-2">
+        <div class="flex items-center gap-2">
+            <div
+                class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white select-none">
+                RF
+            </div>
+            <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">RiseFlow</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 px-0">
+            @(AuthState.CurrentSession?.Role switch
+            {
+                "SuperAdmin" => "Platform Control Room",
+                "SchoolAdmin" => "School Administration",
+                "Teacher" => "Teacher Portal",
+                "Parent" => "Family View",
+                "Student" => "Student Portal",
+                _ => ""
+            })
+        </p>
+    </div>
+
+    <!-- ── SuperAdmin only ─────────────────────────────────────────── -->
+    <AuthorizeView Roles="SuperAdmin">
+        <NavItem Href="/super-admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/super-admin/schools" Icon="school" Label="Schools" />
+    </AuthorizeView>
+
+    <!-- ── SchoolAdmin only ────────────────────────────────────────── -->
+    <AuthorizeView Roles="SchoolAdmin">
+        <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/admin/students" Icon="users" Label="Students" />
+        <NavItem Href="/admin/teachers" Icon="users" Label="Teachers" />
+        <NavItem Href="/admin/access-codes" Icon="key" Label="Access Codes" />
+        <NavItem Href="/admin/billing" Icon="pay" Label="Billing" />
+        <NavItem Href="/admin/import" Icon="upload" Label="Bulk Import" />
+    </AuthorizeView>
+
+    <!-- ── Teacher only ────────────────────────────────────────────── -->
+    <AuthorizeView Roles="Teacher">
+        <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" />
+        <NavItem Href="/teacher/grading" Icon="book" Label="Grading" />
+        <NavItem Href="/teacher/results" Icon="results" Label="Results" />
+    </AuthorizeView>
+
+    <!-- ── Parent only ─────────────────────────────────────────────── -->
+    <AuthorizeView Roles="Parent">
+        <NavItem Href="/parent/dashboard" Icon="users" Label="My Children" />
+        <NavItem Href="/parent/results" Icon="results" Label="Results" />
+        <NavItem Href="/parent/contacts" Icon="message" Label="Teachers" />
+    </AuthorizeView>
+
+    <!-- ── Student only ────────────────────────────────────────────── -->
+    <AuthorizeView Roles="Student">
+        <NavItem Href="/student/dashboard" Icon="book" Label="My Dashboard" />
+        <NavItem Href="/student/results" Icon="results" Label="My Results" />
+    </AuthorizeView>
+
+    <div class="mt-auto border-t border-slate-200 dark:border-slate-700 pt-3">
+        <button @onclick="HandleLogout"
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors">
+            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke-linecap="round" />
+                <polyline points="16 17 21 12 16 7" stroke-linecap="round" stroke-linejoin="round" />
+                <line x1="21" y1="12" x2="9" y2="12" stroke-linecap="round" />
+            </svg>
+            Sign out
+        </button>
+    </div>
+</nav>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

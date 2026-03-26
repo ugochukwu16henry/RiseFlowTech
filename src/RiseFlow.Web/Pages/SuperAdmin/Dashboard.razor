@@ -1,0 +1,59 @@
+@page "/super-admin/dashboard"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>Platform Dashboard – RiseFlow</PageTitle>
+
+<div class="max-w-5xl mx-auto space-y-8">
+
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">Platform Control Room</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time snapshot of the entire RiseFlow network.
+        </p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="text-sm text-red-600 dark:text-red-400" role="alert">@_error</p>
+    }
+    else if (_stats is not null)
+    {
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard Label="Schools" Value="@_stats.TotalSchools.ToString()" Color="indigo" />
+            <StatCard Label="Students" Value="@_stats.TotalStudents.ToString()" Color="emerald" />
+            <StatCard Label="Countries" Value="@(_stats.ActiveCountries?.ToString() ?? "—")" Color="sky" />
+            <StatCard Label="Revenue" Value="@FormatMoney(_stats.TotalRevenue)" Color="amber" />
+        </div>
+    }
+
+    <section>
+        <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Quick Actions</h2>
+        <div class="flex flex-wrap gap-3">
+            <a href="/super-admin/schools"
+                   class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+                View all schools
+            </a>
+        </div>
+    </section>
+</div>
+
+@code {
+    private SuperAdminDashboard? _stats;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await Api.GetAsync<SuperAdminDashboard>("/api/superadmin/dashboard");
+        if (_stats is null) _error = "Could not load platform statistics.";
+        _loading = false;
+    }
+
+    private static string FormatMoney(decimal amount)
+        => $"₦{amount:N0}";
+}

@@ -1,0 +1,111 @@
+@page "/login"
+@layout MainLayout
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject RiseFlowAuthStateProvider AuthState
+
+<PageTitle>Sign in – RiseFlow</PageTitle>
+
+<div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+    <div class="w-full max-w-sm">
+
+        <!-- Logo -->
+        <div class="flex justify-center mb-8">
+            <div class="flex items-center gap-2">
+                <div
+                    class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white">
+                    RF</div>
+                    <div>
+                        <p class="text-base font-semibold text-slate-900 dark:text-slate-100">RiseFlow</p>
+                        <p class="text-xs text-slate-500">All‑in‑one school OS</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                <h1 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Welcome back</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Sign in to your school account</p>
+
+                @if (_error is not null)
+                {
+                    <div role="alert"
+                         class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+                        @_error
+                    </div>
+                }
+
+                <EditForm Model="_form" OnValidSubmit="HandleLogin" FormName="login">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-4">
+                        <label for="email" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email
+                            address</label>
+                            <InputText id="email" @bind-Value="_form.Email" type="email" autocomplete="email"
+                                       placeholder="you@school.com"
+                                       class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        </div>
+
+                        <div class="mb-6">
+                            <label for="password"
+                                   class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
+                            <InputText id="password" @bind-Value="_form.Password" type="password"
+                                       autocomplete="current-password" placeholder="••••••••"
+                                       class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        </div>
+
+                        <button type="submit" disabled="@_loading"
+                                class="w-full rounded-full bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                            @(_loading ? "Signing in…" : "Sign in")
+                        </button>
+                    </EditForm>
+
+                    <p class="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                        <a href="/forgot-password" class="text-indigo-600 hover:underline dark:text-indigo-400">Forgot
+                            password?</a>
+                        </p>
+                    </div>
+
+                    <p class="mt-6 text-center text-xs text-slate-400">
+                        <a href="/" class="hover:text-slate-600 dark:hover:text-slate-300">← Back to home</a>
+                    </p>
+                </div>
+            </div>
+
+@code {
+    private sealed class LoginForm
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    private readonly LoginForm _form = new();
+    private bool _loading;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        // Already logged in → redirect to their dashboard
+        if (AuthState.CurrentSession is { } s)
+            Nav.NavigateTo(s.HomePath, replace: true);
+    }
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _error = null;
+
+        var result = await Auth.LoginAsync(_form.Email.Trim(), _form.Password);
+
+        if (result.Success)
+        {
+            var home = AuthState.CurrentSession?.HomePath ?? "/";
+            Nav.NavigateTo(home, replace: true);
+        }
+        else
+        {
+            _error = result.Message;
+        }
+
+        _loading = false;
+    }
+}

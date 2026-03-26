@@ -1,0 +1,15 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject RiseFlowAuthStateProvider AuthState
+@inject NavigationManager Nav
+
+@* Smart redirect: sends each role to their own dashboard immediately.
+   No content is rendered — this is a routing-only page. *@
+
+@code {
+    protected override void OnInitialized()
+    {
+        var path = AuthState.CurrentSession?.HomePath ?? "/login";
+        Nav.NavigateTo(path, replace: true);
+    }
+}

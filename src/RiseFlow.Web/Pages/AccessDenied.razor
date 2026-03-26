@@ -1,0 +1,17 @@
+@page "/access-denied"
+@layout MainLayout
+
+<PageTitle>Access Denied – RiseFlow</PageTitle>
+
+<div class="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-center px-4">
+    <p class="text-7xl font-black text-slate-100 dark:text-slate-800 select-none">403</p>
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-200">Access Denied</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+        You don't have permission to view that page. Please sign in with the correct account.
+    </p>
+    <a href="/login"
+           class="mt-2 inline-flex rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors">
+        Sign in
+    </a>
+    <a href="/" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">← Back to home</a>
+</div>

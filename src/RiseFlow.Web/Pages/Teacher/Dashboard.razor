@@ -1,0 +1,88 @@
+@page "/teacher/dashboard"
+@attribute [Authorize(Roles = "Teacher")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>Teacher Dashboard – RiseFlow</PageTitle>
+
+<div class="max-w-4xl mx-auto space-y-8">
+
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">Teacher Dashboard</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Your classes, assessments, and results.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="text-sm text-red-600 dark:text-red-400" role="alert">@_error</p>
+    }
+    else
+    {
+        <!-- Assessments -->
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200">Assessments / Classes</h2>
+                <a href="/teacher/grading" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">Open grading
+                    grid →</a>
+                </div>
+
+                @if (_assessments.Count == 0)
+                {
+                    <p class="text-sm text-slate-400 dark:text-slate-500">No assessments assigned yet.</p>
+                }
+                else
+                {
+                    <div class="space-y-2">
+                        @foreach (var a in _assessments)
+                        {
+                            <div
+                                class="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@a.Name</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">@a.SubjectName · @a.ClassName · @a.Term</p>
+                                </div>
+                                <a href="/teacher/grading/@a.Id"
+                                       class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors">
+                                    Grade
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section>
+                <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Quick Actions</h2>
+                <div class="flex flex-wrap gap-3">
+                    <a href="/teacher/grading"
+                           class="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+                        Open grading grid
+                    </a>
+                    <a href="/teacher/results"
+                           class="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
+                        View submitted results
+                    </a>
+                </div>
+            </section>
+        }
+    </div>
+
+@code {
+    private List<AssessmentInfo> _assessments = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _assessments = await Api.GetAsync<List<AssessmentInfo>>("/api/assessments") ?? [];
+        _loading = false;
+        if (_assessments.Count == 0 && _error is null)
+        {
+            // Not an error — teacher may just have no assessments yet.
+        }
+    }
+}

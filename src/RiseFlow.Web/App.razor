@@ -1,14 +1,19 @@
-@using Microsoft.AspNetCore.Components.Routing
-@using RiseFlow.Web.Shared
-
-<Router AppAssembly="@typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-    </Found>
-    <NotFound>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p class="m-4 text-sm text-slate-600 dark:text-slate-300">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RiseFlow</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/rf-home-fallback.css" />
+    <!-- Tailwind CSS via CDN — works on Nigerian 3G/4G without a build step -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950">
+    <Routes @rendermode="InteractiveServer" />
+    <script src="js/theme.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
 

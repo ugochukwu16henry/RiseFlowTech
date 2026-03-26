@@ -1,0 +1,167 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "SchoolAdmin")]
+@layout DashboardLayout
+@inject ApiService Api
+
+<PageTitle>School Dashboard – RiseFlow</PageTitle>
+
+<div class="max-w-5xl mx-auto space-y-8">
+
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">School Administration</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Your school at a glance.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading…</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="text-sm text-red-600 dark:text-red-400" role="alert">@_error</p>
+    }
+    else
+    {
+        <!-- Billing alert -->
+        @if (_outstanding > 0 && _billing is not null)
+        {
+            <div role="alert" class="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-4">
+                <p class="text-sm text-amber-800 dark:text-amber-300">
+                    Outstanding balance: <strong>@FormatMoney(_outstanding, _billing.CurrencyCode)</strong>
+                    for <strong>@(_billing.PeriodLabel ?? "current period")</strong>.
+                </p>
+                <a href="/admin/billing"
+                   class="shrink-0 rounded-full bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 transition-colors">
+                    Pay now
+                </a>
+            </div>
+        }
+
+        <!-- KPI cards -->
+        @if (_dashboard is not null)
+        {
+            <div class="grid grid-cols-2 gap-4">
+                <StatCard Label="Active students" Value="@_dashboard.ActiveStudentCount.ToString()" Color="indigo" />
+                <StatCard Label="Unpaid fees" Value="@FormatMoney(_dashboard.UnpaidFeesTotal, _dashboard.CurrencyCode)" Color="red" />
+            </div>
+        }
+
+        <!-- Students table -->
+        <section>
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200">Students</h2>
+                <div class="flex gap-2">
+                    <a href="/admin/students" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">Add student</a>
+                    <a href="/admin/import"   class="text-xs text-slate-500 hover:underline dark:text-slate-400">Bulk import</a>
+                </div>
+            </div>
+
+            @if (_students.Count == 0)
+            {
+                <p class="text-sm text-slate-400 dark:text-slate-500">No students yet. Add one or bulk-upload from Excel.</p>
+            }
+            else
+            {
+                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                    <QuickGrid Items="@_students.AsQueryable()" Class="w-full text-sm" Theme="default">
+                        <PropertyColumn Property="@(s => s.FullName)"         Title="Name"       Sortable="true" />
+                        <PropertyColumn Property="@(s => s.AdmissionNumber)"  Title="Adm. #"     Sortable="true" />
+                        <PropertyColumn Property="@(s => s.ClassName)"        Title="Class"      Sortable="true" />
+                    </QuickGrid>
+                </div>
+                @if (_students.Count > 50)
+                {
+                    <p class="text-xs text-slate-400 mt-2">Showing first 50 of @_students.Count students.</p>
+                }
+            }
+        </section>
+
+        <!-- Teachers table -->
+        <section>
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Teachers</h2>
+            @if (_teachers.Count == 0)
+            {
+                <p class="text-sm text-slate-400 dark:text-slate-500">No teachers yet.</p>
+            }
+            else
+            {
+                <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                    <QuickGrid Items="@_teachers.AsQueryable()" Class="w-full text-sm" Theme="default">
+                        <PropertyColumn Property="@(t => t.FullName)" Title="Name"  Sortable="true" />
+                        <PropertyColumn Property="@(t => t.Email)"    Title="Email" Sortable="true" />
+                        <PropertyColumn Property="@(t => t.Phone)"    Title="Phone" />
+                    </QuickGrid>
+                </div>
+            }
+        </section>
+
+        <!-- Quick actions -->
+        <section>
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Quick Actions</h2>
+            <div class="flex flex-wrap gap-3">
+                <a href="/admin/access-codes" class="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">Manage access codes</a>
+                <a href="/admin/import"       class="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">Bulk upload (Excel)</a>
+                <a href="/admin/billing"      class="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">Billing records</a>
+            </div>
+        </section>
+    }
+</div>
+
+<style>
+    /* QuickGrid light theming */
+    :deep(table.quickgrid) { border-collapse: collapse; width: 100%; }
+    :deep(table.quickgrid th) { background: #f8fafc; padding: 0.625rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+    :deep(table.quickgrid td) { padding: 0.625rem 1rem; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+    :deep(table.quickgrid tr:last-child td) { border-bottom: none; }
+    :deep(table.quickgrid tr:hover td) { background: #f8fafc; }
+</style>
+
+@code {
+    private sealed record StudentRow(string FullName, string AdmissionNumber, string ClassName);
+    private sealed record TeacherRow(string FullName, string? Email, string? Phone);
+
+    private SchoolDashboard? _dashboard;
+    private BillingRecord?   _billing;
+    private List<StudentRow> _students = [];
+    private List<TeacherRow> _teachers = [];
+    private decimal _outstanding;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var t1 = Api.GetAsync<SchoolDashboard>("/api/schools/dashboard");
+        var t2 = Api.GetAsync<List<TeacherInfo>>("/api/teachers");
+        var t3 = Api.GetAsync<List<StudentInfo>>("/api/students");
+        var t4 = Api.GetAsync<List<BillingRecord>>("/api/billing");
+        await Task.WhenAll(t1, t2, t3, t4);
+
+        _dashboard = t1.Result;
+        _billing   = t4.Result?.FirstOrDefault();
+        _outstanding = _billing is null ? 0 : Math.Max(0, _billing.AmountDue - (_billing.AmountPaid ?? 0));
+
+        _teachers = (t2.Result ?? [])
+            .Select(t => new TeacherRow(
+                FullName: string.Join(" ", new[] { t.FirstName, t.MiddleName, t.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                Email: t.Email,
+                Phone: t.Phone))
+            .ToList();
+
+        _students = (t3.Result ?? [])
+            .Take(50)
+            .Select(s => new StudentRow(
+                FullName: string.Join(" ", new[] { s.FirstName, s.MiddleName, s.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                AdmissionNumber: s.AdmissionNumber ?? "—",
+                ClassName: s.Class?.Name ?? "—"))
+            .ToList();
+
+        if (_dashboard is null) _error = "Could not load dashboard data.";
+        _loading = false;
+    }
+
+    private static string FormatMoney(decimal amount, string? currency = null)
+    {
+        var symbol = (currency ?? "NGN") == "NGN" ? "₦" : currency + " ";
+        return $"{symbol}{amount:N0}";
+    }
+}

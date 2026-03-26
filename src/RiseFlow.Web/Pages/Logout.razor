@@ -1,0 +1,18 @@
+@page "/logout"
+@layout MainLayout
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Signing out – RiseFlow</PageTitle>
+
+<div class="flex items-center justify-center min-h-screen">
+    <p class="text-slate-500 dark:text-slate-400 text-sm">Signing out…</p>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

@@ -1,0 +1,177 @@
+@page "/teacher/grading"
+@page "/teacher/grading/{AssessmentId:guid}"
+@attribute [Authorize(Roles = "Teacher")]
+@layout DashboardLayout
+@rendermode InteractiveServer
+@inject ApiService Api
+
+<PageTitle>Grading – RiseFlow</PageTitle>
+
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">
+                Score Entry@(AssessmentId.HasValue ? $": {_assessmentName}" : "")
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">CA out of 30 · Exam out of 70 · Total = 100</p>
+        </div>
+        <button @onclick="SaveAll" disabled="@(_saving || _students.Count == 0)"
+                class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm">
+            @(_saving ? "Saving…" : "Save All Changes")
+        </button>
+    </div>
+
+    @if (_saveSuccess)
+    {
+        <div role="status" class="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+            ✓ Grades saved successfully.
+        </div>
+    }
+    @if (_saveError is not null)
+    {
+        <div role="alert" class="rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+            @_saveError
+        </div>
+    }
+
+    @if (!AssessmentId.HasValue)
+    {
+        <!-- Assessment picker when no ID specified -->
+        <section>
+            <h2 class="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">Select an assessment to grade</h2>
+            @if (_assessments.Count == 0)
+            {
+                <p class="text-sm text-slate-400 dark:text-slate-500">No assessments available.</p>
+            }
+            else
+            {
+                <div class="space-y-2">
+                    @foreach (var a in _assessments)
+                    {
+                        <a href="/teacher/grading/@a.Id"
+                           class="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@a.Name</p>
+                                <p class="text-xs text-slate-500">@a.SubjectName · @a.ClassName · @a.Term</p>
+                            </div>
+                            <span class="text-indigo-600 text-xs font-semibold dark:text-indigo-400">Grade →</span>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    }
+    else if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading students…</p>
+    }
+    else if (_students.Count == 0)
+    {
+        <p class="text-sm text-slate-400 dark:text-slate-500">No students found for this assessment.</p>
+    }
+    else
+    {
+        <!-- QuickGrid grading table -->
+        <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900">
+            <QuickGrid Items="@_students.AsQueryable()" Class="w-full text-sm" Theme="default">
+
+                <PropertyColumn Property="@(s => s.AdmissionNumber)" Title="ID" Sortable="true" />
+                <PropertyColumn Property="@(s => s.FullName)"        Title="Student Name" Sortable="true" />
+
+                <TemplateColumn Title="CA (max 30)">
+                    <input type="number" min="0" max="30"
+                           value="@context.CAScore"
+                           @onchange="@(e => context.CAScore = int.Parse(e.Value?.ToString() ?? "0"))"
+                           class="w-20 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-center text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </TemplateColumn>
+
+                <TemplateColumn Title="Exam (max 70)">
+                    <input type="number" min="0" max="70"
+                           value="@context.ExamScore"
+                           @onchange="@(e => context.ExamScore = int.Parse(e.Value?.ToString() ?? "0"))"
+                           class="w-20 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-center text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </TemplateColumn>
+
+                <TemplateColumn Title="Total">
+                    <span class="font-bold text-sm @GradeColor(context.Total)">@context.Total</span>
+                </TemplateColumn>
+
+            </QuickGrid>
+        </div>
+    }
+</div>
+
+<style>
+    :deep(table.quickgrid) { border-collapse: collapse; width: 100%; }
+    :deep(table.quickgrid th) { background: #f8fafc; padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+    :deep(table.quickgrid td) { padding: 0.625rem 1rem; border-bottom: 1px solid #e2e8f0; }
+    :deep(table.quickgrid tr:last-child td) { border-bottom: none; }
+    :deep(table.quickgrid tr:hover td) { background: #f8fafc; }
+</style>
+
+@code {
+    [Parameter] public Guid? AssessmentId { get; set; }
+
+    private List<StudentGradeVm> _students = [];
+    private List<AssessmentInfo> _assessments = [];
+    private string _assessmentName = "";
+    private bool _loading;
+    private bool _saving;
+    private bool _saveSuccess;
+    private string? _saveError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _saveSuccess = false;
+        _saveError   = null;
+
+        if (!AssessmentId.HasValue)
+        {
+            _assessments = await Api.GetAsync<List<AssessmentInfo>>("/api/assessments") ?? [];
+            return;
+        }
+
+        _loading = true;
+        var assessment = (await Api.GetAsync<List<AssessmentInfo>>("/api/assessments"))
+                         ?.FirstOrDefault(a => a.Id == AssessmentId.Value);
+        _assessmentName = assessment?.Name ?? AssessmentId.Value.ToString()[..8];
+
+        var students = await Api.GetAsync<List<StudentInfo>>($"/api/students?assessmentId={AssessmentId}");
+        _students = (students ?? []).Select(s => new StudentGradeVm
+        {
+            StudentId       = s.Id,
+            FullName        = string.Join(" ", new[] { s.FirstName, s.MiddleName, s.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))),
+            AdmissionNumber = s.AdmissionNumber ?? "—",
+        }).ToList();
+
+        _loading = false;
+    }
+
+    private async Task SaveAll()
+    {
+        if (!AssessmentId.HasValue || _students.Count == 0) return;
+        _saving = true;
+        _saveError = null;
+        _saveSuccess = false;
+
+        var payload = _students.Select(s => new
+        {
+            StudentId    = s.StudentId,
+            AssessmentId = AssessmentId!.Value,
+            CAScore      = s.CAScore,
+            ExamScore    = s.ExamScore,
+        }).ToList();
+
+        var ok = await Api.PostJsonAsync("/api/results/bulk", payload);
+        if (ok) _saveSuccess = true;
+        else    _saveError = "Could not save grades. Please try again.";
+        _saving = false;
+    }
+
+    private static string GradeColor(int total) => total >= 70
+        ? "text-emerald-600 dark:text-emerald-400"
+        : total < 40
+            ? "text-red-600 dark:text-red-400"
+            : "text-slate-700 dark:text-slate-200";
+}
