@@ -108,6 +108,7 @@ export default function OnboardingPage() {
             schoolId: data.schoolId || loginData.schoolId || null,
             logoPath: data.logoPath || null,
             cacDocumentPath: data.cacDocumentPath || null,
+            createdAtUtc: new Date().toISOString(),
           }));
         } catch {
           // ignore storage issues and still navigate
