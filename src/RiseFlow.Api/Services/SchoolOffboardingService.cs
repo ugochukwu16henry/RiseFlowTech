@@ -88,7 +88,7 @@ public sealed class SchoolOffboardingService(
 
         var classes = await db.Classes.AsNoTracking()
             .Where(x => x.SchoolId == schoolId)
-            .Select(x => new { x.Id, x.Name, x.AcademicYear, x.IsActive })
+            .Select(x => new { x.Id, x.Name, x.AcademicYear })
             .ToListAsync(ct);
 
         var subjects = await db.Subjects.AsNoTracking()

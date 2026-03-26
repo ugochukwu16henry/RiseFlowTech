@@ -10,7 +10,21 @@ public record OffboardSchoolResult(Guid SchoolId, string SchoolName, string Expo
 public record SuperAdminRevenue(Guid SchoolId, string SchoolName, int StudentCount, decimal MonthlyIncome, decimal TotalPaidToDate);
 public record SuperAdminRevenueVm(decimal TotalOneTimeFees, decimal TotalMonthlySubscriptions, decimal TotalRevenue, int TotalSchools, int TotalBillableStudents, List<SuperAdminRevenue> TopRevenueSchools);
 public record PlatformComplianceSettings(string? DataProtectionOfficerName, string? DataProtectionOfficerEmail, string? DpiaDocumentUrl, DateTime? LastUpdatedUtc);
-public record UpdatePlatformComplianceSettings(string? DataProtectionOfficerName, string? DataProtectionOfficerEmail, string? DpiaDocumentUrl);
+public class UpdatePlatformComplianceSettings
+{
+    public string? DataProtectionOfficerName { get; set; }
+    public string? DataProtectionOfficerEmail { get; set; }
+    public string? DpiaDocumentUrl { get; set; }
+
+    public UpdatePlatformComplianceSettings() { }
+
+    public UpdatePlatformComplianceSettings(string? dataProtectionOfficerName, string? dataProtectionOfficerEmail, string? dpiaDocumentUrl)
+    {
+        DataProtectionOfficerName = dataProtectionOfficerName;
+        DataProtectionOfficerEmail = dataProtectionOfficerEmail;
+        DpiaDocumentUrl = dpiaDocumentUrl;
+    }
+}
 public record TeacherInfo(Guid Id, string? FirstName, string? MiddleName, string? LastName, string? Email, string? Phone);
 public record StudentInfo(Guid Id, string? FirstName, string? MiddleName, string? LastName, string? AdmissionNumber, ClassInfo? Class);
 public record ClassInfo(Guid Id, string? Name);
