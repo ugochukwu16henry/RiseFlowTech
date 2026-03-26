@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
@@ -12,6 +12,14 @@ export default function ExcelImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [classCount, setClassCount] = useState(null);
+
+  useEffect(() => {
+    apiFetch('/api/schools/classes')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setClassCount(Array.isArray(list) ? list.length : 0))
+      .catch(() => setClassCount(0));
+  }, []);
 
   const loadPreview = useCallback(async (fileObj) => {
     if (!fileObj || !fileObj.name?.toLowerCase().endsWith('.xlsx')) {
@@ -118,6 +126,11 @@ export default function ExcelImportPage() {
 
         <section className="excel-section">
           <h2 className="section-title">2. Upload & preview</h2>
+          {classCount === 0 && (
+            <p className="excel-error">
+              Create at least one class first before importing. Go to School Admin and add classes, then re-upload this file.
+            </p>
+          )}
           <div
             className={`excel-dropzone ${dragOver ? 'excel-dropzone--active' : ''}`}
             onDrop={handleDrop}
@@ -130,6 +143,7 @@ export default function ExcelImportPage() {
               onChange={handleFileSelect}
               className="excel-input"
               aria-label="Choose Excel file"
+              disabled={classCount === 0}
             />
             {previewLoading ? (
               <div className="excel-progress">

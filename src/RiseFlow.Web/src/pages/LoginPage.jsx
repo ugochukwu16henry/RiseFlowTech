@@ -48,6 +48,9 @@ export default function LoginPage() {
       try {
         if (data.schoolId) {
           localStorage.setItem(STORAGE_TENANT_KEY, data.schoolId);
+        } else {
+          // Important: clear stale tenant when signing in as SuperAdmin/global user.
+          localStorage.removeItem(STORAGE_TENANT_KEY);
         }
       } catch {
         // ignore

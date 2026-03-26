@@ -23,10 +23,10 @@ export default function SuperAdminPage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      apiFetch('/api/superadmin/dashboard').then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/superadmin/revenue').then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/schools').then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/superadmin/audit?limit=50').then((r) => (r.ok ? r.json() : [])),
+      apiFetch('/api/superadmin/dashboard', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/superadmin/revenue', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/schools', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/superadmin/audit?limit=50', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : [])),
     ])
       .then(([dash, revenueStats, list, auditLog]) => {
         setDashboard(dash || null);

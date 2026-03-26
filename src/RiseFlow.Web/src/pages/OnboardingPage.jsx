@@ -4,7 +4,7 @@ import './OnboardingPage.css';
 import { apiFetch, getApiBase } from '../api';
 
 export default function OnboardingPage() {
-  const [form, setForm] = useState({ schoolName: '', email: '' });
+  const [form, setForm] = useState({ schoolName: '', email: '', adminFullName: '', adminPassword: '' });
   const [logo, setLogo] = useState(null);
   const [cacDocument, setCacDocument] = useState(null);
   const [step, setStep] = useState(1);
@@ -36,6 +36,10 @@ export default function OnboardingPage() {
       setStatus({ type: 'error', message: 'School email is required.' });
       return;
     }
+    if (!form.adminPassword || form.adminPassword.length < 8) {
+      setStatus({ type: 'error', message: 'Create an admin password with at least 8 characters.' });
+      return;
+    }
     setStatus({ type: null, message: null });
     setStep(2);
   };
@@ -54,6 +58,9 @@ export default function OnboardingPage() {
       const fd = new FormData();
       fd.append('SchoolName', form.schoolName.trim());
       fd.append('Email', form.email.trim());
+      fd.append('AdminEmail', form.email.trim());
+      fd.append('AdminPassword', form.adminPassword);
+      fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
       fd.append('CountryCode', 'NG');
       fd.append('CurrencyCode', 'NGN');
       fd.append('AgreedToTermsAndDpa', 'true');
@@ -203,6 +210,33 @@ export default function OnboardingPage() {
                 placeholder="school@example.com"
                 className="onboarding-input"
                 autoComplete="email"
+              />
+            </label>
+
+            <label className="onboarding-label">
+              Admin full name
+              <input
+                type="text"
+                name="adminFullName"
+                value={form.adminFullName}
+                onChange={handleChange}
+                placeholder="e.g. Mrs. Ada Okonkwo"
+                className="onboarding-input"
+                autoComplete="name"
+              />
+            </label>
+
+            <label className="onboarding-label">
+              Create admin password
+              <input
+                type="password"
+                name="adminPassword"
+                value={form.adminPassword}
+                onChange={handleChange}
+                required
+                placeholder="Minimum 8 characters"
+                className="onboarding-input"
+                autoComplete="new-password"
               />
             </label>
 

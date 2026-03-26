@@ -25,7 +25,10 @@ export function getApiHeaders() {
 /** Fetch from backend: URL = API_BASE + path, with credentials and X-Tenant-Id when set. */
 export function apiFetch(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
-  const { headers: userHeaders, ...rest } = options;
+  const { headers: userHeaders, skipTenantHeader = false, ...rest } = options;
   const headers = { ...getApiHeaders(), ...userHeaders };
+  if (skipTenantHeader) {
+    delete headers[TENANT_HEADER];
+  }
   return fetch(url, { credentials: 'include', ...rest, headers });
 }
