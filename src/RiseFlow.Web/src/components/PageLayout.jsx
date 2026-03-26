@@ -1,3 +1,6 @@
+import { useNavigate } from 'react-router-dom';
+import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+
 /**
  * Shared dashboard shell for all roles.
  * - Fixed left sidebar (logo + navigation)
@@ -5,6 +8,22 @@
  * - Main content area where each role page renders its own cards, charts, and tables
  */
 export default function PageLayout({ title, children }) {
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // best effort
+    }
+    try {
+      localStorage.removeItem(STORAGE_TENANT_KEY);
+    } catch {
+      // ignore
+    }
+    navigate('/login', { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
       {/* Sidebar */}
@@ -34,6 +53,13 @@ export default function PageLayout({ title, children }) {
                 {title}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 

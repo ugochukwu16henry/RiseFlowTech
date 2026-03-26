@@ -194,6 +194,21 @@ function App() {
   const [superAdminDashboard, setSuperAdminDashboard] = useState(null);
   const [superAdminLoading, setSuperAdminLoading] = useState(false);
   const [schoolBrand, setSchoolBrand] = useState(null);
+
+  const handleSignOut = async () => {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // best effort
+    }
+    try {
+      localStorage.removeItem(STORAGE_TENANT_KEY);
+    } catch {
+      // ignore
+    }
+    window.location.assign('/login');
+  };
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, role);
@@ -414,6 +429,7 @@ function App() {
               ))}
             </select>
           </label>
+          <button type="button" className="header-link" onClick={handleSignOut}>Sign out</button>
         </div>
         <p className="header-tagline">{ROLE_TAGLINES[role]}</p>
       </header>
