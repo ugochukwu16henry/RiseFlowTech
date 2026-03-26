@@ -53,6 +53,26 @@ export default function SchoolAdminPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    if (!onboardingSummary) return;
+
+    // Hide after 24h
+    const createdAt = onboardingSummary.createdAtUtc ? Date.parse(onboardingSummary.createdAtUtc) : NaN;
+    const expired = Number.isFinite(createdAt) && (Date.now() - createdAt) > (24 * 60 * 60 * 1000);
+
+    // Hide once first student exists (imported or added manually)
+    const hasStudents = (dashboard?.activeStudentCount ?? 0) > 0 || students.length > 0;
+
+    if (expired || hasStudents) {
+      try {
+        localStorage.removeItem(STORAGE_ONBOARDING_KEY);
+      } catch {
+        // ignore
+      }
+      setOnboardingSummary(null);
+    }
+  }, [onboardingSummary, dashboard?.activeStudentCount, students.length]);
+
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
 
