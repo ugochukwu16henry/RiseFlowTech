@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,12 +9,14 @@
     <link rel="stylesheet" href="css/rf-home-fallback.css" />
     <!-- Tailwind CSS via CDN — works on Nigerian 3G/4G without a build step -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet />
 </head>
+
 <body class="h-full bg-slate-50 dark:bg-slate-950">
-    <Routes @rendermode="InteractiveServer" />
+    <Routes />
     <script src="js/theme.js"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
+
 </html>
 

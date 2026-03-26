@@ -1,0 +1,121 @@
+@page "/student/dashboard"
+@attribute [Authorize(Roles = "Student")]
+@layout DashboardLayout
+@inject ApiService Api
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>My Dashboard – RiseFlow</PageTitle>
+
+<div class="max-w-3xl mx-auto space-y-8">
+
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-slate-100">My Dashboard</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Your results and academic progress.</p>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-sm text-slate-500" aria-busy="true">Loading…</p>
+    }
+    else if (_results.Count == 0)
+    {
+        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-sm">
+            <p class="text-4xl mb-4">📚</p>
+            <p class="text-base font-semibold text-slate-800 dark:text-slate-200">No results yet</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Your teacher hasn't entered any grades yet. Check back after assessments.
+            </p>
+        </div>
+    }
+    else
+    {
+        <!-- Performance overview -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <StatCard Label="Subjects taken" Value="@_subjectCount.ToString()" Color="indigo" />
+            <StatCard Label="Average score" Value="@($"{_avgScore:F1}%")" Color="@(_avgScore >= 70 ? "emerald" : _avgScore < 40 ? "red" : "slate")" />
+            <StatCard Label="Results recorded" Value="@_results.Count.ToString()" Color="sky" />
+        </div>
+
+        <!-- Subject breakdown -->
+        <section>
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Subject Breakdown</h2>
+            <div class="space-y-3">
+                @foreach (var s in _bySubject)
+                {
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@s.Subject</p>
+                            <span class="text-sm font-bold @GradeColor(s.Percent)">@s.Percent%</span>
+                        </div>
+                        <div class="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-2 rounded-full @BarColor(s.Percent)" style="width:@(s.Percent)%"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- Full results table -->
+        <section>
+            <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">All Results</h2>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <QuickGrid Items="@_results.AsQueryable()" Class="w-full text-sm" Theme="default">
+                    <PropertyColumn Property="@(r => r.SubjectName)"   Title="Subject"    Sortable="true" />
+                    <PropertyColumn Property="@(r => r.AssessmentType)" Title="Type"      Sortable="true" />
+                    <PropertyColumn Property="@(r => r.Term)"           Title="Term"      Sortable="true" />
+                    <TemplateColumn Title="Score">
+                        <span class="font-semibold @GradeColor(context.MaxScore > 0 ? (int)(context.Score / context.MaxScore * 100) : 0)">
+                            @context.Score / @context.MaxScore
+                        </span>
+                    </TemplateColumn>
+                </QuickGrid>
+            </div>
+        </section>
+    }
+</div>
+
+<style>
+    :deep(table.quickgrid) { border-collapse: collapse; width: 100%; }
+    :deep(table.quickgrid th) { background: #f8fafc; padding: 0.625rem 1rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+    :deep(table.quickgrid td) { padding: 0.625rem 1rem; border-bottom: 1px solid #e2e8f0; }
+    :deep(table.quickgrid tr:last-child td) { border-bottom: none; }
+    :deep(table.quickgrid tr:hover td) { background: #f8fafc; }
+</style>
+
+@code {
+    private List<ResultRecord> _results = [];
+    private List<(string Subject, int Percent)> _bySubject = [];
+    private int _subjectCount;
+    private double _avgScore;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _results = await Api.GetAsync<List<ResultRecord>>("/api/results/my") ?? [];
+        BuildStats();
+        _loading = false;
+    }
+
+    private void BuildStats()
+    {
+        _subjectCount = _results.Select(r => r.SubjectName).Distinct().Count();
+
+        _bySubject = _results
+            .GroupBy(r => r.SubjectName ?? "Other")
+            .Select(g => (
+                Subject: g.Key,
+                Percent: g.Sum(r => r.MaxScore) > 0
+                    ? (int)Math.Round(g.Sum(r => r.Score) / g.Sum(r => r.MaxScore) * 100)
+                    : 0))
+            .OrderByDescending(p => p.Percent)
+            .ToList();
+
+        _avgScore = _bySubject.Count > 0 ? _bySubject.Average(p => p.Percent) : 0;
+    }
+
+    private static string GradeColor(int pct) => pct >= 70 ? "text-emerald-600 dark:text-emerald-400"
+        : pct < 40 ? "text-red-600 dark:text-red-400" : "text-slate-700 dark:text-slate-200";
+
+    private static string BarColor(int pct) => pct >= 70 ? "bg-emerald-500"
+        : pct < 40 ? "bg-red-500" : "bg-indigo-500";
+}

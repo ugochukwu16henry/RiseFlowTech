@@ -157,14 +157,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var t1 = Api.GetAsync<List<ChildLink>>("/api/parents/my-children");
-        var t2 = Api.GetAsync<List<ResultRecord>>("/api/results/my-children");
-        await Task.WhenAll(t1, t2);
-
-        _children = t1.Result ?? [];
-        _results = t2.Result ?? [];
-
-        if (_children.Count > 0) SelectChild(_children[0].StudentId);
+        try
+        {
+            var t1 = Api.GetAsync<List<ChildLink>>("/api/parents/my-children");
+            var t2 = Api.GetAsync<List<ResultRecord>>("/api/results/my-children");
+            await Task.WhenAll(t1, t2);
+            _children = t1.Result ?? [];
+            _results = t2.Result ?? [];
+            if (_children.Count > 0) await SelectChild(_children[0].StudentId);
+        }
+        catch { _error = "Could not load your children. Please refresh."; }
         _loading = false;
     }
 

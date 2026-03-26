@@ -78,11 +78,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _assessments = await Api.GetAsync<List<AssessmentInfo>>("/api/assessments") ?? [];
+        try { _assessments = await Api.GetAsync<List<AssessmentInfo>>("/api/assessments") ?? []; }
+        catch { _error = "Could not load assessments. Please refresh."; }
         _loading = false;
-        if (_assessments.Count == 0 && _error is null)
-        {
-            // Not an error — teacher may just have no assessments yet.
-        }
     }
 }
