@@ -7,6 +7,10 @@ import HomePage from './pages/HomePage.jsx'
 import VerifyTranscriptPage from './pages/VerifyTranscriptPage.jsx'
 import OnboardingPage from './pages/OnboardingPage.jsx'
 import SuperAdminPage from './pages/SuperAdminPage.jsx'
+import SuperAdminSchoolsPage from './pages/SuperAdminSchoolsPage.jsx'
+import SuperAdminRevenuePage from './pages/SuperAdminRevenuePage.jsx'
+import SuperAdminCompliancePage from './pages/SuperAdminCompliancePage.jsx'
+import SuperAdminDataOffboardingPage from './pages/SuperAdminDataOffboardingPage.jsx'
 import ParentPage from './pages/ParentPage.jsx'
 import TeacherPage from './pages/TeacherPage.jsx'
 import SchoolAdminPage from './pages/SchoolAdminPage.jsx'
@@ -32,6 +36,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
+        <Route path="/super-admin/schools" element={<SuperAdminSchoolsPage />} />
+        <Route path="/super-admin/revenue" element={<SuperAdminRevenuePage />} />
+        <Route path="/super-admin/compliance" element={<SuperAdminCompliancePage />} />
+        <Route path="/super-admin/data-offboarding" element={<SuperAdminDataOffboardingPage />} />
         <Route path="/parent" element={<ParentPage />} />
         <Route path="/teacher" element={<TeacherPage />} />
         <Route path="/teacher/signup" element={<TeacherSignupPage />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -67,6 +68,13 @@ export default function SuperAdminPage() {
         As the RiseFlow SuperAdmin, this dashboard is your mission control. It gives you a bird&apos;s‑eye view of every school,
         their students, and the revenue flowing through activations and subscriptions.
       </p>
+
+      <div className="form-actions" style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <Link to="/super-admin/schools" className="btn-primary-action btn-primary-action--ghost">School management</Link>
+        <Link to="/super-admin/revenue" className="btn-primary-action btn-primary-action--ghost">Billing & revenue</Link>
+        <Link to="/super-admin/compliance" className="btn-primary-action btn-primary-action--ghost">System settings</Link>
+        <Link to="/super-admin/data-offboarding" className="btn-primary-action btn-primary-action--ghost">Data offboarding</Link>
+      </div>
 
       {/* 1. The Pulse (top KPI cards) */}
       <section aria-label="Business pulse KPIs">
