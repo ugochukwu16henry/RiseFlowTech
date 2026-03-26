@@ -1,12 +1,10 @@
-import { Link } from 'react-router-dom';
-
 /**
  * Shared dashboard shell for all roles.
  * - Fixed left sidebar (logo + navigation)
- * - Top bar (title, quick back link, role shortcuts)
+ * - Top bar (title)
  * - Main content area where each role page renders its own cards, charts, and tables
  */
-export default function PageLayout({ title, children, backTo = '/' }) {
+export default function PageLayout({ title, children }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
       {/* Sidebar */}
@@ -32,13 +30,6 @@ export default function PageLayout({ title, children, backTo = '/' }) {
         <header className="border-b border-slate-200 bg-white/90 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Link
-                to={backTo}
-                className="inline-flex items-center text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                aria-label="Back to dashboard"
-              >
-                ← Back
-              </Link>
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                 {title}
               </span>
