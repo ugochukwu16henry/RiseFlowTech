@@ -3,8 +3,7 @@
 @inject NavigationManager Nav
 
 @* Role-safe navigation sidebar.
-   Each <AuthorizeView Roles="..."> block is ONLY rendered for that role.
-   A SchoolAdmin will never see Teacher/Parent/Student links and vice versa. *@
+    Each role only sees its own dashboard link (no cross-role switching, no extra page links). *@
 
 <nav class="flex flex-col gap-1 px-3 py-4 h-full" aria-label="Main navigation">
 
@@ -32,37 +31,26 @@
     <!-- ── SuperAdmin only ─────────────────────────────────────────── -->
     <AuthorizeView Roles="SuperAdmin">
         <NavItem Href="/super-admin/dashboard" Icon="chart" Label="Dashboard" />
-        <NavItem Href="/super-admin/schools" Icon="school" Label="Schools" />
     </AuthorizeView>
 
     <!-- ── SchoolAdmin only ────────────────────────────────────────── -->
     <AuthorizeView Roles="SchoolAdmin">
         <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" />
-        <NavItem Href="/admin/students" Icon="users" Label="Students" />
-        <NavItem Href="/admin/teachers" Icon="users" Label="Teachers" />
-        <NavItem Href="/admin/access-codes" Icon="key" Label="Access Codes" />
-        <NavItem Href="/admin/billing" Icon="pay" Label="Billing" />
-        <NavItem Href="/admin/import" Icon="upload" Label="Bulk Import" />
     </AuthorizeView>
 
     <!-- ── Teacher only ────────────────────────────────────────────── -->
     <AuthorizeView Roles="Teacher">
         <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" />
-        <NavItem Href="/teacher/grading" Icon="book" Label="Grading" />
-        <NavItem Href="/teacher/results" Icon="results" Label="Results" />
     </AuthorizeView>
 
     <!-- ── Parent only ─────────────────────────────────────────────── -->
     <AuthorizeView Roles="Parent">
-        <NavItem Href="/parent/dashboard" Icon="users" Label="My Children" />
-        <NavItem Href="/parent/results" Icon="results" Label="Results" />
-        <NavItem Href="/parent/contacts" Icon="message" Label="Teachers" />
+        <NavItem Href="/parent/dashboard" Icon="users" Label="Dashboard" />
     </AuthorizeView>
 
     <!-- ── Student only ────────────────────────────────────────────── -->
     <AuthorizeView Roles="Student">
-        <NavItem Href="/student/dashboard" Icon="book" Label="My Dashboard" />
-        <NavItem Href="/student/results" Icon="results" Label="My Results" />
+        <NavItem Href="/student/dashboard" Icon="book" Label="Dashboard" />
     </AuthorizeView>
 
     <div class="mt-auto border-t border-slate-200 dark:border-slate-700 pt-3">
