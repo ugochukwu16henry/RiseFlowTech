@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
  * - Top bar (title, quick back link, role shortcuts)
  * - Main content area where each role page renders its own cards, charts, and tables
  */
-export default function PageLayout({ title, children, backTo = '/', showRoleLinks = true }) {
+export default function PageLayout({ title, children, backTo = '/' }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
       {/* Sidebar */}
@@ -20,15 +20,7 @@ export default function PageLayout({ title, children, backTo = '/', showRoleLink
             <p className="text-[11px] text-slate-500 dark:text-slate-400">School OS dashboard</p>
           </div>
         </div>
-        {showRoleLinks && (
-          <nav className="flex-1 px-3 py-4 space-y-1 text-sm">
-            <SidebarLink to="/super-admin" label="Super Admin" />
-            <SidebarLink to="/school" label="School Admin" />
-            <SidebarLink to="/teacher" label="Teacher" />
-            <SidebarLink to="/parent" label="Parent" />
-            <SidebarLink to="/student" label="Student" />
-          </nav>
-        )}
+        <div className="flex-1" />
         <div className="px-4 pb-4 mt-auto text-[11px] text-slate-400 dark:text-slate-500">
           <p>© {new Date().getFullYear()} RiseFlow</p>
         </div>
@@ -51,18 +43,6 @@ export default function PageLayout({ title, children, backTo = '/', showRoleLink
                 {title}
               </span>
             </div>
-            {showRoleLinks && (
-              <nav className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                <span className="uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Switch role
-                </span>
-                <Link to="/school" className="hover:text-indigo-600 dark:hover:text-indigo-400">School</Link>
-                <Link to="/teacher" className="hover:text-indigo-600 dark:hover:text-indigo-400">Teacher</Link>
-                <Link to="/parent" className="hover:text-indigo-600 dark:hover:text-indigo-400">Parent</Link>
-                <Link to="/student" className="hover:text-indigo-600 dark:hover:text-indigo-400">Student</Link>
-                <Link to="/super-admin" className="hover:text-indigo-600 dark:hover:text-indigo-400">Super</Link>
-              </nav>
-            )}
           </div>
         </header>
 
@@ -72,17 +52,6 @@ export default function PageLayout({ title, children, backTo = '/', showRoleLink
         </main>
       </div>
     </div>
-  );
-}
-
-function SidebarLink({ to, label }) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center justify-between rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/80 dark:hover:text-slate-50 text-xs font-medium"
-    >
-      <span>{label}</span>
-    </Link>
   );
 }
 
