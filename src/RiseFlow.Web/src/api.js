@@ -7,6 +7,7 @@
 export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 export const TENANT_HEADER = 'X-Tenant-Id';
 export const STORAGE_TENANT_KEY = 'riseflow-tenant-id';
+export const STORAGE_ONBOARDING_KEY = 'riseflow-onboarding-school';
 
 export function getApiBase() {
   return API_BASE;

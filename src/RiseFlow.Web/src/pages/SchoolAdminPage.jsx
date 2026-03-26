@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
-import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
+import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 
 function formatMoney(amount, currencyCode) {
@@ -23,6 +23,14 @@ export default function SchoolAdminPage() {
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
+  const [onboardingSummary, setOnboardingSummary] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -114,9 +122,95 @@ export default function SchoolAdminPage() {
   if (error) return <PageLayout title="School Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
+  const buildPublicUrl = (relativePath) => {
+    if (!relativePath) return null;
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+    const normalizedPath = relativePath.replace(/^\/+/, '');
+    const base = getApiBase();
+    if (!base) return `/${normalizedPath}`;
+    return `${base}/${normalizedPath}`;
+  };
+  const dismissOnboardingSummary = () => {
+    setOnboardingSummary(null);
+    try {
+      localStorage.removeItem(STORAGE_ONBOARDING_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <PageLayout title="School Admin">
+      {onboardingSummary?.schoolName && (
+        <section className="school-welcome-panel" aria-label="School setup complete">
+          <button type="button" className="school-welcome-close" onClick={dismissOnboardingSummary} aria-label="Dismiss welcome panel">×</button>
+          <h2 className="school-welcome-title">Congratulations, {onboardingSummary.schoolName} is now live!</h2>
+          <p className="school-welcome-sub">Your setup is complete. Welcome to RiseFlow.</p>
+
+          <div className="school-id-box">
+            <span className="school-id-label">RiseFlow ID</span>
+            <strong className="school-id-value">{onboardingSummary.schoolId || 'Generated'}</strong>
+          </div>
+
+          {onboardingSummary.logoPath && (
+            <div className="logo-preview-box">
+              <span className="school-id-label">School Logo Preview</span>
+              <a
+                href={buildPublicUrl(onboardingSummary.logoPath)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="logo-preview-link"
+              >
+                <img
+                  src={buildPublicUrl(onboardingSummary.logoPath)}
+                  alt={`${onboardingSummary.schoolName} logo`}
+                  className="logo-preview-image"
+                  loading="lazy"
+                />
+              </a>
+            </div>
+          )}
+
+          {(onboardingSummary.logoPath || onboardingSummary.cacDocumentPath) && (
+            <div className="school-files-box">
+              <span className="school-id-label">Uploaded Files</span>
+              <div className="school-files-list">
+                {onboardingSummary.logoPath && (
+                  <a href={buildPublicUrl(onboardingSummary.logoPath)} target="_blank" rel="noopener noreferrer">View School Logo</a>
+                )}
+                {onboardingSummary.cacDocumentPath && (
+                  <a href={buildPublicUrl(onboardingSummary.cacDocumentPath)} target="_blank" rel="noopener noreferrer">View CAC Document</a>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="success-actions">
+            <Link to="/school/import" className="action-card">
+              <h3>Import Students</h3>
+              <p>Upload your student list to go live faster.</p>
+            </Link>
+            <Link to="/teacher/signup" className="action-card">
+              <h3>Add Teachers</h3>
+              <p>Create teacher accounts and assign classes.</p>
+            </Link>
+            <Link to="/school" className="action-card">
+              <h3>Set Up Classes</h3>
+              <p>Organize classes, subjects, and academic terms.</p>
+            </Link>
+          </div>
+
+          <div className="next-checklist">
+            <p className="next-checklist-title">Next Steps</p>
+            <ul>
+              <li><a href={`${getApiBase()}/api/public/teacher-quick-start`} target="_blank" rel="noopener noreferrer">Download the Teacher Guide</a></li>
+              <li><Link to="/school">Add your first class</Link></li>
+              <li><Link to="/school/access-codes">Print Parent Access Codes</Link></li>
+            </ul>
+          </div>
+        </section>
+      )}
+
       {outstanding > 0 && (
         <div className="access-codes-result access-codes-result--error" style={{ marginBottom: '1rem' }}>
           <p style={{ margin: 0 }}>

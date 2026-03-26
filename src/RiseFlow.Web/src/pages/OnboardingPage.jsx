@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import './OnboardingPage.css';
-import { apiFetch, getApiBase } from '../api';
+import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
 
 export default function OnboardingPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ schoolName: '', email: '', adminFullName: '', adminPassword: '' });
   const [logo, setLogo] = useState(null);
   const [cacDocument, setCacDocument] = useState(null);
@@ -85,6 +87,36 @@ export default function OnboardingPage() {
         logoPath: data.logoPath || null,
         cacDocumentPath: data.cacDocumentPath || null,
       });
+
+      // Auto sign-in owner and take them directly to School Admin dashboard.
+      const loginRes = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.adminPassword,
+        }),
+      });
+      const loginData = await loginRes.json().catch(() => null);
+      if (loginRes.ok && loginData?.success) {
+        try {
+          if (loginData.schoolId) {
+            localStorage.setItem(STORAGE_TENANT_KEY, loginData.schoolId);
+          }
+          localStorage.setItem(STORAGE_ONBOARDING_KEY, JSON.stringify({
+            schoolName: data.schoolName || form.schoolName,
+            schoolId: data.schoolId || loginData.schoolId || null,
+            logoPath: data.logoPath || null,
+            cacDocumentPath: data.cacDocumentPath || null,
+          }));
+        } catch {
+          // ignore storage issues and still navigate
+        }
+        navigate('/school', { replace: true });
+        return;
+      }
+
+      // Fallback: show success page if auto login fails.
       setStep(3);
     } catch (err) {
       setStatus({ type: 'error', message: err.message || 'Network error.' });
