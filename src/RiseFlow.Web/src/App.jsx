@@ -97,32 +97,32 @@ function card(id, to, title, desc, icon, className) {
 
 const DASHBOARD_BY_ROLE = {
   [ROLES.Parent]: [
-    card('results', '/parent', 'View Results', 'See latest grades and report cards', IconResults, 'card--results'),
-    card('message', '/parent', 'Message Teacher', 'Contact your child’s teacher', IconMessage, 'card--message'),
-    card('pay', '/parent', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
+    card('results', '/parent/dashboard', 'View Results', 'See latest grades and report cards', IconResults, 'card--results'),
+    card('message', '/parent/dashboard', 'Message Teacher', 'Contact your child’s teacher', IconMessage, 'card--message'),
+    card('pay', '/parent/dashboard', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
   ],
   [ROLES.Teacher]: [
-    card('upload', '/teacher', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
-    card('classes', '/teacher', 'My Classes', 'View and manage your classes', IconBook, 'card--message'),
-    card('students', '/teacher', 'My Students', 'See student lists by class', IconUsers, 'card--pay'),
-    card('parents', '/teacher', 'Contact Parents', 'Message parents and guardians', IconMessage, 'card--message'),
+    card('upload', '/teacher/dashboard', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
+    card('classes', '/teacher/dashboard', 'My Classes', 'View and manage your classes', IconBook, 'card--message'),
+    card('students', '/teacher/dashboard', 'My Students', 'See student lists by class', IconUsers, 'card--pay'),
+    card('parents', '/teacher/dashboard', 'Contact Parents', 'Message parents and guardians', IconMessage, 'card--message'),
   ],
   [ROLES.SchoolAdmin]: [
-    card('school', '/school', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
-    card('billing', '/school', 'Billing & Fees', 'View billing and collect fees', IconPay, 'card--results'),
-    card('people', '/school', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
-    card('reports', '/school', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
+    card('school', '/school/dashboard', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
+    card('billing', '/school/billing', 'Billing & Fees', 'View billing and collect fees', IconPay, 'card--results'),
+    card('people', '/school/students', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
+    card('reports', '/school/reports', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
   ],
   [ROLES.Student]: [
-    card('results', '/student', 'My Results', 'View your grades', IconResults, 'card--results'),
-    card('classes', '/student', 'My Classes', 'See your class and timetable', IconBook, 'card--message'),
-    card('teachers', '/student', 'My Teachers', 'Contact your teachers', IconMessage, 'card--pay'),
+    card('results', '/student/dashboard', 'My Results', 'View your grades', IconResults, 'card--results'),
+    card('classes', '/student/dashboard', 'My Classes', 'See your class and timetable', IconBook, 'card--message'),
+    card('teachers', '/student/dashboard', 'My Teachers', 'Contact your teachers', IconMessage, 'card--pay'),
   ],
   [ROLES.SuperAdmin]: [
-    card('control', '/super-admin', 'Control Room', 'Platform stats and overview', IconChart, 'card--message'),
-    card('billing', '/super-admin', 'Billing', 'All schools billing and revenue', IconPay, 'card--results'),
-    card('schools', '/super-admin', 'Schools', 'Manage all schools', IconSchool, 'card--pay'),
-    card('transcripts', '/super-admin', 'Transcripts', 'Transcript verification', IconResults, 'card--message'),
+    card('control', '/super-admin/dashboard', 'Control Room', 'Platform stats and overview', IconChart, 'card--message'),
+    card('billing', '/super-admin/revenue', 'Billing', 'All schools billing and revenue', IconPay, 'card--results'),
+    card('schools', '/super-admin/schools', 'Schools', 'Manage all schools', IconSchool, 'card--pay'),
+    card('transcripts', '/super-admin/data-offboarding', 'Data Offboarding', 'Export and offboard school data safely', IconResults, 'card--message'),
   ],
 };
 

@@ -14,6 +14,9 @@ import SuperAdminDataOffboardingPage from './pages/SuperAdminDataOffboardingPage
 import ParentPage from './pages/ParentPage.jsx'
 import TeacherPage from './pages/TeacherPage.jsx'
 import SchoolAdminPage from './pages/SchoolAdminPage.jsx'
+import SchoolStudentsPage from './pages/SchoolStudentsPage.jsx'
+import SchoolBillingPage from './pages/SchoolBillingPage.jsx'
+import SchoolReportsPage from './pages/SchoolReportsPage.jsx'
 import StudentPage from './pages/StudentPage.jsx'
 import ExcelImportPage from './pages/ExcelImportPage.jsx'
 import AccessCodesPage from './pages/AccessCodesPage.jsx'
@@ -36,20 +39,34 @@ createRoot(document.getElementById('root')).render(
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
+        <Route path="/super-admin/dashboard" element={<SuperAdminPage />} />
         <Route path="/super-admin/schools" element={<SuperAdminSchoolsPage />} />
         <Route path="/super-admin/revenue" element={<SuperAdminRevenuePage />} />
         <Route path="/super-admin/compliance" element={<SuperAdminCompliancePage />} />
         <Route path="/super-admin/data-offboarding" element={<SuperAdminDataOffboardingPage />} />
         <Route path="/parent" element={<ParentPage />} />
+        <Route path="/parent/dashboard" element={<ParentPage />} />
         <Route path="/teacher" element={<TeacherPage />} />
+        <Route path="/teacher/dashboard" element={<TeacherPage />} />
+        <Route path="/teacher/grading" element={<TeacherPage />} />
         <Route path="/teacher/signup" element={<TeacherSignupPage />} />
         <Route path="/school" element={<SchoolAdminPage />} />
+        <Route path="/school/dashboard" element={<SchoolAdminPage />} />
+        <Route path="/school/students" element={<SchoolStudentsPage />} />
+        <Route path="/school/billing" element={<SchoolBillingPage />} />
+        <Route path="/school/reports" element={<SchoolReportsPage />} />
         <Route path="/school/students/add" element={<AddStudentPage />} />
         <Route path="/school/import" element={<ExcelImportPage />} />
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
+        <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
+        <Route path="/admin/students" element={<SchoolStudentsPage />} />
+        <Route path="/admin/billing" element={<SchoolBillingPage />} />
+        <Route path="/admin/import" element={<ExcelImportPage />} />
+        <Route path="/admin/access-codes" element={<AccessCodesPage />} />
         <Route path="/parent/signup" element={<ParentSignupPage />} />
         <Route path="/parent/claim" element={<ClaimChildPage />} />
         <Route path="/student" element={<StudentPage />} />
+        <Route path="/student/dashboard" element={<StudentPage />} />
         <Route path="/*" element={<App />} />
       </Routes>
     </BrowserRouter>
