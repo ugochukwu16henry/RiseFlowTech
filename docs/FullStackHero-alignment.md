@@ -1,12 +1,15 @@
 # FullStackHero .NET Starter Kit — alignment with RiseFlow
 
-The upstream reference is [fullstackhero/dotnet-starter-kit](https://github.com/fullstackhero/dotnet-starter-kit) ([`dotnet-starter-kit.git`](https://github.com/fullstackhero/dotnet-starter-kit.git)): **.NET 10**, **Blazor** + Tailwind admin UI, **Finbuckle** multitenancy, modular slices, Identity, auditing, Aspire, etc.
+The upstream reference is [fullstackhero/dotnet-starter-kit](https://github.com/fullstackhero/dotnet-starter-kit) ([`dotnet-starter-kit.git`](https://github.com/fullstackhero/dotnet-starter-kit.git)): **.NET 10**, **Blazor** + Tailwind admin UI, **Finbuckle** multitenancy, modular slices, Identity, auditing, Aspire, Hangfire, Redis cache, Mediator, OpenTelemetry, etc.
 
-RiseFlow **does not replace** that repo with your app. You keep RiseFlow as the product; FullStackHero lives beside it for **design and API patterns**.
+## “Use everything” — what that actually means
+
+You **cannot** drop the entire [dotnet-starter-kit](https://github.com/fullstackhero/dotnet-starter-kit) into RiseFlow in one step without **replacing** your architecture (Blazor host, module loader, Aspire, Hangfire storage, etc.). The right approach is **parity in layers**:
+
+1. **Reference** — submodule at `external/fullstackhero-dotnet-starter-kit` so you can diff and port patterns.
+2. **RiseFlow product** — React UI + `RiseFlow.Api` monolith; extend with the same *categories* of features FSH ships (tenancy, health, traces, jobs, cache) using the same *libraries* where it fits.
 
 ## Upstream code in this repo (git submodule)
-
-A **submodule** pins the exact upstream tree so you can diff, search, and copy ideas without merging unrelated history into RiseFlow’s main line:
 
 - Path: `external/fullstackhero-dotnet-starter-kit`
 - Remote: `https://github.com/fullstackhero/dotnet-starter-kit.git`
@@ -17,54 +20,56 @@ After clone, initialize submodules:
 git submodule update --init --recursive
 ```
 
-To move upstream forward (when you choose):
+To bump upstream:
 
 ```bash
 cd external/fullstackhero-dotnet-starter-kit
 git fetch origin
-git checkout develop   # or the branch you track
+git checkout develop
 git pull
 cd ../..
 git add external/fullstackhero-dotnet-starter-kit
 git commit -m "Bump fullstackhero-dotnet-starter-kit submodule"
 ```
 
-**Fork vs submodule:** A **GitHub fork** of FullStackHero is only needed if you plan to **contribute upstream** or maintain a long-lived private branch of *their* template. For RiseFlow, a **submodule** (or a second clone outside the repo) is usually enough.
-
 ## Stack difference (important)
 
 | FullStackHero | RiseFlow (this repo) |
 |---------------|------------------------|
 | Blazor + Tailwind dashboard | **React (Vite)** + Tailwind + `PageLayout` shell |
-| `FSH.Api` + module loader | `RiseFlow.Api` (controllers, services) |
-| Finbuckle + tenant-aware hosts | Finbuckle + `X-Tenant-Id` / claims + EF `ITenantEntity` filters |
+| `FSH.Api` + module loader + `AddHeroPlatform` | `RiseFlow.Api` (controllers, services) |
+| Finbuckle + module DB helpers | Finbuckle + `X-Tenant-Id` / claims + EF `ITenantEntity` filters |
 
-You **do not** merge the Blazor UI into your React app. Use **FSH Blazor** under `external/...` as a **visual and layout reference** (sidebar, spacing, primary color), then mirror those patterns in React.
+Use **FSH Blazor** under `external/...` only as a **layout/visual reference**; implement the product UI in React.
 
-## UI parity (React, not Blazor)
+## Backend parity in RiseFlow (implemented vs still optional)
 
-- **Where to look in FSH:** Blazor layout/shell components under `external/fullstackhero-dotnet-starter-kit` (search for `MainLayout`, `NavMenu`, or similar in their `src` tree after submodule init).
-- **Where RiseFlow implements the shell:** `src/RiseFlow.Web/src/components/PageLayout.jsx`, Tailwind in `tailwind.config.cjs` (primary palette + shell shadow aligned with starter-kit-style admin shells).
+| FullStackHero / starter-kit style | RiseFlow status |
+|-----------------------------------|-----------------|
+| .NET 10 | Yes — `RiseFlow.Api` → `net10.0` |
+| Finbuckle multitenancy | Yes — `Program.cs`, `RiseFlowTenantStrategy`, `SchoolTenantStore` |
+| Identity + roles | Yes |
+| Auditing | Yes — `AuditLog` / `IAuditLogService` |
+| **Health checks (DB)** | Yes — `AddHealthChecks().AddDbContextCheck<RiseFlowDbContext>()`, `MapHealthChecks("/health")` |
+| **OpenTelemetry → OTLP** | Yes — ASP.NET + HttpClient traces; OTLP endpoint via `OpenTelemetry:OtlpEndpoint` or standard `OTEL_*` env vars; `OpenTelemetry:Enabled` (off in Development by default) |
+| Hangfire jobs | Not yet — needs storage + hosting decision |
+| Redis distributed cache | Not yet — add when you have Redis |
+| Mediator / CQRS | Not yet — large refactor |
+| Aspire AppHost | Not yet — optional parallel hosting story |
+| API versioning + Scalar | Partial — Swagger today; versioning/Scalar optional |
+| Blazor client | No — React is the client |
 
-Homepage and marketing routes stay as you define them; only **app** routes use the shared shell.
+## OpenTelemetry configuration
 
-## Backend parity (already in RiseFlow)
+- **Production / staging:** set `OTEL_EXPORTER_OTLP_ENDPOINT` (and related `OTEL_*` vars) or `OpenTelemetry:OtlpEndpoint` in configuration.
+- **Local Development:** `appsettings.Development.json` sets `"OpenTelemetry": { "Enabled": false }` so you are not required to run a collector.
 
-| FullStackHero idea | RiseFlow location |
-|--------------------|-------------------|
-| .NET 10 API | `src/RiseFlow.Api/RiseFlow.Api.csproj` → `net10.0` |
-| Finbuckle | `Finbuckle.MultiTenant` packages; `Program.cs` → `AddMultiTenant` / `UseMultiTenant` |
-| Tenant resolution | `Services/RiseFlowTenantStrategy.cs`, `Middleware/TenantMiddleware.cs` |
-| Tenant store | `Services/SchoolTenantInfo.cs`, `Services/SchoolTenantStore.cs` |
-| Per-request tenant for EF | `ITenantService` / `TenantService`, `ITenantEntity` + `RiseFlowDbContext` filters |
-| Auditing | `AuditLog`, `IAuditLogService`, Super Admin audit APIs |
+## UI parity (React)
 
-## When to copy more from FSH
-
-- **Mediator / FluentValidation / Hangfire / OTel / Aspire:** add **incrementally** when a feature needs them.
-- **Blazor as a second client:** only if you explicitly want two UIs (large ongoing cost).
+- FSH reference: search `external/fullstackhero-dotnet-starter-kit` for layout/shell components.
+- RiseFlow shell: `src/RiseFlow.Web/src/components/PageLayout.jsx`, `tailwind.config.cjs`.
 
 ## References
 
 - FullStackHero .NET Starter Kit: https://github.com/fullstackhero/dotnet-starter-kit  
-- Clone URL: `https://github.com/fullstackhero/dotnet-starter-kit.git`
+- Clone: `https://github.com/fullstackhero/dotnet-starter-kit.git`
