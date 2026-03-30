@@ -1,3 +1,6 @@
 [submodule "external/fullstackhero-dotnet-starter-kit"]
 	path = external/fullstackhero-dotnet-starter-kit
 	url = https://github.com/fullstackhero/dotnet-starter-kit.git
+[submodule "external/blazor-boilerplate"]
+	path = external/blazor-boilerplate
+	url = https://github.com/enkodellc/blazorboilerplate.git
