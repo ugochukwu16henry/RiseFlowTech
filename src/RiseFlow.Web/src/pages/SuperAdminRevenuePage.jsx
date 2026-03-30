@@ -37,7 +37,7 @@ export default function SuperAdminRevenuePage() {
   }, []);
 
   return (
-    <PageLayout title="Super Admin — Revenue Hub">
+    <PageLayout title="Super Admin — Revenue Hub" role="super">
       <h2 className="section-title">Revenue hub</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

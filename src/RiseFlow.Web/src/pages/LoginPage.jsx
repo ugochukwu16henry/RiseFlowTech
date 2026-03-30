@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import PageLayout from '../components/PageLayout';
 import './LoginPage.css';
 import { apiFetch, STORAGE_TENANT_KEY } from '../api';
 
@@ -65,7 +66,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-root">
+    <PageLayout
+      variant="auth"
+      authHeaderRight={(
+        <>
+          <Link to="/onboard" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+            Register your school
+          </Link>
+        </>
+      )}
+    >
+      <div className="login-root login-root--in-shell">
       <div className="login-card">
         <div className="login-header">
           <img
@@ -121,6 +132,7 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+    </PageLayout>
   );
 }
 

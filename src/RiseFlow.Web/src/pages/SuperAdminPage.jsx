@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -52,8 +51,8 @@ export default function SuperAdminPage() {
     }
   }
 
-  if (loading) return <PageLayout title="Super Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="Super Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading) return <PageLayout title="Super Admin" role="super"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (error) return <PageLayout title="Super Admin" role="super"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const totalActiveSchools = dashboard?.activeSchools ?? 0;
   const totalStudents = dashboard?.totalStudents ?? dashboard?.activeStudents ?? 0;
@@ -63,18 +62,11 @@ export default function SuperAdminPage() {
   const delinquencyRate = totalActiveSchools > 0 ? Math.round((delinquentSchools / totalActiveSchools) * 100) : 0;
 
   return (
-    <PageLayout title="Super Admin — Control Room">
+    <PageLayout title="Super Admin — Control Room" role="super">
       <p className="control-room-intro">
         As the RiseFlow SuperAdmin, this dashboard is your mission control. It gives you a bird&apos;s‑eye view of every school,
-        their students, and the revenue flowing through activations and subscriptions.
+        their students, and the revenue flowing through activations and subscriptions. Use the sidebar for schools, revenue, compliance, and offboarding.
       </p>
-
-      <div className="form-actions" style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <Link to="/super-admin/schools" className="btn-primary-action btn-primary-action--ghost">School management</Link>
-        <Link to="/super-admin/revenue" className="btn-primary-action btn-primary-action--ghost">Billing & revenue</Link>
-        <Link to="/super-admin/compliance" className="btn-primary-action btn-primary-action--ghost">System settings</Link>
-        <Link to="/super-admin/data-offboarding" className="btn-primary-action btn-primary-action--ghost">Data offboarding</Link>
-      </div>
 
       {/* 1. The Pulse (top KPI cards) */}
       <section aria-label="Business pulse KPIs">

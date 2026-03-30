@@ -47,7 +47,7 @@ export default function ClaimChildPage() {
   };
 
   return (
-    <PageLayout title="Claim your child" backTo="/parent">
+    <PageLayout title="Claim your child" role="parent" backTo="/parent">
       <div className="claim-child">
         {signedUp && (
           <div className="claim-success claim-success--banner" role="status">

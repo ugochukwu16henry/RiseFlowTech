@@ -62,7 +62,7 @@ export default function SuperAdminDataOffboardingPage() {
   };
 
   return (
-    <PageLayout title="Super Admin — Data Offboarding">
+    <PageLayout title="Super Admin — Data Offboarding" role="super">
       <h2 className="section-title">Data offboarding</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

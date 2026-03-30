@@ -36,7 +36,7 @@ export default function SchoolBillingPage() {
   }, []);
 
   return (
-    <PageLayout title="School Admin — Billing">
+    <PageLayout title="School Admin — Billing" role="school">
       <h2 className="section-title">Billing records</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

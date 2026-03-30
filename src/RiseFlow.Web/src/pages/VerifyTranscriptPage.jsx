@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import PageLayout from '../components/PageLayout';
 import './VerifyTranscriptPage.css';
 import { apiFetch } from '../api';
 
@@ -47,57 +48,63 @@ export default function VerifyTranscriptPage() {
   };
 
   return (
-    <div className="verify-page">
-      <div className="verify-card">
-        <Link to="/" className="verify-back">← Back to RiseFlow</Link>
-        <h1 className="verify-title">Transcript verification</h1>
-        <p className="verify-intro">Any school can scan the QR code on a RiseFlow transcript to verify results instantly.</p>
+    <PageLayout title="Transcript verification" role="legal" showSignOut={false}>
+      <div className="verify-page">
+        <div className="verify-card">
+          <p className="card-desc" style={{ marginBottom: '1rem' }}>
+            <Link to="/">← Marketing home</Link>
+            {' · '}
+            <Link to="/login">Sign in</Link>
+          </p>
+          <h1 className="verify-title">Transcript verification</h1>
+          <p className="verify-intro">Any school can scan the QR code on a RiseFlow transcript to verify results instantly.</p>
 
-        {state.status === 'loading' && (
-          <p className="verify-status" aria-busy="true">Verifying…</p>
-        )}
+          {state.status === 'loading' && (
+            <p className="verify-status" aria-busy="true">Verifying…</p>
+          )}
 
-        {state.status === 'notfound' && (
-          <div className="verify-result verify-result--invalid">
-            <span className="verify-badge" aria-label="Invalid">Invalid</span>
-            <p>This verification code was not found. It may have expired or be incorrect.</p>
-          </div>
-        )}
+          {state.status === 'notfound' && (
+            <div className="verify-result verify-result--invalid">
+              <span className="verify-badge" aria-label="Invalid">Invalid</span>
+              <p>This verification code was not found. It may have expired or be incorrect.</p>
+            </div>
+          )}
 
-        {state.status === 'error' && (
-          <div className="verify-result verify-result--invalid">
-            <span className="verify-badge" aria-label="Error">Error</span>
-            <p>{state.error}</p>
-          </div>
-        )}
+          {state.status === 'error' && (
+            <div className="verify-result verify-result--invalid">
+              <span className="verify-badge" aria-label="Error">Error</span>
+              <p>{state.error}</p>
+            </div>
+          )}
 
-        {state.status === 'done' && state.data && (
-          <div className="verify-result verify-result--valid">
-            <span className="verify-badge" aria-label="Verified">Verified</span>
-            <dl className="verify-details">
-              <dt>Student</dt>
-              <dd>{state.data.studentName}</dd>
-              <dt>School</dt>
-              <dd>{state.data.schoolName}</dd>
-              <dt>Issued</dt>
-              <dd>{formatDate(state.data.issuedAtUtc)}</dd>
-              {state.data.issuedToName && (
-                <>
-                  <dt>Issued to</dt>
-                  <dd>{state.data.issuedToName}</dd>
-                </>
-              )}
-              {state.data.contentHash && (
-                <>
-                  <dt>Verification hash</dt>
-                  <dd className="verify-hash">{state.data.contentHash}</dd>
-                </>
-              )}
-            </dl>
-            <p className="verify-note">This transcript is official. The unique hash and QR code prove it has not been forged. riseflow.com/verify</p>
-          </div>
-        )}
+          {state.status === 'done' && state.data && (
+            <div className="verify-result verify-result--valid">
+              <span className="verify-badge" aria-label="Verified">Verified</span>
+              <dl className="verify-details">
+                <dt>Student</dt>
+                <dd>{state.data.studentName}</dd>
+                <dt>School</dt>
+                <dd>{state.data.schoolName}</dd>
+                <dt>Issued</dt>
+                <dd>{formatDate(state.data.issuedAtUtc)}</dd>
+                {state.data.issuedToName && (
+                  <>
+                    <dt>Issued to</dt>
+                    <dd>{state.data.issuedToName}</dd>
+                  </>
+                )}
+                {state.data.contentHash && (
+                  <>
+                    <dt>Verification hash</dt>
+                    <dd className="verify-hash">{state.data.contentHash}</dd>
+                  </>
+                )}
+              </dl>
+              <p className="verify-note">This transcript is official. The unique hash and QR code prove it has not been forged. riseflow.com/verify</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

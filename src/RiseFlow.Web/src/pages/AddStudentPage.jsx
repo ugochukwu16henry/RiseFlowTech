@@ -115,7 +115,7 @@ export default function AddStudentPage() {
 
   if (success) {
     return (
-      <PageLayout title="Student added" backTo="/school">
+      <PageLayout title="Student added" role="school" backTo="/school">
         <div className="add-student-success">
           <p className="add-student-success-msg">Student registered successfully. They will appear in your student list and you can generate a parent access code for them from Access Codes.</p>
           {createdStudent && (
@@ -151,7 +151,7 @@ export default function AddStudentPage() {
   }
 
   return (
-    <PageLayout title="Register new student" backTo="/school">
+    <PageLayout title="Register new student" role="school" backTo="/school">
       <div className="add-student">
         <p className="card-desc">
           Add one student at a time. New registrations will appear in your student list. You can also <Link to="/school/import">bulk upload from Excel</Link>.

@@ -3,7 +3,7 @@ import './RolePages.css';
 
 export default function SchoolReportsPage() {
   return (
-    <PageLayout title="School Admin — Reports">
+    <PageLayout title="School Admin — Reports" role="school">
       <h2 className="section-title">Reports</h2>
       <p className="card-desc">This dashboard module is active and reachable. Connect your report export/analytics endpoints here.</p>
       <div className="card">

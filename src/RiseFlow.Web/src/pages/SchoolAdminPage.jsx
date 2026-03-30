@@ -139,8 +139,8 @@ export default function SchoolAdminPage() {
     }
   };
 
-  if (loading) return <PageLayout title="School Admin"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="School Admin"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading) return <PageLayout title="School Admin" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (error) return <PageLayout title="School Admin" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
   const buildPublicUrl = (relativePath) => {
@@ -161,7 +161,7 @@ export default function SchoolAdminPage() {
   };
 
   return (
-    <PageLayout title="School Admin">
+    <PageLayout title="School Admin" role="school">
       <div className="school-admin-shell">
         <aside className="school-admin-nav">
           <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>

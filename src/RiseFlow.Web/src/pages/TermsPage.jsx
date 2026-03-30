@@ -4,7 +4,7 @@ import './LegalPage.css';
 
 export default function TermsPage() {
   return (
-    <PageLayout title="Terms of Service">
+    <PageLayout title="Terms of Service" role="legal" showSignOut={false}>
       <div className="legal-page">
         <p className="legal-updated">Last updated: March 2026. For a full launch, have these terms reviewed by a Data Protection Compliance Organisation (DPCO) in your jurisdiction.</p>
 

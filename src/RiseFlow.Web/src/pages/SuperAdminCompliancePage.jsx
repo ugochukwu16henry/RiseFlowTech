@@ -61,7 +61,7 @@ export default function SuperAdminCompliancePage() {
   };
 
   return (
-    <PageLayout title="Super Admin — System Settings">
+    <PageLayout title="Super Admin — System Settings" role="super">
       <h2 className="section-title">Compliance settings</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import PageLayout from '../components/PageLayout';
 import './OnboardingPage.css';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
 
@@ -128,8 +129,17 @@ export default function OnboardingPage() {
 
   const progressIndex = step === 3 ? 3 : step;
 
+  const authLinks = (
+    <>
+      <Link to="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+        Sign in
+      </Link>
+    </>
+  );
+
   if (step === 3 && createdSchool) {
     return (
+      <PageLayout variant="auth" authHeaderRight={authLinks}>
       <div className="onboarding-page">
         <div className="onboarding-card onboarding-success-card">
           <div className="success-check" aria-hidden="true">
@@ -200,10 +210,12 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
+      </PageLayout>
     );
   }
 
   return (
+    <PageLayout variant="auth" authHeaderRight={authLinks}>
     <div className="onboarding-page">
       <div className="onboarding-card">
         <Link to="/" className="onboarding-back">← Back to RiseFlow</Link>
@@ -335,5 +347,6 @@ export default function OnboardingPage() {
         <p className="onboarding-footnote">Mobile-friendly setup: complete onboarding in under 60 seconds.</p>
       </div>
     </div>
+    </PageLayout>
   );
 }

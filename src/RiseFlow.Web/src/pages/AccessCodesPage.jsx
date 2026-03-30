@@ -69,11 +69,11 @@ export default function AccessCodesPage() {
     if (parentSignupUrl) navigator.clipboard.writeText(parentSignupUrl);
   };
 
-  if (loading) return <PageLayout title="Parent Access Codes"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="Parent Access Codes"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading) return <PageLayout title="Parent Access Codes" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (error) return <PageLayout title="Parent Access Codes" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   return (
-    <PageLayout title="Parent Access Codes">
+    <PageLayout title="Parent Access Codes" role="school">
       <p className="card-desc">
         Each student has a unique code (e.g. <strong>RF-8821</strong>). Give this code to the parent so they can open the RiseFlow app or web and &quot;Claim&quot; their child&apos;s profile.
       </p>

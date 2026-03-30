@@ -65,7 +65,7 @@ export default function ParentSignupPage() {
 
   if (!schoolId) {
     return (
-      <PageLayout title="Parent signup">
+      <PageLayout title="Parent signup" role="parent">
         <div className="claim-child">
           <p className="empty-state empty-state--error">
             This signup link is invalid or missing the school. Ask your school for the correct parent signup link.
@@ -79,7 +79,7 @@ export default function ParentSignupPage() {
   }
 
   return (
-    <PageLayout title="Parent signup" backTo="/parent">
+    <PageLayout title="Parent signup" role="parent" backTo="/parent">
       <div className="claim-child parent-signup">
         <p className="card-desc">
           Create your parent account for this school. After signup, sign in and enter the <strong>Parent Access Code</strong> from your school to link your child.

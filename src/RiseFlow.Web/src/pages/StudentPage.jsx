@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -29,8 +29,50 @@ export default function StudentPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const { subjectCount, averagePct } = useMemo(() => {
+    if (!results.length) return { subjectCount: 0, averagePct: null };
+    const bySubject = {};
+    for (const r of results) {
+      const name = r.subject?.name || 'Other';
+      if (!bySubject[name]) bySubject[name] = { score: 0, max: 0 };
+      bySubject[name].score += Number(r.score) || 0;
+      bySubject[name].max += Number(r.maxScore) || 0;
+    }
+    const keys = Object.keys(bySubject);
+    const pctList = keys.map((k) => {
+      const { score, max } = bySubject[k];
+      return max > 0 ? (score / max) * 100 : null;
+    }).filter((p) => p != null);
+    const avg = pctList.length
+      ? Math.round(pctList.reduce((a, b) => a + b, 0) / pctList.length)
+      : null;
+    return { subjectCount: keys.length, averagePct: avg };
+  }, [results]);
+
   return (
-    <PageLayout title="Student — My results">
+    <PageLayout title="Student — My results" role="student">
+      <section aria-label="Results snapshot">
+        <div className="dashboard-grid">
+          <article className="dashboard-card dashboard-card--highlight">
+            <p className="dashboard-label">Subjects</p>
+            <p className="dashboard-value">{loading ? '—' : subjectCount}</p>
+            <p className="dashboard-sub">With recorded assessments.</p>
+          </article>
+          <article className="dashboard-card">
+            <p className="dashboard-label">Overall (approx.)</p>
+            <p className="dashboard-value">
+              {loading ? '—' : (averagePct != null ? `${averagePct}%` : '—')}
+            </p>
+            <p className="dashboard-sub">Average across subjects with scores.</p>
+          </article>
+          <article className="dashboard-card">
+            <p className="dashboard-label">Records</p>
+            <p className="dashboard-value">{loading ? '—' : results.length}</p>
+            <p className="dashboard-sub">Assessment rows in your gradebook.</p>
+          </article>
+        </div>
+      </section>
+
       <h2 className="section-title">My results (from database)</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

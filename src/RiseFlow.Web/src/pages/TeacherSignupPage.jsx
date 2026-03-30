@@ -82,7 +82,7 @@ export default function TeacherSignupPage() {
 
   if (!schoolId) {
     return (
-      <PageLayout title="Teacher signup">
+      <PageLayout title="Teacher signup" role="teacher">
         <div className="claim-child">
           <p className="empty-state empty-state--error">
             This signup link is invalid or missing the school. Ask your school admin to resend your teacher signup link.
@@ -96,7 +96,7 @@ export default function TeacherSignupPage() {
   }
 
   return (
-    <PageLayout title="Teacher signup">
+    <PageLayout title="Teacher signup" role="teacher">
       <div className="claim-child parent-signup">
         <p className="card-desc">
           Create your teacher account for this school. After signup, sign in through your school&apos;s login to see your classes and students.

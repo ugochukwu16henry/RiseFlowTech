@@ -32,7 +32,7 @@ export default function SuperAdminSchoolsPage() {
   }, []);
 
   return (
-    <PageLayout title="Super Admin — School Management">
+    <PageLayout title="Super Admin — School Management" role="super">
       <h2 className="section-title">School management</h2>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}

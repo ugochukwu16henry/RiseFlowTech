@@ -109,7 +109,7 @@ export default function ExcelImportPage() {
   const duplicateWarningCount = preview?.duplicateWarnings?.length ?? 0;
 
   return (
-    <PageLayout title="Import students (Excel)">
+    <PageLayout title="Import students (Excel)" role="school">
       <div className="excel-import">
         <section className="excel-section">
           <h2 className="section-title">1. Download template</h2>

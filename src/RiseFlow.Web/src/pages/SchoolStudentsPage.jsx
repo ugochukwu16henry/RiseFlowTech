@@ -32,7 +32,7 @@ export default function SchoolStudentsPage() {
   }, []);
 
   return (
-    <PageLayout title="School Admin — Teachers & Students">
+    <PageLayout title="School Admin — Teachers & Students" role="school">
       <h2 className="section-title">Students</h2>
       <div className="form-actions" style={{ marginBottom: '0.75rem' }}>
         <Link to="/school/students/add" className="btn-primary-action">Add student</Link>

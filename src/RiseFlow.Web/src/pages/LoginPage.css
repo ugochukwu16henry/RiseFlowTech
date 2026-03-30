@@ -8,6 +8,12 @@
               radial-gradient(circle at bottom right, rgba(5, 150, 105, 0.18), transparent 55%);
 }
 
+.login-root--in-shell {
+  min-height: auto;
+  flex: 1;
+  min-height: min(100vh, calc(100vh - 3.5rem));
+}
+
 .login-card {
   width: 100%;
   max-width: 420px;

@@ -4,7 +4,7 @@ import './LegalPage.css';
 
 export default function PrivacyPage() {
   return (
-    <PageLayout title="Privacy Policy & Data Processing">
+    <PageLayout title="Privacy Policy & Data Processing" role="legal" showSignOut={false}>
       <div className="legal-page">
         <p className="legal-updated">Last updated: March 2026. This policy is aligned with the Nigeria Data Protection Act (NDPA) 2023. For a full launch, have it reviewed by a Data Protection Compliance Organisation (DPCO) in your jurisdiction.</p>
 

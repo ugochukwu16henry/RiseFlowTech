@@ -17,12 +17,6 @@ function displayName(child) {
   return [child.firstName, child.middleName, child.lastName].filter(Boolean).join(' ');
 }
 
-function initials(child) {
-  const first = (child.firstName || '').charAt(0).toUpperCase();
-  const last = (child.lastName || '').charAt(0).toUpperCase();
-  return last ? `${first}${last}` : first || '?';
-}
-
 function mapResultsToProgress(results) {
   if (!Array.isArray(results) || results.length === 0) return [];
   const bySubject = {};
@@ -64,6 +58,7 @@ export default function ParentPage() {
   const [errorChildren, setErrorChildren] = useState(null);
   const [errorResults, setErrorResults] = useState(null);
   const [errorTeachers, setErrorTeachers] = useState(null);
+  const [activeView, setActiveView] = useState('overview');
 
   const loadChildren = useCallback(async () => {
     const res = await apiFetch('/api/parents/my-children');
@@ -146,49 +141,84 @@ export default function ParentPage() {
     : selectedChild?.termAverage ?? null;
 
   return (
-    <PageLayout title="Family View — My children">
-      {/* Top bar: My Children + child switcher + Add another child */}
-      <div className="family-view-top">
-        <h2 className="section-title">My Children</h2>
-        <div className="family-view-actions">
-          {children.length > 0 && (
-            <div className="child-switcher" role="tablist" aria-label="Select child">
-              {children.map((child) => (
-                <button
-                  key={child.studentId}
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedChildId === child.studentId}
-                  aria-label={displayName(child)}
-                  title={displayName(child)}
-                  className={`child-avatar ${selectedChildId === child.studentId ? 'child-avatar--selected' : ''}`}
-                  onClick={() => setSelectedChildId(child.studentId)}
-                >
-                  <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} />
-                </button>
-              ))}
+    <PageLayout title="Family View — My children" role="parent">
+      <div className="school-admin-shell">
+        <aside className="school-admin-nav" aria-label="Family sections">
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
+            Overview
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'progress' ? 'is-active' : ''}`} onClick={() => setActiveView('progress')} disabled={!selectedChild}>
+            Academic progress
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'teachers' ? 'is-active' : ''}`} onClick={() => setActiveView('teachers')} disabled={!selectedChild}>
+            Teachers
+          </button>
+        </aside>
+
+        <section className="school-admin-view">
+          {activeView === 'overview' && children.length > 0 && (
+            <section aria-label="Family snapshot">
+              <div className="dashboard-grid">
+                <article className="dashboard-card dashboard-card--highlight">
+                  <p className="dashboard-label">Children linked</p>
+                  <p className="dashboard-value">{children.length}</p>
+                  <p className="dashboard-sub">Students tied to your parent account.</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Term average (selected)</p>
+                  <p className="dashboard-value">
+                    {selectedChild?.termAverage != null ? `${selectedChild.termAverage}%` : (overallPct != null ? `${overallPct}%` : '—')}
+                  </p>
+                  <p className="dashboard-sub">From school records or calculated from results.</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Subjects tracked</p>
+                  <p className="dashboard-value">{progress.length || '—'}</p>
+                  <p className="dashboard-sub">With published results this term.</p>
+                </article>
+              </div>
+            </section>
+          )}
+
+          {/* Top bar: My Children + child switcher + Add another child */}
+          <div className="family-view-top">
+            <h2 className="section-title">My Children</h2>
+            <div className="family-view-actions">
+              {children.length > 0 && (
+                <div className="child-switcher" role="tablist" aria-label="Select child">
+                  {children.map((child) => (
+                    <button
+                      key={child.studentId}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedChildId === child.studentId}
+                      aria-label={displayName(child)}
+                      title={displayName(child)}
+                      className={`child-avatar ${selectedChildId === child.studentId ? 'child-avatar--selected' : ''}`}
+                      onClick={() => setSelectedChildId(child.studentId)}
+                    >
+                      <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Link to="/parent/claim" className="btn-add-child">
+                Add another child
+              </Link>
+            </div>
+          </div>
+
+          {loadingChildren && <p className="empty-state" aria-busy="true">Loading…</p>}
+          {errorChildren && <p className="empty-state empty-state--error">{errorChildren}</p>}
+
+          {!loadingChildren && children.length === 0 && (
+            <div className="family-view-empty">
+              <p className="card-desc">You haven’t linked any children yet. Use the Parent Access Code from your school to claim your child.</p>
+              <Link to="/parent/claim" className="btn-claim-child-cta">Claim your child</Link>
             </div>
           )}
-          <Link to="/parent/claim" className="btn-add-child">
-            Add another child
-          </Link>
-        </div>
-      </div>
 
-      {loadingChildren && <p className="empty-state" aria-busy="true">Loading…</p>}
-      {errorChildren && <p className="empty-state empty-state--error">{errorChildren}</p>}
-
-      {!loadingChildren && children.length === 0 && (
-        <div className="family-view-empty">
-          <p className="card-desc">You haven’t linked any children yet. Use the Parent Access Code from your school to claim your child.</p>
-          <Link to="/parent/claim" className="btn-claim-child-cta">Claim your child</Link>
-        </div>
-      )}
-
-      {!loadingChildren && selectedChild && (
-        <>
-          <div className="family-view-grid">
-            {/* Left: Student profile */}
+          {!loadingChildren && selectedChild && activeView === 'overview' && (
             <section className="family-view-card family-view-profile" aria-label="Student profile">
               <div className="family-view-profile-header">
                 <StudentPhoto studentId={selectedChild.studentId} firstName={selectedChild.firstName} lastName={selectedChild.lastName} size={56} />
@@ -203,8 +233,9 @@ export default function ParentPage() {
                 <dd>{selectedChild.termAverage != null ? `${selectedChild.termAverage}%` : '—'}</dd>
               </dl>
             </section>
+          )}
 
-            {/* Right: Teacher directory */}
+          {!loadingChildren && selectedChild && activeView === 'teachers' && (
             <section className="family-view-card family-view-teachers" aria-label="Assigned teachers">
               <h3 className="card-title">Assigned Teachers</h3>
               {loadingTeachers && <p className="empty-state" aria-busy="true">Loading teachers…</p>}
@@ -246,44 +277,45 @@ export default function ParentPage() {
                 </ul>
               )}
             </section>
-          </div>
+          )}
 
-          {/* Bottom: Performance snapshot + Download PDF */}
-          <section className="family-view-results" aria-label="Performance snapshot">
-            <h3 className="card-title">Performance snapshot</h3>
-            {loadingResults && <p className="empty-state" aria-busy="true">Loading results…</p>}
-            {errorResults && <p className="empty-state empty-state--error">{errorResults}</p>}
-            {!loadingResults && !errorResults && progress.length === 0 && (
-              <p className="empty-state">No results yet for this term.</p>
-            )}
-            {!loadingResults && progress.length > 0 && (
-              <>
-                {overallPct != null && (
-                  <div className="progress-item progress-overall">
-                    <div className="progress-header">
-                      <span className="progress-label">Overall</span>
-                      <span className="progress-value">{overallPct}%</span>
+          {!loadingChildren && selectedChild && activeView === 'progress' && (
+            <section className="family-view-results" aria-label="Performance snapshot">
+              <h3 className="card-title">Performance snapshot</h3>
+              {loadingResults && <p className="empty-state" aria-busy="true">Loading results…</p>}
+              {errorResults && <p className="empty-state empty-state--error">{errorResults}</p>}
+              {!loadingResults && !errorResults && progress.length === 0 && (
+                <p className="empty-state">No results yet for this term.</p>
+              )}
+              {!loadingResults && progress.length > 0 && (
+                <>
+                  {overallPct != null && (
+                    <div className="progress-item progress-overall">
+                      <div className="progress-header">
+                        <span className="progress-label">Overall</span>
+                        <span className="progress-value">{overallPct}%</span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-fill progress-overall-fill" style={{ width: `${overallPct}%` }} />
+                      </div>
                     </div>
-                    <div className="progress-track">
-                      <div className="progress-fill progress-overall-fill" style={{ width: `${overallPct}%` }} />
-                    </div>
-                  </div>
-                )}
-                <ul className="progress-list">
-                  {progress.map(({ subject, value }) => (
-                    <li key={subject}>
-                      <ProgressBar label={subject} value={value} />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <p className="card-desc" style={{ marginTop: '1rem' }}>
-              <button type="button" className="btn-download-pdf" disabled>Download PDF report (coming soon)</button>
-            </p>
-          </section>
-        </>
-      )}
+                  )}
+                  <ul className="progress-list">
+                    {progress.map(({ subject, value }) => (
+                      <li key={subject}>
+                        <ProgressBar label={subject} value={value} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="card-desc" style={{ marginTop: '1rem' }}>
+                <button type="button" className="btn-download-pdf" disabled>Download PDF report (coming soon)</button>
+              </p>
+            </section>
+          )}
+        </section>
+      </div>
     </PageLayout>
   );
 }
