@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Finbuckle.MultiTenant;
+using Finbuckle.MultiTenant.Extensions;
+using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
@@ -68,6 +71,10 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 // Multi-tenancy: TenantService holds TenantId (from header or claim) for the request; EF filters by School
 builder.Services.AddHttpContextAccessor();
+builder.Services
+    .AddMultiTenant<SchoolTenantInfo>()
+    .WithStrategy<RiseFlowTenantStrategy>(ServiceLifetime.Singleton)
+    .WithStore<SchoolTenantStore>(ServiceLifetime.Scoped);
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<SchoolOnboardingService>();
@@ -121,6 +128,7 @@ var app = builder.Build();
 
 app.UseCors();
 app.UseRateLimiter();
+app.UseMultiTenant();
 
 // Extract TenantId from X-Tenant-Id header so TenantService and EF can filter by School
 app.UseMiddleware<TenantMiddleware>();

@@ -34,10 +34,10 @@ const NAV_BY_ROLE = {
 
 function navClass({ isActive }) {
   return [
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+    'block rounded-r-lg pl-3 pr-3 py-2.5 text-sm font-medium transition-colors border-l-[3px]',
     isActive
-      ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-200'
-      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
+      ? 'border-primary-600 bg-indigo-50/90 text-primary-800 dark:border-primary-400 dark:bg-indigo-950/40 dark:text-indigo-100'
+      : 'border-transparent text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/80',
   ].join(' ');
 }
 
@@ -75,11 +75,11 @@ export default function PageLayout({
 
   if (variant === 'auth') {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
-        <header className="border-b border-slate-200 bg-white/90 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90">
+      <div className="min-h-screen bg-slate-100/90 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col">
+        <header className="border-b border-slate-200/90 bg-white/95 shadow-shell backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
             <Link to="/" className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-xs font-bold text-white shadow-sm">
                 RF
               </span>
               <span className="text-sm font-semibold">RiseFlow</span>
@@ -95,14 +95,14 @@ export default function PageLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
-      <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200 bg-white/90 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-bold text-white">
+    <div className="min-h-screen bg-slate-100/90 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
+      <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200/90 bg-white shadow-shell dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-xs font-bold text-white shadow-sm">
             RF
           </div>
           <div>
-            <p className="text-sm font-semibold">RiseFlow</p>
+            <p className="text-sm font-semibold tracking-tight">RiseFlow</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">School OS</p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function PageLayout({
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-slate-200 bg-white/90 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90">
+        <header className="border-b border-slate-200/90 bg-white/95 shadow-shell backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95">
           <div className="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               {backTo && (
@@ -172,7 +172,7 @@ export default function PageLayout({
           )}
         </header>
 
-        <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-6 space-y-4">
+        <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-6 space-y-4 md:px-6">
           {children}
         </main>
       </div>

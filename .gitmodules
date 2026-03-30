@@ -1,0 +1,3 @@
+[submodule "external/fullstackhero-dotnet-starter-kit"]
+	path = external/fullstackhero-dotnet-starter-kit
+	url = https://github.com/fullstackhero/dotnet-starter-kit.git
