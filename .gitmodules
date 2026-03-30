@@ -4,3 +4,6 @@
 [submodule "external/blazor-boilerplate"]
 	path = external/blazor-boilerplate
 	url = https://github.com/enkodellc/blazorboilerplate.git
+[submodule "external/school-management-system"]
+	path = external/school-management-system
+	url = https://github.com/pacheco4480/SchoolManagementSystem.git

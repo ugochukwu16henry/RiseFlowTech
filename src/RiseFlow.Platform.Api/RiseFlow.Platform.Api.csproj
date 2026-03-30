@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RiseFlow.Platform.Api</RootNamespace>
+    <AssemblyName>RiseFlow.Platform.Api</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.2" />
+    <PackageReference Include="Mediator.SourceGenerator" Version="3.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Web\Web.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Auditing\Modules.Auditing.Contracts\Modules.Auditing.Contracts.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Auditing\Modules.Auditing\Modules.Auditing.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Identity\Modules.Identity\Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Multitenancy\Modules.Multitenancy\Modules.Multitenancy.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Playground\Migrations.PostgreSQL\Migrations.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Webhooks\Modules.Webhooks\Modules.Webhooks.csproj" />
+    <ProjectReference Include="..\Modules\RiseFlow.Modules.School\RiseFlow.Modules.School.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\uploads\" />
+  </ItemGroup>
+
+</Project>

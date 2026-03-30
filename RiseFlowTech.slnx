@@ -1,0 +1,50 @@
+<Solution>
+  <Folder Name="/external/" />
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/" />
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/" />
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Caching/Caching.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Core/Core.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Eventing.Abstractions/Eventing.Abstractions.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Eventing/Eventing.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Jobs/Jobs.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Mailing/Mailing.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Persistence/Persistence.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Shared/Shared.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Storage/Storage.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/BuildingBlocks/Web/Web.csproj" />
+  </Folder>
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Modules/" />
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Modules/Auditing/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Auditing/Modules.Auditing.Contracts/Modules.Auditing.Contracts.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Auditing/Modules.Auditing/Modules.Auditing.csproj" />
+  </Folder>
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Modules/Identity/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Identity/Modules.Identity.Contracts/Modules.Identity.Contracts.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Identity/Modules.Identity/Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Modules/Multitenancy/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Multitenancy/Modules.Multitenancy.Contracts/Modules.Multitenancy.Contracts.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Multitenancy/Modules.Multitenancy/Modules.Multitenancy.csproj" />
+  </Folder>
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Modules/Webhooks/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Webhooks/Modules.Webhooks.Contracts/Modules.Webhooks.Contracts.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Modules/Webhooks/Modules.Webhooks/Modules.Webhooks.csproj" />
+  </Folder>
+  <Folder Name="/external/fullstackhero-dotnet-starter-kit/src/Playground/">
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Playground/FSH.Api/FSH.Api.csproj" />
+    <Project Path="external/fullstackhero-dotnet-starter-kit/src/Playground/Migrations.PostgreSQL/Migrations.PostgreSQL.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/RiseFlow.Api/RiseFlow.Api.csproj" />
+    <Project Path="src/RiseFlow.Application/RiseFlow.Application.csproj" />
+    <Project Path="src/RiseFlow.Domain/RiseFlow.Domain.csproj" />
+    <Project Path="src/RiseFlow.Infrastructure/RiseFlow.Infrastructure.csproj" />
+    <Project Path="src/RiseFlow.Platform.Api/RiseFlow.Platform.Api.csproj" />
+    <Project Path="src/RiseFlow.Web/RiseFlow.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/">
+    <Project Path="src/Modules/RiseFlow.Modules.School.Contracts/RiseFlow.Modules.School.Contracts.csproj" />
+    <Project Path="src/Modules/RiseFlow.Modules.School/RiseFlow.Modules.School.csproj" />
+  </Folder>
+</Solution>

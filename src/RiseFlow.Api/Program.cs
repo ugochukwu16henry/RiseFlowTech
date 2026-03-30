@@ -19,17 +19,31 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database: switch to SQLite (file-based, free, easy to run locally and in production).
-// The connection string comes from "ConnectionStrings:Sqlite" if present,
-// otherwise falls back to a riseflow.db file in the content root.
+// Database: Sqlite by default (local file). Set Database:Provider to Npgsql and ConnectionStrings:DefaultConnection for PostgreSQL (same engine family as FullStackHero playground).
+var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
+    if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(dbProvider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        var pg = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(pg))
+        {
+            throw new InvalidOperationException(
+                "Database:Provider requests PostgreSQL but ConnectionStrings:DefaultConnection is missing or empty.");
+        }
+
+        options.UseNpgsql(pg);
+        return;
+    }
+
     var sqliteConn = builder.Configuration.GetConnectionString("Sqlite");
     if (string.IsNullOrWhiteSpace(sqliteConn))
     {
         var dbPath = Path.Combine(builder.Environment.ContentRootPath, "riseflow.db");
         sqliteConn = $"Data Source={dbPath}";
     }
+
     options.UseSqlite(sqliteConn);
 });
 

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RiseFlow.Modules.School</RootNamespace>
+    <AssemblyName>RiseFlow.Modules.School</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Persistence\Persistence.csproj" />
+    <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Web\Web.csproj" />
+    <ProjectReference Include="..\RiseFlow.Modules.School.Contracts\RiseFlow.Modules.School.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RiseFlow.Modules.School.Contracts</RootNamespace>
+    <AssemblyName>RiseFlow.Modules.School.Contracts</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Eventing.Abstractions\Eventing.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Shared\Shared.csproj" />
+  </ItemGroup>
+
+</Project>
