@@ -11,6 +11,7 @@ using FSH.Modules.Webhooks;
 using RiseFlow.Modules.School;
 using RiseFlow.Modules.School.Contracts.v1.Ping;
 using RiseFlow.Modules.School.Features.v1.Ping;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
