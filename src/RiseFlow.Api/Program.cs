@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Extensions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
@@ -30,6 +32,33 @@ builder.Services.AddDbContext<RiseFlowDbContext>(options =>
     }
     options.UseSqlite(sqliteConn);
 });
+
+// Health checks (DB) — aligns with starter-kit-style production readiness
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<RiseFlowDbContext>("database");
+
+// OpenTelemetry traces → OTLP (set OTEL_EXPORTER_OTLP_ENDPOINT or OpenTelemetry:OtlpEndpoint)
+if (builder.Configuration.GetValue("OpenTelemetry:Enabled", true))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService(
+            serviceName: builder.Configuration["OpenTelemetry:ServiceName"] ?? "RiseFlow.Api",
+            serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0"))
+        .WithTracing(tracing =>
+        {
+            tracing.AddAspNetCoreInstrumentation(o =>
+            {
+                o.Filter = static ctx => !ctx.Request.Path.StartsWithSegments("/health");
+            });
+            tracing.AddHttpClientInstrumentation();
+            tracing.AddOtlpExporter(o =>
+            {
+                var ep = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
+                if (!string.IsNullOrWhiteSpace(ep) && Uri.TryCreate(ep, UriKind.Absolute, out var uri))
+                    o.Endpoint = uri;
+            });
+        });
+}
 
 // Identity with Guid keys
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
@@ -163,9 +192,8 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Simple health endpoints so Railway health checks receive 200 OK.
 app.MapGet("/", () => Results.Ok("RiseFlow API OK"));
-app.MapGet("/health", () => Results.Ok("RiseFlow API OK"));
+app.MapHealthChecks("/health");
 
 app.MapControllers();
 
