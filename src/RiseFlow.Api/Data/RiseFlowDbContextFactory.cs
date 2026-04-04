@@ -6,7 +6,9 @@ namespace RiseFlow.Api.Data;
 
 /// <summary>
 /// Used by EF Core tools at design time (e.g. migrations) when no HTTP context exists.
-/// Must use the same provider as runtime (<see cref="Program.cs"/>) so migrations stay Npgsql-compatible.
+/// This project keeps a single Npgsql-shaped migration chain; design-time always uses PostgreSQL
+/// so snapshots never drift to SQLite types (env vars like Database__Provider must not affect scaffolding).
+/// Runtime provider remains configurable in <see cref="Program.cs"/>.
 /// </summary>
 public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbContext>
 {
@@ -23,34 +25,16 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
             .AddEnvironmentVariables()
             .Build();
 
+        var pg = config.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(pg))
+        {
+            throw new InvalidOperationException(
+                "Design-time: ConnectionStrings:DefaultConnection is required for EF migrations (Npgsql). " +
+                "Set it in appsettings.Development.json or environment.");
+        }
+
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
-
-        var dbProvider = config["Database:Provider"] ?? "Sqlite";
-        if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(dbProvider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
-        {
-            var pg = config.GetConnectionString("DefaultConnection");
-            if (string.IsNullOrWhiteSpace(pg))
-            {
-                throw new InvalidOperationException(
-                    "Design-time: Database:Provider is Npgsql but ConnectionStrings:DefaultConnection is missing. " +
-                    "Set it in appsettings.Development.json or environment.");
-            }
-
-            optionsBuilder.UseNpgsql(pg);
-        }
-        else
-        {
-            var sqliteConn = config.GetConnectionString("Sqlite");
-            if (string.IsNullOrWhiteSpace(sqliteConn))
-            {
-                var dbPath = Path.Combine(basePath, "riseflow.db");
-                sqliteConn = $"Data Source={dbPath}";
-            }
-
-            optionsBuilder.UseSqlite(sqliteConn);
-        }
-
+        optionsBuilder.UseNpgsql(pg);
         return new RiseFlowDbContext(optionsBuilder.Options);
     }
 }

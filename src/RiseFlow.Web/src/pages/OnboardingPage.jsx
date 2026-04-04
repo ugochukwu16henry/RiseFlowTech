@@ -7,7 +7,13 @@ import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ schoolName: '', email: '', adminFullName: '', adminPassword: '' });
+  const [form, setForm] = useState({
+    schoolName: '',
+    email: '',
+    adminFullName: '',
+    adminPassword: '',
+    agreedToTermsAndDpa: false,
+  });
   const [logo, setLogo] = useState(null);
   const [cacDocument, setCacDocument] = useState(null);
   const [step, setStep] = useState(1);
@@ -43,6 +49,10 @@ export default function OnboardingPage() {
       setStatus({ type: 'error', message: 'Create an admin password with at least 8 characters.' });
       return;
     }
+    if (!form.agreedToTermsAndDpa) {
+      setStatus({ type: 'error', message: 'Please agree to the RiseFlow Terms of Service and Data Processing Agreement.' });
+      return;
+    }
     setStatus({ type: null, message: null });
     setStep(2);
   };
@@ -66,7 +76,7 @@ export default function OnboardingPage() {
       fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
       fd.append('CountryCode', 'NG');
       fd.append('CurrencyCode', 'NGN');
-      fd.append('AgreedToTermsAndDpa', 'true');
+      fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
       if (logo) fd.append('Logo', logo);
       if (cacDocument) fd.append('CacDocument', cacDocument);
 
@@ -283,6 +293,19 @@ export default function OnboardingPage() {
                 className="onboarding-input"
                 autoComplete="new-password"
               />
+            </label>
+
+            <label className="onboarding-label onboarding-checkbox">
+              <input
+                type="checkbox"
+                name="agreedToTermsAndDpa"
+                checked={form.agreedToTermsAndDpa}
+                onChange={(e) => setForm((prev) => ({ ...prev, agreedToTermsAndDpa: e.target.checked }))}
+                className="onboarding-input"
+              />
+              <span>
+                I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">RiseFlow Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Data Processing Agreement</a>.
+              </span>
             </label>
 
             {status.message && (
