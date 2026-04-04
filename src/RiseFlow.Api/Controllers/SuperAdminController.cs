@@ -115,17 +115,21 @@ public class SuperAdminController : ControllerBase
     [ProducesResponseType(typeof(List<SuperAdminSchoolRowDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SuperAdminSchoolRowDto>>> GetSchools(CancellationToken ct)
     {
+        // Ignore tenant filters: SuperAdmin may have X-Tenant-Id set (e.g. stale localStorage); global counts must still be correct.
         var studentCounts = await _db.Students.AsNoTracking()
+            .IgnoreQueryFilters()
             .GroupBy(x => x.SchoolId)
             .Select(g => new { SchoolId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
 
         var teacherCounts = await _db.Teachers.AsNoTracking()
+            .IgnoreQueryFilters()
             .GroupBy(x => x.SchoolId)
             .Select(g => new { SchoolId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
 
         var parentCounts = await _db.Parents.AsNoTracking()
+            .IgnoreQueryFilters()
             .GroupBy(x => x.SchoolId)
             .Select(g => new { SchoolId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);

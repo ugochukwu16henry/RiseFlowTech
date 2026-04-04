@@ -13,7 +13,7 @@ export default function SuperAdminSchoolsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch('/api/superadmin/schools')
+    apiFetch('/api/superadmin/schools', { skipTenantHeader: true })
       .then((res) => {
         if (cancelled) return null;
         if (!res.ok) throw new Error('Could not load schools');

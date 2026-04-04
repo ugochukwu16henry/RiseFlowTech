@@ -7,6 +7,7 @@ using Finbuckle.MultiTenant.AspNetCore.Extensions;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RiseFlow.Api.Data;
+using Microsoft.AspNetCore.Authentication;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
 
@@ -121,6 +122,7 @@ builder.Services
     .WithStore<SchoolTenantStore>(ServiceLifetime.Scoped);
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddScoped<IClaimsTransformation, EnsureSchoolIdClaimTransformation>();
 builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddScoped<SchoolOffboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
