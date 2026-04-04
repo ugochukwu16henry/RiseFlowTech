@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Framework.Shared</name>
+    </assembly>
+    <members>
+        <member name="T:FSH.Framework.Shared.Auditing.AuditIgnoreAttribute">
+            <summary>Marks a property that should be excluded from audit diffs and payloads.</summary>
+        </member>
+        <member name="T:FSH.Framework.Shared.Auditing.AuditSensitiveAttribute">
+            <summary>
+            Marks a property as sensitive (to be masked or hashed when serialized).
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Shared.Constants.PermissionConstants.Register(System.Collections.Generic.IEnumerable{FSH.Framework.Shared.Constants.FshPermission})">
+            <summary>
+            Register additional permissions from external projects/modules.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Constants.RoleConstants.DefaultRoles">
+            <summary>
+            The base roles provided by the framework.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Shared.Constants.RoleConstants.IsDefault(System.String)">
+            <summary>
+            Determines whether the role is a framework-defined default.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Shared.Persistence.DatabaseOptions">
+            <summary>
+            Configuration options for database provider selection and connection information.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.DatabaseOptions.Provider">
+            <summary>
+            The database provider to use. Valid values are <see cref="F:FSH.Framework.Shared.Persistence.DbProviders.PostgreSQL"/> or <see cref="F:FSH.Framework.Shared.Persistence.DbProviders.MSSQL"/>.
+            Defaults to PostgreSQL.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.DatabaseOptions.ConnectionString">
+            <summary>
+            The connection string used by EF Core DbContexts and related services.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.DatabaseOptions.MigrationsAssembly">
+            <summary>
+            The assembly that contains EF Core migrations for the selected provider.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Shared.Persistence.DbProviders">
+            <summary>
+            Supported database providers for the starter kit.
+            </summary>
+        </member>
+        <member name="F:FSH.Framework.Shared.Persistence.DbProviders.PostgreSQL">
+            <summary>
+            PostgreSQL database provider.
+            </summary>
+        </member>
+        <member name="F:FSH.Framework.Shared.Persistence.DbProviders.MSSQL">
+            <summary>
+            Microsoft SQL Server (MSSQL) database provider.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Shared.Persistence.IPagedQuery">
+            <summary>
+            Shared pagination and sorting contract that can be implemented
+            or extended by module-specific request types.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.IPagedQuery.PageNumber">
+            <summary>
+            1-based page number. Values less than 1 are normalized to 1.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.IPagedQuery.PageSize">
+            <summary>
+            Requested page size. Implementations may enforce caps.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Shared.Persistence.IPagedQuery.Sort">
+            <summary>
+            Multi-column sort expression, for example: "Name,-CreatedOn".
+            "-" prefix indicates descending order.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Shared.Storage.FileUploadRequest">
+            <summary>
+            Represents a file upload request with filename, content type, and data.
+            </summary>
+        </member>
+    </members>
+</doc>

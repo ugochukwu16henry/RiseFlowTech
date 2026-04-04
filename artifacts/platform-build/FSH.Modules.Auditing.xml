@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Modules.Auditing</name>
+    </assembly>
+    <members>
+        <member name="T:FSH.Modules.Auditing.Audit">
+            <summary>
+            Fluent entry-point to create and publish audit events.
+            Configure once at startup with a publisher, serializer, and optional enrichers.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.AuditBackgroundWorker">
+            <summary>
+            Drains the channel and writes to the configured sink in batches.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.ChannelAuditPublisher">
+            <summary>
+            Non-blocking publisher using a bounded channel. Writer is used on request path; reader is drained by a background worker.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.DefaultAuditScope">
+            <summary>
+            Immutable, minimal scope implementation. Create per request/operation.
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.DefaultAuditScope.#ctor(System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,FSH.Modules.Auditing.Contracts.AuditTag)">
+            <summary>
+            Immutable, minimal scope implementation. Create per request/operation.
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.ServiceCollectionExtensions.AddAuditingCore(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration,System.Action{FSH.Modules.Auditing.Contracts.AuditHttpOptions})">
+            <summary>
+            Registers auditing core: Channel publisher, background worker, serializer, scope, and HTTP options.
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.ServiceCollectionExtensions.UseAuditHttp(Microsoft.AspNetCore.Builder.IApplicationBuilder)">
+            <summary>
+            Adds the HTTP auditing middleware to the pipeline.
+            Place early (after routing) but before endpoints.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.JsonMaskingService">
+            <summary>
+            Simple masking by field-name convention or attributes.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Persistence.AuditingSaveChangesInterceptor">
+            <summary>
+            Captures EF Core entity changes at SaveChanges to produce an EntityChange event.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Persistence.EntityDiffBuilder">
+            <summary>
+            Builds property-level diffs for EF Core entries. Skips navigations by default.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Persistence.SqlAuditSink">
+            <summary>
+            Persists audit envelopes into SQL using EF Core.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type)">
+            <summary>
+            Generates a documentation comment ID for a type.
+            Example: T:Namespace.Outer+Inner`1 becomes T:Namespace.Outer.Inner`1
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.PropertyInfo)">
+            <summary>
+            Generates a documentation comment ID for a property.
+            Example: P:Namespace.ContainingType.PropertyName or for an indexer P:Namespace.ContainingType.Item(System.Int32)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type,System.String)">
+            <summary>
+            Generates a documentation comment ID for a property given its container type and property name.
+            Example: P:Namespace.ContainingType.PropertyName
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.MethodInfo)">
+            <summary>
+            Generates a documentation comment ID for a method (or constructor).
+            For example:
+              M:Namespace.ContainingType.MethodName(ParamType1,ParamType2)~ReturnType
+              M:Namespace.ContainingType.#ctor(ParamType)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.GetTypeDocId(System.Type,System.Boolean,System.Boolean)">
+            <summary>
+            Generates a documentation ID string for a type.
+            This method handles nested types (replacing '+' with '.'),
+            generic types, arrays, pointers, by-ref types, and generic parameters.
+            The <paramref name="includeGenericArguments"/> flag controls whether
+            constructed generic type arguments are emitted, while <paramref name="omitGenericArity"/>
+            controls whether the generic arity marker (e.g. "`1") is appended.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.NormalizeDocId(System.String)">
+            <summary>
+            Normalizes a documentation comment ID to match the compiler-style format.
+            Strips the return type suffix for ordinary methods but retains it for conversion operators.
+            </summary>
+            <param name="docId">The documentation comment ID to normalize.</param>
+            <returns>The normalized documentation comment ID.</returns>
+        </member>
+    </members>
+</doc>

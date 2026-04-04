@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Framework.Jobs</name>
+    </assembly>
+    <members>
+        <member name="T:FSH.Framework.Jobs.HangfireTelemetryFilter">
+            <summary>
+            Adds basic tracing around Hangfire job execution.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,176 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Framework.Eventing</name>
+    </assembly>
+    <members>
+        <member name="T:FSH.Framework.Eventing.EventingOptions">
+            <summary>
+            Configuration options for the eventing building block.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.Provider">
+            <summary>
+            Provider for the event bus implementation. Supported: "InMemory", "RabbitMQ".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.OutboxBatchSize">
+            <summary>
+            Batch size for outbox dispatching.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.OutboxMaxRetries">
+            <summary>
+            Maximum number of retries before an outbox message is marked as dead.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.EnableInbox">
+            <summary>
+            Whether inbox-based idempotent handling is enabled.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.OutboxDispatchIntervalSeconds">
+            <summary>
+            Interval in seconds for the outbox dispatcher background service.
+            Set to 0 to disable the background service (use Hangfire instead).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.EventingOptions.UseHostedServiceDispatcher">
+            <summary>
+            Whether to use the hosted service for outbox dispatching.
+            If false, you should configure Hangfire or another scheduler.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Inbox.EfCoreInboxStore`1">
+            <summary>
+            EF Core-based inbox store for a specific DbContext.
+            </summary>
+            <typeparam name="TDbContext">The DbContext that owns the InboxMessages set.</typeparam>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Inbox.IInboxStore">
+            <summary>
+            Abstraction for idempotent consumer tracking.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Inbox.InboxMessage">
+            <summary>
+            Inbox message to track processed integration events per handler for idempotent consumers.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.InMemory.InMemoryEventBus">
+            <summary>
+            In-memory event bus implementation used for single-process deployments.
+            It resolves handlers from DI and optionally uses an inbox store for idempotency.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Outbox.EfCoreOutboxStore`1">
+            <summary>
+            EF Core-based outbox store for a specific DbContext.
+            </summary>
+            <typeparam name="TDbContext">The DbContext that owns the OutboxMessages set.</typeparam>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Outbox.IOutboxStore">
+            <summary>
+            Abstraction for persisting and reading outbox messages.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Outbox.OutboxDispatcher">
+            <summary>
+            Dispatches outbox messages via the configured event bus.
+            This type is intended to be invoked by a scheduler (e.g., Hangfire recurring job or hosted service).
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Outbox.OutboxDispatcherHostedService">
+            <summary>
+            Background service that periodically dispatches outbox messages.
+            Alternative to Hangfire-based scheduling for simpler deployments.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Outbox.OutboxMessage">
+            <summary>
+            Outbox message entity used to persist integration events alongside domain changes.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.RabbitMq.RabbitMqEventBus">
+            <summary>
+            RabbitMQ-based event bus implementation for distributed deployments.
+            Publishes integration events to a fanout exchange.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions">
+            <summary>
+            Configuration options for RabbitMQ event bus.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.Host">
+            <summary>
+            RabbitMQ host name or connection string.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.Port">
+            <summary>
+            RabbitMQ port. Default is 5672.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.UserName">
+            <summary>
+            Username for RabbitMQ authentication.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.Password">
+            <summary>
+            Password for RabbitMQ authentication.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.VirtualHost">
+            <summary>
+            Virtual host. Default is "/".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.ExchangeName">
+            <summary>
+            Exchange name for publishing events. Default is "fsh.events".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.QueuePrefix">
+            <summary>
+            Queue name prefix for consuming events. Default is "fsh".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.UseSsl">
+            <summary>
+            Enable SSL/TLS connection. Default is false.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.PublishRetryCount">
+            <summary>
+            Number of retry attempts for publishing. Default is 3.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Eventing.RabbitMq.RabbitMqOptions.PublishRetryDelayMs">
+            <summary>
+            Delay between retries in milliseconds. Default is 1000.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Eventing.Serialization.JsonEventSerializer">
+            <summary>
+            System.Text.Json-based event serializer.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Eventing.ServiceCollectionExtensions.AddEventingCore(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Adds core eventing services (serializer, bus, options).
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Eventing.ServiceCollectionExtensions.AddEventingForDbContext``1(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers EF Core-based outbox and inbox stores for the specified DbContext.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Eventing.ServiceCollectionExtensions.AddIntegrationEventHandlers(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.Reflection.Assembly[])">
+            <summary>
+            Registers integration event handlers from the specified assemblies.
+            </summary>
+        </member>
+    </members>
+</doc>

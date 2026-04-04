@@ -1,0 +1,354 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Framework.Web</name>
+    </assembly>
+    <members>
+        <member name="M:FSH.Framework.Web.FeatureFlags.Extensions.AddHeroFeatureFlags(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Adds feature management with tenant-aware feature filters.
+            Reads feature flags from the "FeatureManagement" configuration section.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.FeatureFlags.FeatureGateEndpointFilter">
+            <summary>
+            Endpoint filter that gates access behind a feature flag.
+            Returns 404 Not Found when the feature is disabled.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.FeatureFlags.FeatureGateEndpointFilter.#ctor(System.String)">
+            <summary>
+            Endpoint filter that gates access behind a feature flag.
+            Returns 404 Not Found when the feature is disabled.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.FeatureFlags.FeatureGateExtensions.RequireFeature(Microsoft.AspNetCore.Builder.RouteHandlerBuilder,System.String)">
+            <summary>
+            Gates the endpoint behind a feature flag. Returns 404 when the feature is disabled.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.FeatureFlags.TenantFeatureFilter">
+            <summary>
+            A feature filter that enables/disables features based on the current tenant.
+            Configure in appsettings.json with allowed tenant IDs.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.FeatureFlags.TenantFeatureFilter.#ctor(Microsoft.AspNetCore.Http.IHttpContextAccessor,Finbuckle.MultiTenant.Abstractions.IMultiTenantContextAccessor{FSH.Framework.Shared.Multitenancy.AppTenantInfo})">
+            <summary>
+            A feature filter that enables/disables features based on the current tenant.
+            Configure in appsettings.json with allowed tenant IDs.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.HttpResilience.Extensions.AddHeroResilience(Microsoft.Extensions.DependencyInjection.IHttpClientBuilder,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Adds a standard resilience handler (retry, circuit breaker, timeout) to the HTTP client builder.
+            Configuration is read from the "HttpResilienceOptions" section.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.HttpResilience.HttpResilienceOptions">
+            <summary>
+            Configuration options for HTTP client resilience pipelines (retry, circuit breaker, timeout).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.Enabled">
+            <summary>
+            Whether resilience handlers are enabled. Default: true.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.MaxRetryAttempts">
+            <summary>
+            Maximum number of retry attempts. Default: 3.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.MedianFirstRetryDelay">
+            <summary>
+            Median delay for the first retry (exponential backoff). Default: 1 second.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.TotalTimeout">
+            <summary>
+            Total timeout for the entire request including all retries. Default: 30 seconds.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.AttemptTimeout">
+            <summary>
+            Timeout for each individual attempt. Default: 10 seconds.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.CircuitBreakerBreakDuration">
+            <summary>
+            Duration the circuit breaker stays open after tripping. Default: 5 seconds.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.CircuitBreakerFailureRatio">
+            <summary>
+            Failure ratio that trips the circuit breaker. Default: 0.5 (50%).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.HttpResilience.HttpResilienceOptions.CircuitBreakerMinimumThroughput">
+            <summary>
+            Minimum throughput before circuit breaker evaluates. Default: 10 requests.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Idempotency.CachedIdempotentResponse">
+            <summary>
+            Represents a cached HTTP response for idempotent replay.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Idempotency.Extensions.AddHeroIdempotency(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            Registers idempotency options for use by IdempotencyEndpointFilter.
+            Apply to specific endpoints via .WithIdempotency() extension.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Idempotency.IdempotencyEndpointFilter">
+            <summary>
+            Endpoint filter that provides idempotency for POST/PUT/PATCH requests.
+            When an Idempotency-Key header is present, the response is cached and replayed
+            for subsequent requests with the same key.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Idempotency.IdempotencyEndpointExtensions.WithIdempotency(Microsoft.AspNetCore.Builder.RouteHandlerBuilder)">
+            <summary>
+            Enables idempotency for this endpoint. Requires Idempotency-Key header on requests.
+            Duplicate requests with the same key return the cached response.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Idempotency.IdempotencyOptions">
+            <summary>
+            Configuration options for HTTP request idempotency.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Idempotency.IdempotencyOptions.HeaderName">
+            <summary>
+            The header name to read the idempotency key from. Default: "Idempotency-Key".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Idempotency.IdempotencyOptions.DefaultTtl">
+            <summary>
+            Default time-to-live for cached idempotent responses. Default: 24 hours.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Idempotency.IdempotencyOptions.MaxKeyLength">
+            <summary>
+            Maximum allowed length for the idempotency key. Default: 128 characters.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Modules.FshModuleAttribute.Order">
+            <summary>
+            Optional ordering hint that allows hosts to control module startup sequencing.
+            Lower numbers execute first.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Observability.OpenTelemetry.MediatorTracingBehavior`2">
+            <summary>
+            Emits spans around Mediator commands/queries to improve trace visibility.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.Enabled">
+            <summary>
+            Global switch to turn OpenTelemetry on/off.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.Jobs">
+            <summary>
+            Job instrumentation options (e.g., Hangfire).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.Mediator">
+            <summary>
+            Mediator pipeline instrumentation options.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.Http">
+            <summary>
+            HTTP instrumentation options (including histograms).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.Data">
+            <summary>
+            EF/Redis instrumentation filtering options.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.OtlpOptions.Protocol">
+            <summary>
+            Transport protocol, e.g. "grpc" or "http/protobuf".
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.JobOptions.Enabled">
+            <summary>Enable tracing/metrics for jobs (e.g., Hangfire).</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.MediatorOptions.Enabled">
+            <summary>Enable spans around Mediator commands/queries.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.HttpOptions.HistogramOptions.Enabled">
+            <summary>Enable HTTP request duration histograms.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.HttpOptions.HistogramOptions.BucketBoundaries">
+            <summary>Custom bucket boundaries (seconds). If null/empty, defaults apply.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.DataOptions.FilterEfStatements">
+            <summary>Suppress SQL text in EF instrumentation to reduce PII/noise.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Observability.OpenTelemetry.OpenTelemetryOptions.DataOptions.FilterRedisCommands">
+            <summary>Suppress Redis command text in instrumentation to reduce noise.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Security.SecurityHeadersOptions.Enabled">
+            <summary>
+            Enables or disables the security headers middleware entirely.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Security.SecurityHeadersOptions.ExcludedPaths">
+            <summary>
+            Paths to bypass (e.g., OpenAPI/Scalar assets).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Security.SecurityHeadersOptions.AllowInlineStyles">
+            <summary>
+            Whether to allow inline styles in CSP (default true for MudBlazor/Scalar compatibility).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Security.SecurityHeadersOptions.ScriptSources">
+            <summary>
+            Additional script sources to append to CSP.
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Security.SecurityHeadersOptions.StyleSources">
+            <summary>
+            Additional style sources to append to CSP.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.Extensions.AddHeroSse(Microsoft.Extensions.DependencyInjection.IServiceCollection)">
+            <summary>
+            Registers SSE connection manager as a singleton.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Sse.SseConnectionManager">
+            <summary>
+            Manages active SSE connections per user. Supports targeted sends (by userId)
+            and tenant-wide broadcasts. Thread-safe via ConcurrentDictionary.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseConnectionManager.Connect(System.String,System.String)">
+            <summary>
+            Creates a channel for the user and returns a reader to consume events.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseConnectionManager.Disconnect(System.String)">
+            <summary>
+            Disconnects a user and completes their channel.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseConnectionManager.TrySend(System.String,FSH.Framework.Web.Sse.SseEvent)">
+            <summary>
+            Sends an event to a specific user. Returns false if the user is not connected.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseConnectionManager.Broadcast(System.String,FSH.Framework.Web.Sse.SseEvent)">
+            <summary>
+            Broadcasts an event to all connected users in a specific tenant.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseConnectionManager.BroadcastAll(FSH.Framework.Web.Sse.SseEvent)">
+            <summary>
+            Broadcasts an event to ALL connected users (cross-tenant).
+            </summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Sse.SseConnectionManager.ActiveConnections">
+            <summary>
+            Gets the number of active connections.
+            </summary>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseEndpoints.MapHeroSseEndpoints(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)">
+            <summary>
+            Maps the SSE streaming endpoint at /api/v1/sse/stream.
+            Requires authentication. Streams events as text/event-stream.
+            </summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Sse.SseEvent">
+            <summary>
+            Represents a Server-Sent Event to push to connected clients.
+            </summary>
+            <param name="EventType">The event type (maps to SSE 'event:' field).</param>
+            <param name="Data">The event data (maps to SSE 'data:' field). Typically JSON.</param>
+            <param name="Id">Optional event ID for client reconnection tracking.</param>
+        </member>
+        <member name="M:FSH.Framework.Web.Sse.SseEvent.#ctor(System.String,System.String,System.String)">
+            <summary>
+            Represents a Server-Sent Event to push to connected clients.
+            </summary>
+            <param name="EventType">The event type (maps to SSE 'event:' field).</param>
+            <param name="Data">The event data (maps to SSE 'data:' field). Typically JSON.</param>
+            <param name="Id">Optional event ID for client reconnection tracking.</param>
+        </member>
+        <member name="P:FSH.Framework.Web.Sse.SseEvent.EventType">
+            <summary>The event type (maps to SSE 'event:' field).</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Sse.SseEvent.Data">
+            <summary>The event data (maps to SSE 'data:' field). Typically JSON.</summary>
+        </member>
+        <member name="P:FSH.Framework.Web.Sse.SseEvent.Id">
+            <summary>Optional event ID for client reconnection tracking.</summary>
+        </member>
+        <member name="T:FSH.Framework.Web.Validation.PagedQueryValidator`1">
+            <summary>
+            Shared validator for types implementing IPagedQuery.
+            Use with Include() to add pagination validation rules to your validator.
+            </summary>
+            <example>
+            public class MyQueryValidator : AbstractValidator&lt;MyQuery&gt;
+            {
+                public MyQueryValidator()
+                {
+                    Include(new PagedQueryValidator&lt;MyQuery&gt;());
+                    // Add additional rules...
+                }
+            }
+            </example>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type)">
+            <summary>
+            Generates a documentation comment ID for a type.
+            Example: T:Namespace.Outer+Inner`1 becomes T:Namespace.Outer.Inner`1
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.PropertyInfo)">
+            <summary>
+            Generates a documentation comment ID for a property.
+            Example: P:Namespace.ContainingType.PropertyName or for an indexer P:Namespace.ContainingType.Item(System.Int32)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Type,System.String)">
+            <summary>
+            Generates a documentation comment ID for a property given its container type and property name.
+            Example: P:Namespace.ContainingType.PropertyName
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.CreateDocumentationId(System.Reflection.MethodInfo)">
+            <summary>
+            Generates a documentation comment ID for a method (or constructor).
+            For example:
+              M:Namespace.ContainingType.MethodName(ParamType1,ParamType2)~ReturnType
+              M:Namespace.ContainingType.#ctor(ParamType)
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.GetTypeDocId(System.Type,System.Boolean,System.Boolean)">
+            <summary>
+            Generates a documentation ID string for a type.
+            This method handles nested types (replacing '+' with '.'),
+            generic types, arrays, pointers, by-ref types, and generic parameters.
+            The <paramref name="includeGenericArguments"/> flag controls whether
+            constructed generic type arguments are emitted, while <paramref name="omitGenericArity"/>
+            controls whether the generic arity marker (e.g. "`1") is appended.
+            </summary>
+        </member>
+        <member name="M:Microsoft.AspNetCore.OpenApi.Generated.DocumentationCommentIdHelper.NormalizeDocId(System.String)">
+            <summary>
+            Normalizes a documentation comment ID to match the compiler-style format.
+            Strips the return type suffix for ordinary methods but retains it for conversion operators.
+            </summary>
+            <param name="docId">The documentation comment ID to normalize.</param>
+            <returns>The normalized documentation comment ID.</returns>
+        </member>
+    </members>
+</doc>

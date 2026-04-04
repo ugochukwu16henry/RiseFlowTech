@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>FSH.Modules.Auditing.Contracts</name>
+    </assembly>
+    <members>
+        <member name="T:FSH.Modules.Auditing.Contracts.AuditEventType">
+            <summary>
+            High-level classification of audit events.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.AuditSeverity">
+            <summary>
+            Severity scale aligned with standard logging levels.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.SecurityAction">
+            <summary>
+            Security-related actions to track (login, token, role, etc.).
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.EntityOperation">
+            <summary>
+            Database operations that can trigger entity-change auditing.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.ActivityKind">
+            <summary>
+            Logical category of activity events.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.ExceptionArea">
+            <summary>
+            Area or subsystem where an exception originated.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.BodyCapture">
+            <summary>
+            Indicates which HTTP bodies are captured in activity events.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.AuditTag">
+            <summary>
+            Compact, bitwise tags that provide additional audit metadata.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.AuditEnvelope">
+            <summary>
+            Concrete event instance ready to be published/persisted.
+            Carries normalized metadata + strongly-typed Payload.
+            </summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.Dtos.AuditDetailDto.Payload">
+            <summary>
+            Masked, deserialized payload. Serialized back to JSON for clients.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditEnricher">
+            <summary>
+            Hook to augment events before they are published (e.g., add tenant/user/trace, normalize fields, enforce caps).
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.Contracts.IAuditEnricher.Enrich(FSH.Modules.Auditing.Contracts.IAuditEvent)">
+            <summary>Mutate/augment the event instance prior to serialization/publish.</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.EventType">
+            <summary>Event category (EntityChange, Security, Activity, Exception…)</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.Severity">
+            <summary>Severity level (None, Info, Error, …)</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.OccurredAtUtc">
+            <summary>UTC time when the event actually occurred.</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.TenantId">
+            <summary>Tenant identifier (optional in per-tenant DBs; still useful for exports).</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.UserId">
+            <summary>Subject/User id and display name (when available).</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.TraceId">
+            <summary>Correlation/trace identifiers for distributed tracing.</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.Source">
+            <summary>Logical source (module/service) of the event.</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.Tags">
+            <summary>Compact bitwise tags (e.g., PiiMasked, Sampled).</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditEvent.Payload">
+            <summary>Strongly-typed payload (EntityChange, Security, Activity, Exception, etc.).</summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditMaskingService">
+            <summary>
+            Masks or hashes sensitive fields before persistence or externalization.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditMutatingEnricher">
+            <summary>
+            Enricher that can return a modified event (e.g., fill missing fields, mask payload).
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditPublisher">
+            <summary>
+            Low-latency, non-blocking publisher. Implement with a bounded channel + background worker.
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.Contracts.IAuditPublisher.PublishAsync(FSH.Modules.Auditing.Contracts.IAuditEvent,System.Threading.CancellationToken)">
+            <summary>Publish an audit event. Implementations should avoid blocking the request path.</summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditPublisher.CurrentScope">
+            <summary>Ambient scope for the current operation (usually request-scoped).</summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditScope">
+            <summary>
+            Ambient context for the current operation/request. 
+            Implementations typically pull from HttpContext, Tenant provider, and Activity.Current.
+            </summary>
+        </member>
+        <member name="P:FSH.Modules.Auditing.Contracts.IAuditScope.Tags">
+            <summary>Default tags to apply to all events in this scope.</summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.Contracts.IAuditScope.WithTags(FSH.Modules.Auditing.Contracts.AuditTag)">
+            <summary>Clone the scope with additional tags (non-destructive).</summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.Contracts.IAuditScope.WithProperties(System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.Nullable{FSH.Modules.Auditing.Contracts.AuditTag})">
+            <summary>Clone the scope overriding select fields (use null to keep existing).</summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditSerializer">
+            <summary>
+            Deterministic JSON serialization for payloads (camelCase, enum-as-string, stable output).
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.IAuditSink">
+            <summary>
+            Destination for audit events (e.g., SQL, file, OTLP). Implementations must be efficient and batch-friendly.
+            </summary>
+        </member>
+        <member name="T:FSH.Modules.Auditing.Contracts.PropertyChange">
+            <summary>
+            A single property delta for entity-change auditing.
+            </summary>
+        </member>
+        <member name="M:FSH.Modules.Auditing.Contracts.PropertyChange.#ctor(System.String,System.String,System.Object,System.Object,System.Boolean)">
+            <summary>
+            A single property delta for entity-change auditing.
+            </summary>
+        </member>
+    </members>
+</doc>
