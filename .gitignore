@@ -20,6 +20,7 @@ Thumbs.db
 **/out/
 artifacts/
 **/node_modules/
+artifacts/platform-build/
 
 # Logs
 *.log
