@@ -18,6 +18,7 @@ Thumbs.db
 **/bin/
 **/obj/
 **/out/
+artifacts/
 **/node_modules/
 
 # Logs
