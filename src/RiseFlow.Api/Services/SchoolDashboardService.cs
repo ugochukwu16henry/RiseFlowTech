@@ -41,11 +41,21 @@ public class SchoolDashboardService
             .Take(5)
             .ToListAsync(ct);
 
+        var billingRows = await _db.BillingRecords
+            .AsNoTracking()
+            .Where(b => b.SchoolId == schoolId)
+            .Select(b => new { b.AmountDue, b.AmountPaid })
+            .ToListAsync(ct);
+        var unpaidFeesTotal = billingRows.Sum(b => Math.Max(0m, b.AmountDue - (b.AmountPaid ?? 0m)));
+
         return new SchoolDashboardViewModel(
+            SchoolId: schoolId,
             StudentCount: totalStudents,
             TeacherCount: totalTeachers,
             PendingResultsCount: pendingResults,
             MonthlySubscriptionFee: monthlyFee,
+            CurrencyCode: currencyCode,
+            UnpaidFeesTotal: unpaidFeesTotal,
             RecentActivities: recentActivities);
     }
 }

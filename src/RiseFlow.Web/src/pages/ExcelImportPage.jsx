@@ -136,7 +136,7 @@ export default function ExcelImportPage() {
           <h2 className="section-title">2. Upload & preview</h2>
           {classCount === 0 && (
             <p className="excel-error">
-              Create at least one class first before importing. Go to School Admin and add classes, then re-upload this file.
+              No classes found yet. You can still import students (leave the Class column blank). If your file lists class names, create matching classes first or those rows will show validation errors.
             </p>
           )}
           <div
@@ -151,7 +151,6 @@ export default function ExcelImportPage() {
               onChange={handleFileSelect}
               className="excel-input"
               aria-label="Choose Excel file"
-              disabled={classCount === 0}
             />
             {previewLoading ? (
               <div className="excel-progress">

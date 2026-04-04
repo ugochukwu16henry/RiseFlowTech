@@ -68,6 +68,17 @@ export default function SchoolAdminPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Keep X-Tenant-Id in sync with the signed-in school (fixes teacher/parent share links if localStorage was cleared).
+  useEffect(() => {
+    const id = dashboard?.schoolId;
+    if (!id || typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_TENANT_KEY, id);
+    } catch {
+      // ignore
+    }
+  }, [dashboard?.schoolId]);
+
   useEffect(() => {
     if (!onboardingSummary) return;
 
@@ -76,7 +87,7 @@ export default function SchoolAdminPage() {
     const expired = Number.isFinite(createdAt) && (Date.now() - createdAt) > (24 * 60 * 60 * 1000);
 
     // Hide once first student exists (imported or added manually)
-    const hasStudents = (dashboard?.activeStudentCount ?? 0) > 0 || students.length > 0;
+    const hasStudents = (dashboard?.studentCount ?? dashboard?.activeStudentCount ?? 0) > 0 || students.length > 0;
 
     if (expired || hasStudents) {
       try {
@@ -157,6 +168,8 @@ export default function SchoolAdminPage() {
   if (error) return <PageLayout title="School Admin" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
+  const activeStudents = dashboard?.studentCount ?? dashboard?.activeStudentCount ?? students.length;
+  const unpaidFees = dashboard?.unpaidFeesTotal ?? 0;
   const buildPublicUrl = (relativePath) => {
     if (!relativePath) return null;
     if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
@@ -282,7 +295,7 @@ export default function SchoolAdminPage() {
       {dashboard && (
         <div className="summary-cards">
           <div className="summary-card">
-            <span className="summary-value">{dashboard.activeStudentCount ?? students.length}</span>
+            <span className="summary-value">{activeStudents}</span>
             <span className="summary-label">Active students</span>
           </div>
           <div className="summary-card">
@@ -294,7 +307,7 @@ export default function SchoolAdminPage() {
             <span className="summary-label">Parents</span>
           </div>
           <div className="summary-card summary-card--warning">
-            <span className="summary-value">{formatMoney(dashboard.unpaidFeesTotal, currencyCode)}</span>
+            <span className="summary-value">{formatMoney(unpaidFees, currencyCode)}</span>
             <span className="summary-label">Unpaid fees</span>
           </div>
         </div>
@@ -423,7 +436,11 @@ export default function SchoolAdminPage() {
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with teachers</h2>
       <p className="card-desc">Share this link with teachers so they can sign up directly under your school.</p>
-      <TeacherSignupLink />
+      <TeacherSignupLink schoolIdFromApi={dashboard?.schoolId} />
+
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with parents</h2>
+      <p className="card-desc">Parents create an account and link to their child using the access code you provide.</p>
+      <ParentSignupLink schoolIdFromApi={dashboard?.schoolId} />
         </>
       )}
 
@@ -489,22 +506,53 @@ export default function SchoolAdminPage() {
   );
 }
 
-function TeacherSignupLink() {
-  const schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
-  const teacherSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/teacher/signup?school=${schoolId}` : '';
+function resolveSchoolId(schoolIdFromApi) {
+  if (schoolIdFromApi) return schoolIdFromApi;
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+  } catch {
+    return null;
+  }
+}
+
+function TeacherSignupLink({ schoolIdFromApi }) {
+  const schoolId = resolveSchoolId(schoolIdFromApi);
+  const teacherSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/teacher/signup?school=${encodeURIComponent(schoolId)}` : '';
 
   const copyTeacherSignup = () => {
     if (teacherSignupUrl) navigator.clipboard.writeText(teacherSignupUrl);
   };
 
   if (!teacherSignupUrl) {
-    return <p className="empty-state">Sign in as School Admin and select your school to see your teacher signup link here.</p>;
+    return <p className="empty-state">Loading your school link… If this persists, sign out and sign in again as School Admin.</p>;
   }
 
   return (
     <div className="parent-signup-link-box" style={{ marginTop: '0.5rem' }}>
       <code className="parent-signup-url">{teacherSignupUrl}</code>
       <button type="button" className="btn-copy" onClick={copyTeacherSignup} title="Copy teacher signup link">
+        Copy link
+      </button>
+    </div>
+  );
+}
+
+function ParentSignupLink({ schoolIdFromApi }) {
+  const schoolId = resolveSchoolId(schoolIdFromApi);
+  const parentSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/parent/signup?school=${encodeURIComponent(schoolId)}` : '';
+
+  const copyParentSignup = () => {
+    if (parentSignupUrl) navigator.clipboard.writeText(parentSignupUrl);
+  };
+
+  if (!parentSignupUrl) {
+    return <p className="empty-state">Loading your school link… If this persists, sign out and sign in again as School Admin.</p>;
+  }
+
+  return (
+    <div className="parent-signup-link-box" style={{ marginTop: '0.5rem' }}>
+      <code className="parent-signup-url">{parentSignupUrl}</code>
+      <button type="button" className="btn-copy" onClick={copyParentSignup} title="Copy parent signup link">
         Copy link
       </button>
     </div>
