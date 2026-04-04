@@ -20,6 +20,8 @@
     <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Web\Web.csproj" />
     <ProjectReference Include="..\RiseFlow.Modules.School.Contracts\RiseFlow.Modules.School.Contracts.csproj" />
+    <!-- Phased migration: reuse product EF model + RiseFlowDbContext from RiseFlow.Api until extracted to RiseFlow.Persistence -->
+    <ProjectReference Include="..\..\RiseFlow.Api\RiseFlow.Api.csproj" />
   </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 using RiseFlow.Modules.School.Features.v1.Ping;
+using RiseFlow.Modules.School.Features.v1.ProductStats;
 
 namespace RiseFlow.Modules.School;
 
@@ -28,5 +29,6 @@ public sealed class SchoolModule : IModule
             .WithApiVersionSet(versionSet);
 
         GetSchoolPingEndpoint.Map(group);
+        GetSchoolProductStatsEndpoint.Map(group);
     }
 }

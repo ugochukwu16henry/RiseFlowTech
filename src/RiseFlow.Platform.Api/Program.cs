@@ -10,10 +10,14 @@ using FSH.Modules.Webhooks;
 using RiseFlow.Modules.School;
 using RiseFlow.Modules.School.Contracts.v1.Ping;
 using RiseFlow.Modules.School.Features.v1.Ping;
+using RiseFlow.Modules.School.Contracts.v1.ProductStats;
+using RiseFlow.Modules.School.Features.v1.ProductStats;
 using RiseFlow.Platform.Api;
 using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddRiseFlowProductDatabase();
 
 if (builder.Environment.IsProduction())
 {
@@ -46,6 +50,8 @@ builder.Services.AddMediator(o =>
         typeof(FSH.Modules.Webhooks.WebhooksModule).Assembly,
         typeof(GetSchoolPingQuery).Assembly,
         typeof(GetSchoolPingQueryHandler).Assembly,
+        typeof(GetSchoolProductStatsQuery).Assembly,
+        typeof(GetSchoolProductStatsQueryHandler).Assembly,
     ];
 });
 
@@ -82,6 +88,7 @@ app.MapGet("/", () => Results.Ok(new
     message = "RiseFlow Platform API — modular host (see docs/PHASED_FSH_MIGRATION.md). OpenAPI: /scalar",
     migration = "/api/v1/riseflow/platform/migration-status",
     schoolPing = "/api/v1/riseflow/school/ping",
+    productStats = "/api/v1/riseflow/school/product-stats",
 }))
    .WithTags("RiseFlow.Platform")
    .AllowAnonymous();

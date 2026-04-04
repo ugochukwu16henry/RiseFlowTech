@@ -22,6 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Product database (RiseFlow.Api EF model) for phased read-only migration endpoints -->
+    <ProjectReference Include="..\RiseFlow.Api\RiseFlow.Api.csproj" />
     <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\BuildingBlocks\Web\Web.csproj" />
     <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Auditing\Modules.Auditing.Contracts\Modules.Auditing.Contracts.csproj" />
     <ProjectReference Include="..\..\external\fullstackhero-dotnet-starter-kit\src\Modules\Auditing\Modules.Auditing\Modules.Auditing.csproj" />
