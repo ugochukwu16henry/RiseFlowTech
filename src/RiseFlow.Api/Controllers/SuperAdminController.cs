@@ -46,17 +46,18 @@ public class SuperAdminController : ControllerBase
     [ProducesResponseType(typeof(SuperAdminDashboardDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<SuperAdminDashboardDto>> GetDashboard(CancellationToken ct)
     {
-        var totalSchools = await _db.Schools.CountAsync(ct);
-        var activeSchools = await _db.Schools.CountAsync(s => s.IsActive, ct);
-        var totalStudents = await _db.Students.CountAsync(ct);
-        var activeStudents = await _db.Students.CountAsync(s => s.IsActive, ct);
+        var totalSchools = await _db.Schools.IgnoreQueryFilters().CountAsync(ct);
+        var activeSchools = await _db.Schools.IgnoreQueryFilters().CountAsync(s => s.IsActive, ct);
+        var totalStudents = await _db.Students.IgnoreQueryFilters().CountAsync(ct);
+        var activeStudents = await _db.Students.IgnoreQueryFilters().CountAsync(s => s.IsActive, ct);
         var totalRevenue = await _billing.GetTotalRevenueUsdAsync(ct);
-        var billingRecordsCount = await _db.BillingRecords.CountAsync(ct);
-        var totalResultsProcessed = await _db.StudentResults.LongCountAsync(ct);
+        var billingRecordsCount = await _db.BillingRecords.IgnoreQueryFilters().CountAsync(ct);
+        var totalResultsProcessed = await _db.StudentResults.IgnoreQueryFilters().LongCountAsync(ct);
 
         var now = DateTime.UtcNow;
         var firstOfMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthlyRevenue = await _db.BillingRecords
+            .IgnoreQueryFilters()
             .Where(b => b.PaidAtUtc >= firstOfMonth && b.AmountPaid != null)
             .ToListAsync(ct);
         var monthlyRevenueUsd = 0m;
@@ -64,6 +65,7 @@ public class SuperAdminController : ControllerBase
             monthlyRevenueUsd += _billing.ConvertToUsd(b.AmountPaid ?? 0, b.CurrencyCode);
 
         var byCountry = await _db.Schools
+            .IgnoreQueryFilters()
             .Where(s => s.IsActive && s.CountryCode != null)
             .GroupBy(s => s.CountryCode!)
             .Select(g => new { Code = g.Key, Count = g.Count() })
@@ -74,17 +76,18 @@ public class SuperAdminController : ControllerBase
             .ToList();
 
         // Payment delinquency: schools with >50 students and at least one unpaid billing record
-        var over50Ids = await _db.Students.Where(st => st.IsActive).GroupBy(st => st.SchoolId)
+        var over50Ids = await _db.Students.IgnoreQueryFilters().Where(st => st.IsActive).GroupBy(st => st.SchoolId)
             .Where(g => g.Count() > CountryBillingConfig.FreeTierStudentCount)
             .Select(g => g.Key).ToListAsync(ct);
         var unpaidRecords = over50Ids.Count > 0
             ? await _db.BillingRecords
+                .IgnoreQueryFilters()
                 .Where(b => over50Ids.Contains(b.SchoolId) && b.AmountDue > 0 && (b.AmountPaid == null || b.AmountPaid < b.AmountDue))
                 .OrderByDescending(b => b.CreatedAtUtc)
                 .ToListAsync(ct)
             : new List<BillingRecord>();
         var latestUnpaidBySchool = unpaidRecords.GroupBy(b => b.SchoolId).ToDictionary(g => g.Key, g => g.First());
-        var studentCountBySchool = await _db.Students.Where(st => st.IsActive && over50Ids.Contains(st.SchoolId))
+        var studentCountBySchool = await _db.Students.IgnoreQueryFilters().Where(st => st.IsActive && over50Ids.Contains(st.SchoolId))
             .GroupBy(st => st.SchoolId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         var countDict = studentCountBySchool.ToDictionary(x => x.Key, x => x.Count);
         var schoolsOver50 = await _db.Schools.AsNoTracking().Where(s => over50Ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct);
@@ -94,7 +97,7 @@ public class SuperAdminController : ControllerBase
             .ToList();
 
         // Data health: schools that have completed term results (at least one StudentResult)
-        var schoolsWithTermResultsCount = await _db.Students.Where(s => s.Results.Any()).Select(s => s.SchoolId).Distinct().CountAsync(ct);
+        var schoolsWithTermResultsCount = await _db.Students.IgnoreQueryFilters().Where(s => s.Results.Any()).Select(s => s.SchoolId).Distinct().CountAsync(ct);
 
         // Compliance: schools that have not yet had signed Data Consent forms recorded
         var compliancePending = await _db.Schools.AsNoTracking()
@@ -176,6 +179,7 @@ public class SuperAdminController : ControllerBase
         // Only consider paid billing records to avoid counting unpaid invoices as revenue.
         var paid = await _db.BillingRecords
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(b => b.AmountPaid != null && b.AmountPaid > 0)
             .ToListAsync(ct);
 
@@ -185,6 +189,7 @@ public class SuperAdminController : ControllerBase
 
         // Billable students: students above the 50‑student free tier across all active schools.
         var billableBySchool = await _db.Students
+            .IgnoreQueryFilters()
             .Where(s => s.IsActive)
             .GroupBy(s => s.SchoolId)
             .Select(g => new
@@ -214,6 +219,7 @@ public class SuperAdminController : ControllerBase
         var schoolIds = paidBySchool.Select(x => x.SchoolId).ToHashSet();
         var schoolMeta = await _db.Schools
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(s => schoolIds.Contains(s.Id))
             .Select(s => new { s.Id, s.Name })
             .ToListAsync(ct);

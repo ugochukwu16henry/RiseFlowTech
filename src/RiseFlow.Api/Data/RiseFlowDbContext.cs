@@ -379,7 +379,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             {
                 if (entityTenantId.Type == typeof(Guid) && currentTenantIdProperty.Type == typeof(Guid?))
                 {
-                    comparableTenantId = Expression.Property(currentTenantIdProperty, nameof(Nullable<Guid>.Value));
+                    comparableTenantId = Expression.Call(
+                        currentTenantIdProperty,
+                        typeof(Guid?).GetMethod(nameof(Nullable<Guid>.GetValueOrDefault), Type.EmptyTypes)!);
                 }
                 else
                 {
@@ -393,8 +395,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             var contextIsNull = Expression.Equal(tenantContextConstant, Expression.Constant(null, typeof(ITenantContext)));
             var currentTenantIdHasValue = Expression.Property(currentTenantIdProperty, "HasValue");
             var currentTenantIdIsNull = Expression.Not(currentTenantIdHasValue);
-            var noFilter = Expression.Or(contextIsNull, currentTenantIdIsNull);
-            var filterBody = Expression.Or(noFilter, tenantIdEquals);
+            var noFilter = Expression.OrElse(contextIsNull, currentTenantIdIsNull);
+            var filterBody = Expression.OrElse(noFilter, tenantIdEquals);
 
             var lambda = Expression.Lambda(filterBody, parameter);
             entityType.SetQueryFilter(lambda);
