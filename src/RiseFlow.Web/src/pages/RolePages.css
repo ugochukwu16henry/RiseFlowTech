@@ -326,6 +326,10 @@
   border-color: #bae6fd;
   color: #0f766e;
 }
+a.school-admin-nav-link.school-admin-nav-btn {
+  text-decoration: none;
+  display: block;
+}
 .school-admin-view {
   min-width: 0;
 }
@@ -335,7 +339,7 @@
   }
   .school-admin-nav {
     position: static;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .school-admin-nav-btn {
     text-align: center;

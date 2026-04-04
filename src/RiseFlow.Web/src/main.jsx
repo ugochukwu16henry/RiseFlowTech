@@ -23,6 +23,7 @@ import AccessCodesPage from './pages/AccessCodesPage.jsx'
 import ClaimChildPage from './pages/ClaimChildPage.jsx'
 import ParentSignupPage from './pages/ParentSignupPage.jsx'
 import AddStudentPage from './pages/AddStudentPage.jsx'
+import SchoolClassesPage from './pages/SchoolClassesPage.jsx'
 import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
@@ -56,6 +57,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/billing" element={<SchoolBillingPage />} />
         <Route path="/school/reports" element={<SchoolReportsPage />} />
         <Route path="/school/students/add" element={<AddStudentPage />} />
+        <Route path="/school/classes" element={<SchoolClassesPage />} />
         <Route path="/school/import" element={<ExcelImportPage />} />
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
         <Route path="/admin/dashboard" element={<SchoolAdminPage />} />

@@ -197,6 +197,9 @@ export default function SchoolAdminPage() {
           <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => setActiveView('people')}>
             People
           </button>
+          <Link to="/school/classes" className="school-admin-nav-btn school-admin-nav-link">
+            Grades &amp; classes
+          </Link>
           <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
             Operations
           </button>
@@ -256,9 +259,9 @@ export default function SchoolAdminPage() {
               <h3>Add Teachers</h3>
               <p>Create teacher accounts and assign classes.</p>
             </Link>
-            <Link to="/school" className="action-card">
-              <h3>Set Up Classes</h3>
-              <p>Organize classes, subjects, and academic terms.</p>
+            <Link to="/school/classes" className="action-card">
+              <h3>Set up grades &amp; classes</h3>
+              <p>Nursery, Primary, JSS, SS — add the levels and classes your school uses.</p>
             </Link>
           </div>
 
@@ -266,7 +269,7 @@ export default function SchoolAdminPage() {
             <p className="next-checklist-title">Next Steps</p>
             <ul>
               <li><a href={`${getApiBase()}/api/public/teacher-quick-start`} target="_blank" rel="noopener noreferrer">Download the Teacher Guide</a></li>
-              <li><Link to="/school">Add your first class</Link></li>
+              <li><Link to="/school/classes">Add your first grade &amp; class</Link></li>
               <li><Link to="/school/access-codes">Print Parent Access Codes</Link></li>
             </ul>
           </div>
@@ -446,6 +449,12 @@ export default function SchoolAdminPage() {
 
       {activeView === 'operations' && (
         <>
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Grades &amp; classes</h2>
+      <p className="card-desc">Create your school&apos;s programme levels (Nursery, Primary 1–6, JSS, SS1–SS3, etc.) and classes for each level.</p>
+      <Link to="/school/classes" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+        Open grades &amp; classes setup
+      </Link>
+
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>School files &amp; documents</h2>
       <p className="card-desc">
         Upload photos or documents (e.g. letterhead, logo variations) so they are stored safely in your RiseFlow account.
