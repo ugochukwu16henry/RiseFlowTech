@@ -8,14 +8,14 @@ Upstream reference: [fullstackhero/dotnet-starter-kit](https://github.com/fullst
 
 ---
 
-## Phase map (current target: **Phase 2**)
+## Phase map (current target: **Phase 3**)
 
 | Phase | Goal | Status |
 |-------|------|--------|
 | **0** | Submodule + `RiseFlow.Platform.Api` + `RiseFlow.Modules.School` ping | Done |
 | **1** | Stabilize `RiseFlow.Api` (health, OTel, migrations) | Ongoing |
-| **2** | Platform host + Identity / Multitenancy / Auditing / Webhooks (FSH modules) + School module shell | **Current** — see `/api/v1/riseflow/platform/migration-status` on Platform API |
-| **3** | Persistence boundary for school data (read models or shared DB strategy) | Planned |
+| **2** | Platform host + Identity / Multitenancy / Auditing / Webhooks (FSH modules) + School module shell | Done |
+| **3** | Read-only product data on Platform (`RiseFlowDbContext`; e.g. `GET /api/v1/riseflow/school/product-stats`) | **Current** — see `/api/v1/riseflow/platform/migration-status` and `docs/RISEFLOW_PRODUCT_API_AUTH.md` |
 | **4** | Identity parity + token contract tests (`ApplicationUser`/Guid → FSH patterns or bridge) | Planned |
 | **5** | Port endpoints module-by-module; feature-flag Vite proxy to Platform API | Planned |
 | **6** | Frontend default → Platform API; retire duplicate routes on `RiseFlow.Api` | Planned |
@@ -46,5 +46,6 @@ Upstream reference: [fullstackhero/dotnet-starter-kit](https://github.com/fullst
 
 ## Related docs
 
+- `docs/RISEFLOW_PRODUCT_API_AUTH.md` — JWT vs FSH Identity, tenant headers vs `SchoolId`, optional read key for product DB endpoints.
 - `docs/FSH-migration-plan.md` — technical constraints (dual Identity models, tenancy).
 - `docs/FullStackHero-alignment.md` — stack comparison table.

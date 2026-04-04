@@ -9,8 +9,8 @@ namespace RiseFlow.Platform.Api;
 /// </summary>
 public static class RiseFlowMigrationStatusEndpoint
 {
-    public const int CurrentPhase = 2;
-    public const string CurrentPhaseName = "Platform host + FSH modules + School module (ping); legacy API unchanged";
+    public const int CurrentPhase = 3;
+    public const string CurrentPhaseName = "Platform host + first read-only product data (GET /api/v1/riseflow/school/product-stats); legacy RiseFlow.Api remains canonical for writes";
 
     public static void MapRiseFlowMigrationStatus(this IEndpointRouteBuilder endpoints)
     {
@@ -28,13 +28,13 @@ public static class RiseFlowMigrationStatusEndpoint
                     Multitenancy: "FSH.Modules.Multitenancy",
                     Auditing: "FSH.Modules.Auditing",
                     Webhooks: "FSH.Modules.Webhooks",
-                    SchoolModule: "RiseFlow.Modules.School (sample ping)"),
+                    SchoolModule: "RiseFlow.Modules.School (ping + product-stats from RiseFlowDbContext)"),
                 NextSteps: new[]
                 {
-                    "Stabilize RiseFlow.Api (production).",
-                    "Port auth/session contract tests against RiseFlow.Platform.Api.",
-                    "Add RiseFlow.Modules.School persistence + first read-only queries from shared DB or replicated read model.",
-                    "Point Vite proxy to Platform API behind a feature flag; then retire duplicate endpoints on RiseFlow.Api last.",
+                    "Extract RiseFlowDbContext to RiseFlow.Persistence and drop RiseFlow.Modules.School → RiseFlow.Api project reference.",
+                    "Align JWT claims (RiseFlow.Api vs FSH Identity) or BFF pattern; see docs/RISEFLOW_PRODUCT_API_AUTH.md.",
+                    "Port more read-only school endpoints; then Vite proxy to Platform API behind a feature flag.",
+                    "Retire duplicate endpoints on RiseFlow.Api last after cutover.",
                 })))
             .WithTags("RiseFlow Platform")
             .WithSummary("Phased migration status (FSH engine under RiseFlow Platform host)")

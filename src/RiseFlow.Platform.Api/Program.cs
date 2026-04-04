@@ -10,8 +10,6 @@ using FSH.Modules.Webhooks;
 using RiseFlow.Modules.School;
 using RiseFlow.Modules.School.Contracts.v1.Ping;
 using RiseFlow.Modules.School.Features.v1.Ping;
-using RiseFlow.Modules.School.Contracts.v1.ProductStats;
-using RiseFlow.Modules.School.Features.v1.ProductStats;
 using RiseFlow.Platform.Api;
 using System.Reflection;
 
@@ -50,8 +48,6 @@ builder.Services.AddMediator(o =>
         typeof(FSH.Modules.Webhooks.WebhooksModule).Assembly,
         typeof(GetSchoolPingQuery).Assembly,
         typeof(GetSchoolPingQueryHandler).Assembly,
-        typeof(GetSchoolProductStatsQuery).Assembly,
-        typeof(GetSchoolProductStatsQueryHandler).Assembly,
     ];
 });
 

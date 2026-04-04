@@ -1,5 +1,5 @@
 ## Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # IMPORTANT: configure this Railway service with Root Directory = src/RiseFlow.Api
@@ -14,7 +14,7 @@ COPY . .
 RUN dotnet publish "RiseFlow.Api.csproj" -c Release -o /app/publish
 
 ## Run stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 # Railway sets PORT at runtime; Program.cs configures UseUrls from it
