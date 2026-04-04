@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, NavLink, Link } from 'react-router-dom';
-import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
 
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
@@ -41,6 +42,23 @@ function navClass({ isActive }) {
   ].join(' ');
 }
 
+function buildPublicUrl(relativePath) {
+  if (!relativePath) return null;
+  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
+  const normalizedPath = relativePath.replace(/^\/+/, '');
+  const base = getApiBase();
+  return base ? `${base}/${normalizedPath}` : `/${normalizedPath}`;
+}
+
+function getBrandInitials(name) {
+  return (name || 'School')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'SC';
+}
+
 /**
  * Shared app shell: sidebar + top bar (homepage stays standalone elsewhere).
  * @param {'app'|'auth'} variant — app = full dashboard; auth = slim header for login/onboarding
@@ -58,6 +76,64 @@ export default function PageLayout({
   const navigate = useNavigate();
   const items = role ? NAV_BY_ROLE[role] : null;
   const showSignOutButton = showSignOut ?? variant === 'app';
+  const [schoolBrand, setSchoolBrand] = useState(null);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const usesPlatformBrand = !role || role === 'super' || role === 'legal';
+
+  useEffect(() => {
+    let cancelled = false;
+    setLogoFailed(false);
+
+    if (variant !== 'app' || usesPlatformBrand) {
+      setSchoolBrand(null);
+      return undefined;
+    }
+
+    let schoolId = null;
+    try {
+      schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+    } catch {
+      schoolId = null;
+    }
+
+    if (!schoolId) {
+      setSchoolBrand(null);
+      return undefined;
+    }
+
+    apiFetch(`/api/schools/${schoolId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) {
+          setSchoolBrand({
+            name: data.name || data.schoolName || 'School',
+            logo: buildPublicUrl(data.logoFileName),
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolBrand(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [usesPlatformBrand, variant]);
+
+  const brandName = usesPlatformBrand
+    ? 'RiseFlow'
+    : (schoolBrand?.name || 'School Portal');
+  const brandTagline = usesPlatformBrand
+    ? 'School OS'
+    : role === 'school'
+      ? 'Admin dashboard'
+      : role === 'teacher'
+        ? 'Teacher workspace'
+        : role === 'parent'
+          ? 'Family portal'
+          : role === 'student'
+            ? 'Student portal'
+            : 'Dashboard';
+  const brandInitials = usesPlatformBrand ? 'RF' : getBrandInitials(brandName);
+  const brandLogo = usesPlatformBrand ? null : schoolBrand?.logo;
 
   async function handleSignOut() {
     try {
@@ -98,12 +174,22 @@ export default function PageLayout({
     <div className="min-h-screen bg-slate-100/90 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex">
       <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200/90 bg-white shadow-shell dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <div className="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-xs font-bold text-white shadow-sm">
-            RF
-          </div>
-          <div>
-            <p className="text-sm font-semibold tracking-tight">RiseFlow</p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">School OS</p>
+          {brandLogo && !logoFailed ? (
+            <img
+              src={brandLogo}
+              alt={brandName}
+              className="h-9 w-9 rounded-xl border border-slate-200 bg-white object-contain p-1 shadow-sm dark:border-slate-700 dark:bg-slate-950"
+              loading="lazy"
+              onError={() => setLogoFailed(true)}
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-800 text-xs font-bold text-white shadow-sm">
+              {brandInitials}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold tracking-tight">{brandName}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">{brandTagline}</p>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5" aria-label="App">

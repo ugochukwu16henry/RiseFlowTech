@@ -1,6 +1,8 @@
 # Migrating RiseFlow onto FullStackHero modules
 
-This document describes the **structured migration** from the monolithic `RiseFlow.Api` (controllers + `RiseFlowDbContext` + `ApplicationUser` / `Guid`) to the [FullStackHero](https://github.com/fullstackhero/dotnet-starter-kit) modular host (`AddHeroPlatform`, `AddModules`, Mediator vertical slices, `FshUser` / `string`, tenant-per-connection patterns).
+**Phased roadmap (phase numbers, runbooks):** see **`docs/PHASED_FSH_MIGRATION.md`**.
+
+This document describes the **structured migration** from the monolithic `RiseFlow.Api` (controllers + `RiseFlowDbContext` + `ApplicationUser` / `Guid`) to the [FullStackHero](https://github.com/fullstackhero/dotnet-starter-kit) modular host (`AddHeroPlatform`, `AddModules`, Mediator vertical slices, `FshUser` / `string`, tenant-per-connection patterns). The product host uses **RiseFlow-branded** wrappers (`AddRiseFlowPlatform`, etc.) in `RiseFlow.Platform.Api` that delegate to the FSH engine.
 
 ## Current state (Phase 0 — done)
 

@@ -1,4 +1,3 @@
-using FSH.Framework.Web;
 using FSH.Framework.Web.Modules;
 using FSH.Modules.Auditing;
 using FSH.Modules.Identity;
@@ -11,6 +10,7 @@ using FSH.Modules.Webhooks;
 using RiseFlow.Modules.School;
 using RiseFlow.Modules.School.Contracts.v1.Ping;
 using RiseFlow.Modules.School.Features.v1.Ping;
+using RiseFlow.Platform.Api;
 using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,7 +58,7 @@ var moduleAssemblies = new Assembly[]
     typeof(SchoolModule).Assembly,
 };
 
-builder.AddHeroPlatform(o =>
+builder.AddRiseFlowPlatform(o =>
 {
     o.EnableCaching = true;
     o.EnableMailing = true;
@@ -68,14 +68,21 @@ builder.AddHeroPlatform(o =>
 builder.AddModules(moduleAssemblies);
 var app = builder.Build();
 
-app.UseHeroMultiTenantDatabases();
-app.UseHeroPlatform(p =>
+app.UseRiseFlowMultiTenantDatabases();
+app.UseRiseFlowPlatform(p =>
 {
     p.MapModules = true;
     p.ServeStaticFiles = true;
 });
 
-app.MapGet("/", () => Results.Ok(new { message = "RiseFlow Platform API (FSH + RiseFlow.Modules.School). See /scalar for docs." }))
+app.MapRiseFlowMigrationStatus();
+
+app.MapGet("/", () => Results.Ok(new
+{
+    message = "RiseFlow Platform API — modular host (see docs/PHASED_FSH_MIGRATION.md). OpenAPI: /scalar",
+    migration = "/api/v1/riseflow/platform/migration-status",
+    schoolPing = "/api/v1/riseflow/school/ping",
+}))
    .WithTags("RiseFlow.Platform")
    .AllowAnonymous();
 await app.RunAsync();

@@ -10,6 +10,7 @@ using RiseFlow.Api.Data;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
 
+// Phased FSH migration: production remains this API + React. Platform host: src/RiseFlow.Platform.Api (see docs/PHASED_FSH_MIGRATION.md).
 var builder = WebApplication.CreateBuilder(args);
 
 // Sensitive data encryption at rest (NIN, phone numbers). Set Encryption:Key (Base64 256-bit) in config; if unset, values stay plaintext.

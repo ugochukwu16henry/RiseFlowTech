@@ -22,7 +22,7 @@ The [FullStackHero starter kit](https://github.com/fullstackhero/dotnet-starter-
 
 **Clone / fork:** this repo includes **git submodules** at `external/fullstackhero-dotnet-starter-kit`, `external/blazor-boilerplate`, and `external/school-management-system` so upstream sits next to RiseFlow for comparison. A **GitHub fork** of any upstream is only needed if you contribute back or maintain a long-lived branch of *their* template.
 
-**Structured migration (RiseFlow → FSH modules):** see **`docs/FSH-migration-plan.md`** — `RiseFlow.Platform.Api` + `RiseFlow.Modules.School` are the first concrete steps; `RiseFlow.Api` remains until you complete Identity and endpoint porting.
+**Structured migration (RiseFlow → FSH modules):** see **`docs/PHASED_FSH_MIGRATION.md`** (phases + runbooks) and **`docs/FSH-migration-plan.md`** (constraints) — `RiseFlow.Platform.Api` + `RiseFlow.Modules.School` are the first concrete steps; `RiseFlow.Api` remains until you complete Identity and endpoint porting.
 
 ## “Use everything” — what that actually means
 
