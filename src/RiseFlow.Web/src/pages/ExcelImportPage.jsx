@@ -38,6 +38,9 @@ export default function ExcelImportPage() {
         body: form,
       });
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
+        }
         const text = await res.text();
         throw new Error(text || 'Preview failed');
       }
@@ -79,7 +82,12 @@ export default function ExcelImportPage() {
     form.append('file', file);
     try {
       const res = await apiFetch('/api/students/bulk-upload', { method: 'POST', body: form });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
+        }
+        throw new Error(await res.text());
+      }
       const data = await res.json();
       setImportResult(data);
       setFile(null);

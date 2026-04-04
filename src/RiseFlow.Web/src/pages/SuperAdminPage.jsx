@@ -18,14 +18,25 @@ export default function SuperAdminPage() {
   const [markingId, setMarkingId] = useState(null);
   const [revenue, setRevenue] = useState(null);
 
+  const readJsonOrThrow = async (response, fallbackMessage) => {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Your Super Admin session expired or you no longer have access. Please sign in again.');
+    }
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || fallbackMessage);
+    }
+    return response.json();
+  };
+
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([
-      apiFetch('/api/superadmin/dashboard', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/superadmin/revenue', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/schools', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/superadmin/audit?limit=50', { skipTenantHeader: true }).then((r) => (r.ok ? r.json() : [])),
+      apiFetch('/api/superadmin/dashboard', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load dashboard.')),
+      apiFetch('/api/superadmin/revenue', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load revenue.')),
+      apiFetch('/api/superadmin/schools', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load schools.')),
+      apiFetch('/api/superadmin/audit?limit=50', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load audit log.')),
     ])
       .then(([dash, revenueStats, list, auditLog]) => {
         setDashboard(dash || null);
@@ -245,47 +256,29 @@ export default function SuperAdminPage() {
                 <thead>
                   <tr>
                     <th>School</th>
-                    <th>Principal</th>
+                    <th>Owner email</th>
                     <th>Country</th>
+                    <th>Students</th>
+                    <th>Teachers</th>
+                    <th>Parents</th>
                     <th>Status</th>
-                    <th>Onboarding</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {schools.map((s) => {
                     const isActive = s.isActive ?? true;
-                    const hasLogo = !!s.logoFileName;
-                    const hasImportedStudents = (s.students?.length ?? 0) > 0;
                     return (
                       <tr key={s.id}>
                         <td>{s.name}</td>
-                        <td>{s.principalName || '—'}</td>
+                        <td>{s.ownerEmail || '—'}</td>
                         <td>{s.countryCode || '—'}</td>
+                        <td>{s.studentCount ?? 0}</td>
+                        <td>{s.teacherCount ?? 0}</td>
+                        <td>{s.parentCount ?? 0}</td>
                         <td>
                           <span className={isActive ? 'pill pill--success' : 'pill pill--muted'}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
-                        </td>
-                        <td>
-                          <div className="onboarding-badges">
-                            <span className={hasLogo ? 'pill pill--success-light' : 'pill pill--muted'}>
-                              Logo {hasLogo ? 'uploaded' : 'missing'}
-                            </span>
-                            <span className={hasImportedStudents ? 'pill pill--success-light' : 'pill pill--muted'}>
-                              {hasImportedStudents ? 'Students imported' : 'Awaiting Excel import'}
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-primary-action btn-primary-action--ghost"
-                            disabled
-                            title="Impersonation will let you view RiseFlow exactly as this school sees it. Coming soon."
-                          >
-                            View as school
-                          </button>
                         </td>
                       </tr>
                     );

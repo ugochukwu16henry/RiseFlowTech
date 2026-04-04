@@ -142,12 +142,12 @@ public class SchoolOnboardingService
 
     public async Task<School?> GetSchoolByIdAsync(Guid schoolId, CancellationToken ct = default)
     {
-        return await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        return await _db.Schools.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
     }
 
     public async Task<List<School>> ListSchoolsAsync(CancellationToken ct = default)
     {
-        return await _db.Schools.AsNoTracking().OrderBy(s => s.Name).ToListAsync(ct);
+        return await _db.Schools.AsNoTracking().IgnoreQueryFilters().OrderBy(s => s.Name).ToListAsync(ct);
     }
 }
 

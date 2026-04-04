@@ -174,10 +174,12 @@ public class StudentsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
         var list = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Grade)
+            .Where(s => s.SchoolId == schoolId)
             .OrderBy(s => s.LastName)
             .ThenBy(s => s.FirstName)
             .ToListAsync(ct);
@@ -191,13 +193,14 @@ public class StudentsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
         var student = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
             .Include(s => s.Grade)
             .Include(s => s.StudentParents)
             .ThenInclude(sp => sp.Parent)
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+            .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
         if (student == null)
             return NotFound();
         return Ok(student);

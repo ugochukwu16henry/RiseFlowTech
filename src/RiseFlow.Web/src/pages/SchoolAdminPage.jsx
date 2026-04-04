@@ -15,6 +15,7 @@ export default function SchoolAdminPage() {
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
+  const [parents, setParents] = useState([]);
   const [billing, setBilling] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,19 +34,32 @@ export default function SchoolAdminPage() {
     }
   });
 
+  const readJsonOrThrow = async (response, fallbackMessage) => {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
+    }
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || fallbackMessage);
+    }
+    return response.json();
+  };
+
   const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
     Promise.all([
-      apiFetch('/api/schools/dashboard').then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/teachers').then((r) => (r.ok ? r.json() : [])),
-      apiFetch('/api/students').then((r) => (r.ok ? r.json() : [])),
-      apiFetch('/api/billing').then((r) => (r.ok ? r.json() : [])),
+      apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
+      apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
+      apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
+      apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
+      apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
     ])
-      .then(([dash, tList, sList, bList]) => {
-        setDashboard(dash);
+      .then(([dash, tList, sList, pList, bList]) => {
+        setDashboard(dash || null);
         setTeachers(Array.isArray(tList) ? tList : []);
         setStudents(Array.isArray(sList) ? sList : []);
+        setParents(Array.isArray(pList) ? pList : []);
         setBilling(Array.isArray(bList) ? bList : []);
       })
       .catch((err) => setError(err.message || 'Failed to load data'))
@@ -268,8 +282,16 @@ export default function SchoolAdminPage() {
       {dashboard && (
         <div className="summary-cards">
           <div className="summary-card">
-            <span className="summary-value">{dashboard.activeStudentCount ?? 0}</span>
+            <span className="summary-value">{dashboard.activeStudentCount ?? students.length}</span>
             <span className="summary-label">Active students</span>
+          </div>
+          <div className="summary-card">
+            <span className="summary-value">{teachers.length}</span>
+            <span className="summary-label">Teachers</span>
+          </div>
+          <div className="summary-card">
+            <span className="summary-value">{parents.length}</span>
+            <span className="summary-label">Parents</span>
           </div>
           <div className="summary-card summary-card--warning">
             <span className="summary-value">{formatMoney(dashboard.unpaidFeesTotal, currencyCode)}</span>
@@ -301,6 +323,32 @@ export default function SchoolAdminPage() {
                   <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
                   <td>{t.email || '—'}</td>
                   <td>{t.phone || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Parents</h2>
+      {parents.length === 0 ? (
+        <p className="empty-state">No parents have signed up yet. Share your parent signup link and access codes so families can join.</p>
+      ) : (
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parents.map((p) => (
+                <tr key={p.id}>
+                  <td>{[p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ')}</td>
+                  <td>{p.email || '—'}</td>
+                  <td>{p.phone || p.whatsAppNumber || '—'}</td>
                 </tr>
               ))}
             </tbody>

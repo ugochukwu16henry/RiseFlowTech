@@ -24,6 +24,25 @@ public class ParentsController : ControllerBase
         _userManager = userManager;
     }
 
+    [HttpGet]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(List<Parent>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<Parent>>> List(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var parents = await _db.Parents
+            .AsNoTracking()
+            .Where(p => p.SchoolId == schoolId)
+            .OrderBy(p => p.LastName)
+            .ThenBy(p => p.FirstName)
+            .ToListAsync(ct);
+
+        return Ok(parents);
+    }
+
     /// <summary>
     /// Parent signup via school gateway. AllowAnonymous. Creates ApplicationUser + Parent for the given school and assigns Parent role.
     /// </summary>

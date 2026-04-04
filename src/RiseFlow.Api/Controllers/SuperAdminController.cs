@@ -27,9 +27,18 @@ public class SuperAdminController : ControllerBase
 
     private static readonly IReadOnlyDictionary<string, string> CountryNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["NG"] = "Nigeria", ["GH"] = "Ghana", ["KE"] = "Kenya", ["ZA"] = "South Africa",
-        ["TZ"] = "Tanzania", ["UG"] = "Uganda", ["SN"] = "Senegal", ["CI"] = "Côte d'Ivoire",
-        ["CM"] = "Cameroon", ["ET"] = "Ethiopia", ["RW"] = "Rwanda", ["ZM"] = "Zambia",
+        ["NG"] = "Nigeria",
+        ["GH"] = "Ghana",
+        ["KE"] = "Kenya",
+        ["ZA"] = "South Africa",
+        ["TZ"] = "Tanzania",
+        ["UG"] = "Uganda",
+        ["SN"] = "Senegal",
+        ["CI"] = "Côte d'Ivoire",
+        ["CM"] = "Cameroon",
+        ["ET"] = "Ethiopia",
+        ["RW"] = "Rwanda",
+        ["ZM"] = "Zambia",
     };
 
     /// <summary>Control room dashboard: schools by country (map data), total and monthly revenue.</summary>
@@ -135,6 +144,7 @@ public class SuperAdminController : ControllerBase
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
 
         var schools = await _db.Schools.AsNoTracking()
+            .IgnoreQueryFilters()
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct);
 
@@ -277,7 +287,7 @@ public class SuperAdminController : ControllerBase
             .ToListAsync(ct);
         return Ok(list);
     }
-    
+
     /// <summary>
     /// Platform-wide compliance settings for NDPC / data protection. SuperAdmin can set DPO details and DPIA URL.
     /// </summary>

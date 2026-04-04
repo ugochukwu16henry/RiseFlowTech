@@ -84,6 +84,10 @@ export default function AddStudentPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setError('Your session expired or your school access is missing. Please sign in again as School Admin.');
+          return;
+        }
         setError(data?.message || data?.title || 'Failed to add student.');
         return;
       }

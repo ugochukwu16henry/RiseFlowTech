@@ -91,6 +91,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+
     // For APIs: return 401/403 instead of redirecting to /Account/Login
     options.Events.OnRedirectToLogin = ctx =>
     {
@@ -183,16 +190,28 @@ app.UseMiddleware<TenantMiddleware>();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
     try
     {
         var context = services.GetRequiredService<RiseFlowDbContext>();
-        await context.Database.MigrateAsync();
+
+        try
+        {
+            await context.Database.MigrateAsync();
+        }
+        catch (InvalidOperationException ex) when (
+            context.Database.IsSqlite()
+            && ex.Message.Contains("pending changes", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(ex, "SQLite startup migration hit pending model changes; creating the local development database from the current model instead.");
+            await context.Database.EnsureCreatedAsync();
+        }
 
         await IdentitySeeder.SeedAdminUserAsync(services);
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while migrating or seeding the database.");
     }
 }

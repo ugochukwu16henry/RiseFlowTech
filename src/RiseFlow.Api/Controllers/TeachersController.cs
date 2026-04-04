@@ -34,10 +34,12 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
         var list = await _db.Teachers
             .AsNoTracking()
             .Include(t => t.TeacherClasses)
             .ThenInclude(tc => tc.Class)
+            .Where(t => t.SchoolId == schoolId)
             .OrderBy(t => t.LastName)
             .ThenBy(t => t.FirstName)
             .ToListAsync(ct);
@@ -51,11 +53,12 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
         var teacher = await _db.Teachers
             .AsNoTracking()
             .Include(t => t.TeacherClasses)
             .ThenInclude(tc => tc.Class)
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
+            .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
         return Ok(teacher);
