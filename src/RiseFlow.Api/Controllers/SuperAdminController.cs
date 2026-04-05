@@ -90,7 +90,7 @@ public class SuperAdminController : ControllerBase
         var studentCountBySchool = await _db.Students.IgnoreQueryFilters().Where(st => st.IsActive && over50Ids.Contains(st.SchoolId))
             .GroupBy(st => st.SchoolId).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         var countDict = studentCountBySchool.ToDictionary(x => x.Key, x => x.Count);
-        var schoolsOver50 = await _db.Schools.AsNoTracking().Where(s => over50Ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct);
+        var schoolsOver50 = await _db.Schools.AsNoTracking().IgnoreQueryFilters().Where(s => over50Ids.Contains(s.Id)).Select(s => new { s.Id, s.Name }).ToListAsync(ct);
         var paymentDelinquency = schoolsOver50
             .Where(s => latestUnpaidBySchool.ContainsKey(s.Id))
             .Select(s => new PaymentDelinquencyDto(s.Id, s.Name, countDict.GetValueOrDefault(s.Id, 0), latestUnpaidBySchool[s.Id].AmountDue, latestUnpaidBySchool[s.Id].CurrencyCode))
@@ -101,6 +101,7 @@ public class SuperAdminController : ControllerBase
 
         // Compliance: schools that have not yet had signed Data Consent forms recorded
         var compliancePending = await _db.Schools.AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(s => s.IsActive && s.DataConsentFormReceivedAt == null)
             .Select(s => new ComplianceSchoolDto(s.Id, s.Name))
             .ToListAsync(ct);
@@ -203,7 +204,7 @@ public class SuperAdminController : ControllerBase
             .ToListAsync(ct);
 
         var totalBillableStudents = billableBySchool.Sum(x => x.Billable);
-        var totalSchools = await _db.Schools.CountAsync(ct);
+        var totalSchools = await _db.Schools.IgnoreQueryFilters().CountAsync(ct);
 
         // Top revenue schools: based on total AmountPaid to date.
         var paidBySchool = paid
