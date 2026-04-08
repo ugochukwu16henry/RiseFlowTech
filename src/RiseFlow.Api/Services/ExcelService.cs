@@ -13,6 +13,7 @@ namespace RiseFlow.Api.Services;
 public class ExcelService
 {
     private readonly RiseFlowDbContext _db;
+    private readonly StudentAdmissionNumberService _admissionNumbers;
 
     // Column indices for template: FirstName, LastName, MiddleName, Gender, DateOfBirth, NIN, NationalIdType, NationalIdNumber, Class, AdmissionNumber, StateOfOrigin, LGA, Nationality, ParentName, ParentPhone, BloodGroup, Genotype, EmergencyContactName, EmergencyContactPhone
     private const int ColFirstName = 1, ColLastName = 2, ColMiddleName = 3, ColGender = 4, ColDateOfBirth = 5;
@@ -20,9 +21,10 @@ public class ExcelService
     private const int ColStateOfOrigin = 11, ColLGA = 12, ColNationality = 13, ColParentName = 14, ColParentPhone = 15;
     private const int ColBloodGroup = 16, ColGenotype = 17, ColEmergencyContactName = 18, ColEmergencyContactPhone = 19;
 
-    public ExcelService(RiseFlowDbContext db)
+    public ExcelService(RiseFlowDbContext db, StudentAdmissionNumberService admissionNumbers)
     {
         _db = db;
+        _admissionNumbers = admissionNumbers;
     }
 
     /// <summary>Parse and validate Excel; return preview rows and per-row errors. Marks rows that are duplicates (already in school) so admin knows they will be skipped on import. Does not save.</summary>
@@ -112,6 +114,7 @@ public class ExcelService
         var currencyCode = school?.CurrencyCode?.Trim() ?? "NGN";
         var classes = await _db.Classes.Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c, StringComparer.OrdinalIgnoreCase, ct);
         var parentCache = new Dictionary<string, Parent>(StringComparer.OrdinalIgnoreCase);
+        var reservedAdmissionNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var imported = 0;
         var skippedDuplicate = 0;
 
@@ -127,6 +130,14 @@ public class ExcelService
             withinFileKeys.Add(key);
 
             Guid? classId = ResolveClassId(dto.ClassName, classes.ToDictionary(c => c.Key, c => c.Value.Id));
+            var schoolClass = !string.IsNullOrWhiteSpace(dto.ClassName) && classes.TryGetValue(dto.ClassName.Trim().ToUpperInvariant(), out var matchedClass)
+                ? matchedClass
+                : null;
+            var admissionNumber = await _admissionNumbers.GetUniqueAdmissionNumberAsync(
+                schoolId,
+                dto.AdmissionNumber,
+                ct,
+                reservedAdmissionNumbers);
 
             var student = new Student
             {
@@ -140,7 +151,7 @@ public class ExcelService
                 NIN = string.IsNullOrWhiteSpace(dto.NIN) ? null : dto.NIN.Trim(),
                 NationalIdType = string.IsNullOrWhiteSpace(dto.NationalIdType) ? null : dto.NationalIdType.Trim(),
                 NationalIdNumber = string.IsNullOrWhiteSpace(dto.NationalIdNumber) ? null : dto.NationalIdNumber.Trim(),
-                AdmissionNumber = string.IsNullOrWhiteSpace(dto.AdmissionNumber) ? null : dto.AdmissionNumber.Trim(),
+                AdmissionNumber = admissionNumber,
                 StateOfOrigin = string.IsNullOrWhiteSpace(dto.StateOfOrigin) ? null : dto.StateOfOrigin.Trim(),
                 LGA = string.IsNullOrWhiteSpace(dto.LGA) ? null : dto.LGA.Trim(),
                 Nationality = string.IsNullOrWhiteSpace(dto.Nationality) ? null : dto.Nationality.Trim(),
@@ -148,7 +159,9 @@ public class ExcelService
                 Genotype = string.IsNullOrWhiteSpace(dto.Genotype) ? null : dto.Genotype.Trim(),
                 EmergencyContactName = string.IsNullOrWhiteSpace(dto.EmergencyContactName) ? null : dto.EmergencyContactName.Trim(),
                 EmergencyContactPhone = string.IsNullOrWhiteSpace(dto.EmergencyContactPhone) ? null : dto.EmergencyContactPhone.Trim(),
+                DateOfAdmission = DateTime.UtcNow,
                 ClassId = classId,
+                GradeId = schoolClass?.GradeId,
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             };
@@ -184,12 +197,16 @@ public class ExcelService
     /// <summary>Build a key for duplicate detection: by admission number if provided, else by first+last+DOB.</summary>
     private static string StudentDuplicateKey(string? admissionNumber, string firstName, string lastName, DateOnly? dateOfBirth)
     {
-        if (!string.IsNullOrWhiteSpace(admissionNumber))
-            return "A:" + admissionNumber.Trim().ToUpperInvariant();
         var first = (firstName ?? "").Trim().ToUpperInvariant();
         var last = (lastName ?? "").Trim().ToUpperInvariant();
         var dob = dateOfBirth?.ToString("O") ?? "";
-        return "N:" + first + "|" + last + "|" + dob;
+
+        if (!string.IsNullOrWhiteSpace(first) || !string.IsNullOrWhiteSpace(last) || !string.IsNullOrWhiteSpace(dob))
+            return "N:" + first + "|" + last + "|" + dob;
+
+        return !string.IsNullOrWhiteSpace(admissionNumber)
+            ? "A:" + admissionNumber.Trim().ToUpperInvariant()
+            : "EMPTY";
     }
 
     private async Task<HashSet<string>> GetExistingStudentKeysAsync(Guid schoolId, CancellationToken ct)

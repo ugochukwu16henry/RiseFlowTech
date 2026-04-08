@@ -24,8 +24,9 @@ public class StudentsController : ControllerBase
     private readonly ExcelService _excelService;
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
     private readonly BillingService _billing;
+    private readonly StudentAdmissionNumberService _admissionNumbers;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, StudentAdmissionNumberService admissionNumbers)
     {
         _db = db;
         _tenant = tenant;
@@ -34,6 +35,7 @@ public class StudentsController : ControllerBase
         _excelService = excelService;
         _parentLetterPdf = parentLetterPdf;
         _billing = billing;
+        _admissionNumbers = admissionNumbers;
     }
 
     /// <summary>
@@ -178,6 +180,7 @@ public class StudentsController : ControllerBase
         var list = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
+            .ThenInclude(c => c!.Grade)
             .Include(s => s.Grade)
             .Where(s => s.SchoolId == schoolId)
             .OrderBy(s => s.LastName)
@@ -197,6 +200,7 @@ public class StudentsController : ControllerBase
         var student = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
+            .ThenInclude(c => c!.Grade)
             .Include(s => s.Grade)
             .Include(s => s.StudentParents)
             .ThenInclude(sp => sp.Parent)
@@ -227,6 +231,18 @@ public class StudentsController : ControllerBase
                 return BadRequest($"Free tier limit ({CountryBillingConfig.FreeTierStudentCount} students) reached. Please upgrade to add more students.");
             }
         }
+        Class? schoolClass = null;
+        if (request.ClassId.HasValue)
+        {
+            schoolClass = await _db.Classes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.SchoolId == schoolId, ct);
+            if (schoolClass == null)
+                return BadRequest("Selected class was not found for this school.");
+        }
+
+        var admissionNumber = await _admissionNumbers.GetUniqueAdmissionNumberAsync(schoolId, request.AdmissionNumber, ct);
+
         var student = new Student
         {
             Id = Guid.NewGuid(),
@@ -242,10 +258,10 @@ public class StudentsController : ControllerBase
             NIN = request.NIN,
             NationalIdType = request.NationalIdType,
             NationalIdNumber = request.NationalIdNumber,
-            AdmissionNumber = request.AdmissionNumber,
-            DateOfAdmission = request.DateOfAdmission,
+            AdmissionNumber = admissionNumber,
+            DateOfAdmission = request.DateOfAdmission ?? DateTime.UtcNow,
             ClassId = request.ClassId,
-            GradeId = request.GradeId,
+            GradeId = request.GradeId ?? schoolClass?.GradeId,
             PreviousSchool = request.PreviousSchool,
             BloodGroup = request.BloodGroup,
             Genotype = request.Genotype,
@@ -362,6 +378,16 @@ public class StudentsController : ControllerBase
             return NotFound();
         if (student.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
+        Class? schoolClass = null;
+        if (request.ClassId.HasValue)
+        {
+            schoolClass = await _db.Classes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.SchoolId == student.SchoolId, ct);
+            if (schoolClass == null)
+                return BadRequest("Selected class was not found for this school.");
+        }
+
         student.FirstName = request.FirstName;
         student.LastName = request.LastName;
         student.MiddleName = request.MiddleName;
@@ -373,10 +399,14 @@ public class StudentsController : ControllerBase
         student.NIN = request.NIN;
         student.NationalIdType = request.NationalIdType;
         student.NationalIdNumber = request.NationalIdNumber;
-        student.AdmissionNumber = request.AdmissionNumber;
-        student.DateOfAdmission = request.DateOfAdmission;
+        student.AdmissionNumber = await _admissionNumbers.GetUniqueAdmissionNumberAsync(
+            student.SchoolId,
+            string.IsNullOrWhiteSpace(request.AdmissionNumber) ? student.AdmissionNumber : request.AdmissionNumber,
+            ct,
+            excludeStudentId: student.Id);
+        student.DateOfAdmission = request.DateOfAdmission ?? student.DateOfAdmission ?? DateTime.UtcNow;
         student.ClassId = request.ClassId;
-        student.GradeId = request.GradeId;
+        student.GradeId = request.GradeId ?? schoolClass?.GradeId ?? student.GradeId;
         student.PreviousSchool = request.PreviousSchool;
         student.BloodGroup = request.BloodGroup;
         student.Genotype = request.Genotype;
@@ -542,9 +572,9 @@ public class StudentsController : ControllerBase
         return PhysicalFile(path, contentType, enableRangeProcessing: false);
     }
 
-    /// <summary>Upload passport-size profile photo for a student. SchoolAdmin only. Accepts .jpg, .jpeg, .png, .gif, .webp.</summary>
+    /// <summary>Upload passport-size profile photo for a student. SchoolAdmin and linked parents can update it. Accepts .jpg, .jpeg, .png, .gif, .webp.</summary>
     [HttpPost("{id:guid}/photo")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Parent}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -555,6 +585,24 @@ public class StudentsController : ControllerBase
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
         if (student == null)
             return NotFound();
+
+        if (User.IsInRole(Roles.Parent))
+        {
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? _tenant.CurrentUserEmail;
+            if (string.IsNullOrWhiteSpace(email))
+                return Forbid();
+
+            var parent = await _db.Parents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.SchoolId == student.SchoolId && p.Email == email, ct);
+            if (parent == null)
+                return Forbid();
+
+            var linkedToChild = await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
+            if (!linkedToChild)
+                return Forbid();
+        }
+
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
         var ext = Path.GetExtension(file.FileName);

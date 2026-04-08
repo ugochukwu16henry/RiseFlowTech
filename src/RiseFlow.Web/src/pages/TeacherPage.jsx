@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
@@ -16,6 +16,9 @@ export default function TeacherPage() {
   const [attendance, setAttendance] = useState({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [activeView, setActiveView] = useState('overview');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentClassFilter, setStudentClassFilter] = useState('');
+  const [studentGradeFilter, setStudentGradeFilter] = useState('');
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -71,6 +74,24 @@ export default function TeacherPage() {
   const classes = Array.from(
     new Map(students.map((s) => [s.classId, s.className || 'Unnamed class'])).entries(),
   ).map(([id, name]) => ({ id, name }));
+  const gradeOptions = Array.from(new Set(students.map((s) => s.gradeName).filter(Boolean))).sort();
+  const filteredStudents = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return students.filter((student) => {
+      const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ').toLowerCase();
+      const className = (student.className || '').toLowerCase();
+      const gradeName = (student.gradeName || '').toLowerCase();
+      const admissionNumber = (student.admissionNumber || '').toLowerCase();
+      const matchesSearch = !query
+        || fullName.includes(query)
+        || className.includes(query)
+        || gradeName.includes(query)
+        || admissionNumber.includes(query);
+      const matchesClass = !studentClassFilter || student.classId === studentClassFilter;
+      const matchesGrade = !studentGradeFilter || student.gradeName === studentGradeFilter;
+      return matchesSearch && matchesClass && matchesGrade;
+    });
+  }, [students, studentSearch, studentClassFilter, studentGradeFilter]);
 
   const loadAttendance = async () => {
     if (!selectedClassId || !selectedDate) return;
@@ -213,43 +234,70 @@ export default function TeacherPage() {
               {students.length === 0 ? (
                 <p className="empty-state">No classes or students assigned yet. Your School Admin will assign your classes and subjects.</p>
               ) : (
-                <div className="data-table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '48px' }}>Photo</th>
-                        <th>Name</th>
-                        <th>Admission #</th>
-                        <th>Class</th>
-                        <th>Gender</th>
-                        <th>Today&apos;s attendance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {students.map((s) => (
-                        <tr key={s.studentId}>
-                          <td><StudentPhoto studentId={s.studentId} firstName={s.firstName} lastName={s.lastName} size={40} /></td>
-                          <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
-                          <td>{s.admissionNumber || '—'}</td>
-                          <td>{s.className || '—'}</td>
-                          <td>{s.gender || '—'}</td>
-                          <td>
-                            <select
-                              value={attendance[s.studentId] || ''}
-                              onChange={(e) => handleAttendanceChange(s.studentId, e.target.value)}
-                            >
-                              <option value="">—</option>
-                              <option value="Present">Present</option>
-                              <option value="Absent">Absent</option>
-                              <option value="Late">Late</option>
-                              <option value="Excused">Excused</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="form-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                    <input
+                      type="search"
+                      className="form-input"
+                      style={{ maxWidth: '260px' }}
+                      placeholder="Search by name, admission no, class or grade"
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                    />
+                    <select className="form-input" style={{ maxWidth: '180px' }} value={studentClassFilter} onChange={(e) => setStudentClassFilter(e.target.value)}>
+                      <option value="">All classes</option>
+                      {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <select className="form-input" style={{ maxWidth: '180px' }} value={studentGradeFilter} onChange={(e) => setStudentGradeFilter(e.target.value)}>
+                      <option value="">All grades</option>
+                      {gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                    </select>
+                  </div>
+                  <p className="card-desc">Showing {filteredStudents.length} of {students.length} students.</p>
+                  {filteredStudents.length === 0 ? (
+                    <p className="empty-state">No students match your current search or filters.</p>
+                  ) : (
+                    <div className="data-table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '48px' }}>Photo</th>
+                            <th>Name</th>
+                            <th>Admission #</th>
+                            <th>Class</th>
+                            <th>Grade</th>
+                            <th>Gender</th>
+                            <th>Today&apos;s attendance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredStudents.map((s) => (
+                            <tr key={s.studentId}>
+                              <td><StudentPhoto studentId={s.studentId} firstName={s.firstName} lastName={s.lastName} size={40} /></td>
+                              <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
+                              <td>{s.admissionNumber || '—'}</td>
+                              <td>{s.className || '—'}</td>
+                              <td>{s.gradeName || '—'}</td>
+                              <td>{s.gender || '—'}</td>
+                              <td>
+                                <select
+                                  value={attendance[s.studentId] || ''}
+                                  onChange={(e) => handleAttendanceChange(s.studentId, e.target.value)}
+                                >
+                                  <option value="">—</option>
+                                  <option value="Present">Present</option>
+                                  <option value="Absent">Absent</option>
+                                  <option value="Late">Late</option>
+                                  <option value="Excused">Excused</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

@@ -5,8 +5,9 @@ import './StudentPhoto.css';
  * Renders a student's passport photo with fallback to initials.
  * Use for lists and detail views. Photo is loaded from GET /api/students/{id}/photo (credentials sent for same-origin).
  */
-export default function StudentPhoto({ studentId, firstName, lastName, size = 40, className = '' }) {
-  const photoUrl = `${getApiBase()}/api/students/${studentId}/photo`;
+export default function StudentPhoto({ studentId, firstName, lastName, size = 40, className = '', cacheBust = 0 }) {
+  const suffix = cacheBust ? `?v=${cacheBust}` : '';
+  const photoUrl = `${getApiBase()}/api/students/${studentId}/photo${suffix}`;
   const initials = [firstName, lastName].filter(Boolean).map((s) => (s || '').charAt(0).toUpperCase()).join('') || '?';
 
   return (

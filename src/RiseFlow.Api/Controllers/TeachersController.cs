@@ -323,6 +323,7 @@ public class TeachersController : ControllerBase
         var students = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
+            .ThenInclude(c => c!.Grade)
             .Where(s => s.SchoolId == schoolId && s.ClassId != null && classIds.Contains(s.ClassId.Value))
             .OrderBy(s => s.Class!.Name)
             .ThenBy(s => s.LastName)
@@ -337,6 +338,7 @@ public class TeachersController : ControllerBase
             s.MiddleName,
             s.AdmissionNumber,
             s.Class?.Name,
+            s.Class?.Grade?.Name,
             s.Gender
         )).ToList();
         return Ok(list);
@@ -495,4 +497,5 @@ public record MyStudentDto(
     string? MiddleName,
     string? AdmissionNumber,
     string? ClassName,
+    string? GradeName,
     string? Gender);

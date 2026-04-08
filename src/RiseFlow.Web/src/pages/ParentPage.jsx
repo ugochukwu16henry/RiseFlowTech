@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
@@ -59,6 +59,10 @@ export default function ParentPage() {
   const [errorResults, setErrorResults] = useState(null);
   const [errorTeachers, setErrorTeachers] = useState(null);
   const [activeView, setActiveView] = useState('overview');
+  const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState(null);
+  const [photoVersions, setPhotoVersions] = useState({});
+  const childPhotoInputRef = useRef(null);
 
   const loadChildren = useCallback(async () => {
     const res = await apiFetch('/api/parents/my-children');
@@ -135,6 +139,32 @@ export default function ParentPage() {
 
   const selectedChild = children.find((c) => c.studentId === selectedChildId);
   const resultsForChild = selectedChildId ? results.filter((r) => r.studentId === selectedChildId) : [];
+
+  const handleChildPhotoChange = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || !selectedChild) return;
+    setUploadingChildPhoto(true);
+    setPhotoMessage(null);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await apiFetch(`/api/students/${selectedChild.studentId}/photo`, {
+        method: 'POST',
+        body: form,
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.message || 'Could not update child photo.');
+      }
+      setPhotoVersions((prev) => ({ ...prev, [selectedChild.studentId]: Date.now() }));
+      setPhotoMessage('Child photo updated successfully.');
+    } catch (err) {
+      setPhotoMessage(err.message || 'Could not update child photo.');
+    } finally {
+      setUploadingChildPhoto(false);
+      if (e.target) e.target.value = '';
+    }
+  };
   const progress = mapResultsToProgress(resultsForChild);
   const overallPct = progress.length
     ? Math.round(progress.reduce((s, p) => s + p.value, 0) / progress.length)
@@ -197,7 +227,13 @@ export default function ParentPage() {
                       className={`child-avatar ${selectedChildId === child.studentId ? 'child-avatar--selected' : ''}`}
                       onClick={() => setSelectedChildId(child.studentId)}
                     >
-                      <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} />
+                      <StudentPhoto
+                        studentId={child.studentId}
+                        firstName={child.firstName}
+                        lastName={child.lastName}
+                        size={48}
+                        cacheBust={photoVersions[child.studentId]}
+                      />
                     </button>
                   ))}
                 </div>
@@ -221,9 +257,35 @@ export default function ParentPage() {
           {!loadingChildren && selectedChild && activeView === 'overview' && (
             <section className="family-view-card family-view-profile" aria-label="Student profile">
               <div className="family-view-profile-header">
-                <StudentPhoto studentId={selectedChild.studentId} firstName={selectedChild.firstName} lastName={selectedChild.lastName} size={56} />
+                <StudentPhoto
+                  studentId={selectedChild.studentId}
+                  firstName={selectedChild.firstName}
+                  lastName={selectedChild.lastName}
+                  size={56}
+                  cacheBust={photoVersions[selectedChild.studentId]}
+                />
                 <h3 className="card-title" style={{ marginBottom: 0 }}>{displayName(selectedChild)}</h3>
               </div>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
+                ref={childPhotoInputRef}
+                onChange={handleChildPhotoChange}
+                style={{ display: 'none' }}
+                aria-label="Upload child photo"
+              />
+              <div className="form-actions" style={{ marginBottom: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn-upload-photo"
+                  onClick={() => childPhotoInputRef.current?.click()}
+                  disabled={uploadingChildPhoto}
+                >
+                  {uploadingChildPhoto ? 'Uploading…' : 'Upload / change child photo'}
+                </button>
+                <span className="card-desc">Parents and the school can update this photo anytime.</span>
+              </div>
+              {photoMessage && <p className="card-desc">{photoMessage}</p>}
               <dl className="profile-dl">
                 <dt>Class</dt>
                 <dd>{selectedChild.className || '—'}</dd>

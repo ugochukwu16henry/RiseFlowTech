@@ -121,7 +121,7 @@ export default function ExcelImportPage() {
       <div className="excel-import">
         <section className="excel-section">
           <h2 className="section-title">1. Download template</h2>
-          <p className="card-desc">Use the template aligned with African ministry requirements (NIN, Class, Parent, etc.).</p>
+          <p className="card-desc">Use the template aligned with African ministry requirements (NIN, Class, Parent, etc.). Admission numbers are auto-generated for any row where the column is left blank.</p>
           <a
             href={`${getApiBase()}/api/students/bulk-upload-template`}
             target="_blank"
@@ -205,7 +205,7 @@ export default function ExcelImportPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="card-desc">Total rows in file: {preview.totalRows}</p>
+              <p className="card-desc">Total rows in file: {preview.totalRows}. Any blank admission numbers will be generated automatically during import.</p>
               <button
                 type="button"
                 className="btn-excel btn-import"

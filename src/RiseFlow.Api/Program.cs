@@ -144,6 +144,7 @@ builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddScoped<BillingReceiptPdfService>();
 builder.Services.AddScoped<SchoolDashboardService>();
+builder.Services.AddScoped<StudentAdmissionNumberService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddSingleton<GradingReferencePdfService>();
