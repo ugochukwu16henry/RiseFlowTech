@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { apiFetch, clearAuthStorage, getApiBase, STORAGE_TENANT_KEY } from '../api';
 
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
@@ -74,6 +74,7 @@ export default function PageLayout({
   showSignOut,
   authHeaderRight,
 }) {
+  const navigate = useNavigate();
   const items = role ? NAV_BY_ROLE[role] : null;
   const showSignOutButton = showSignOut ?? variant === 'app';
   const [schoolBrand, setSchoolBrand] = useState(null);

@@ -29,6 +29,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.SuperAdmin}")]
     [ProducesResponseType(typeof(List<TeacherProfileDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<TeacherProfileDto>>> List(CancellationToken ct)
     {
@@ -47,6 +48,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.SuperAdmin}")]
     [ProducesResponseType(typeof(TeacherProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TeacherProfileDto>> GetById(Guid id, CancellationToken ct)

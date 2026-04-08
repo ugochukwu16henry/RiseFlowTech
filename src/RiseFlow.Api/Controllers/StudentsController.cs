@@ -171,40 +171,97 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(List<Student>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<Student>>> List(CancellationToken ct)
+    [ProducesResponseType(typeof(List<StudentListItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentListItemDto>>> List(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
         var list = await _db.Students
             .AsNoTracking()
-            .Include(s => s.Class)
-            .ThenInclude(c => c!.Grade)
-            .Include(s => s.Grade)
             .Where(s => s.SchoolId == schoolId)
             .OrderBy(s => s.LastName)
             .ThenBy(s => s.FirstName)
+            .Select(s => new StudentListItemDto(
+                s.Id,
+                s.FirstName,
+                s.LastName,
+                s.MiddleName,
+                s.AdmissionNumber,
+                s.Gender,
+                s.IsActive,
+                s.ProfilePhotoFileName,
+                s.Class == null
+                    ? null
+                    : new StudentClassSummaryDto(
+                        s.Class.Id,
+                        s.Class.Name,
+                        s.Class.AcademicYear,
+                        s.Class.Grade == null ? null : new StudentGradeSummaryDto(s.Class.Grade.Id, s.Class.Grade.Name, s.Class.Grade.LevelOrder)),
+                s.Grade == null ? null : new StudentGradeSummaryDto(s.Grade.Id, s.Grade.Name, s.Grade.LevelOrder)))
             .ToListAsync(ct);
         return Ok(list);
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(StudentDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<Student>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<StudentDetailDto>> GetById(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
         var student = await _db.Students
             .AsNoTracking()
-            .Include(s => s.Class)
-            .ThenInclude(c => c!.Grade)
-            .Include(s => s.Grade)
-            .Include(s => s.StudentParents)
-            .ThenInclude(sp => sp.Parent)
-            .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+            .Where(s => s.Id == id && s.SchoolId == schoolId)
+            .Select(s => new StudentDetailDto(
+                s.Id,
+                s.SchoolId,
+                s.FirstName,
+                s.LastName,
+                s.MiddleName,
+                s.DateOfBirth,
+                s.Gender,
+                s.Nationality,
+                s.StateOfOrigin,
+                s.LGA,
+                s.NIN,
+                s.NationalIdType,
+                s.NationalIdNumber,
+                s.AdmissionNumber,
+                s.DateOfAdmission,
+                s.PreviousSchool,
+                s.BloodGroup,
+                s.Genotype,
+                s.Allergies,
+                s.EmergencyContactName,
+                s.EmergencyContactPhone,
+                s.ParentAccessCode,
+                s.ProfilePhotoFileName,
+                s.IsActive,
+                s.CreatedAtUtc,
+                s.UpdatedAtUtc,
+                s.Class == null
+                    ? null
+                    : new StudentClassSummaryDto(
+                        s.Class.Id,
+                        s.Class.Name,
+                        s.Class.AcademicYear,
+                        s.Class.Grade == null ? null : new StudentGradeSummaryDto(s.Class.Grade.Id, s.Class.Grade.Name, s.Class.Grade.LevelOrder)),
+                s.Grade == null ? null : new StudentGradeSummaryDto(s.Grade.Id, s.Grade.Name, s.Grade.LevelOrder),
+                s.StudentParents
+                    .OrderBy(sp => sp.Parent.LastName)
+                    .ThenBy(sp => sp.Parent.FirstName)
+                    .Select(sp => new StudentParentSummaryDto(
+                        sp.ParentId,
+                        sp.Parent.FirstName,
+                        sp.Parent.LastName,
+                        sp.Parent.Email,
+                        sp.Parent.Phone,
+                        sp.RelationshipToStudent,
+                        sp.IsPrimaryContact))
+                    .ToList()))
+            .FirstOrDefaultAsync(ct);
         if (student == null)
             return NotFound();
         return Ok(student);
@@ -656,6 +713,57 @@ public class StudentsController : ControllerBase
     }
 }
 
+public record StudentGradeSummaryDto(Guid Id, string Name, int LevelOrder);
+public record StudentClassSummaryDto(Guid Id, string Name, string? AcademicYear, StudentGradeSummaryDto? Grade);
+public record StudentListItemDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string? AdmissionNumber,
+    string? Gender,
+    bool IsActive,
+    string? ProfilePhotoFileName,
+    StudentClassSummaryDto? Class,
+    StudentGradeSummaryDto? Grade);
+public record StudentParentSummaryDto(
+    Guid ParentId,
+    string FirstName,
+    string LastName,
+    string? Email,
+    string? Phone,
+    string? RelationshipToStudent,
+    bool IsPrimaryContact);
+public record StudentDetailDto(
+    Guid Id,
+    Guid SchoolId,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string? Nationality,
+    string? StateOfOrigin,
+    string? LGA,
+    string? NIN,
+    string? NationalIdType,
+    string? NationalIdNumber,
+    string? AdmissionNumber,
+    DateTime? DateOfAdmission,
+    string? PreviousSchool,
+    string? BloodGroup,
+    string? Genotype,
+    string? Allergies,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
+    string? ParentAccessCode,
+    string? ProfilePhotoFileName,
+    bool IsActive,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc,
+    StudentClassSummaryDto? Class,
+    StudentGradeSummaryDto? Grade,
+    List<StudentParentSummaryDto> StudentParents);
 public record AccessCodeDto(string Code);
 public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);
 public record StudentWithAccessCodeDto(Guid Id, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? ParentAccessCode);
