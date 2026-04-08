@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './App.css';
-import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from './api';
+import { apiFetch, clearAuthStorage, getApiBase, STORAGE_TENANT_KEY } from './api';
 
 const ROLES = {
   Parent: 'Parent',
@@ -197,16 +197,12 @@ function App() {
 
   const handleSignOut = async () => {
     try {
-      await apiFetch('/api/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST', skipTenantHeader: true });
     } catch {
       // best effort
     }
-    try {
-      localStorage.removeItem(STORAGE_TENANT_KEY);
-    } catch {
-      // ignore
-    }
-    window.location.assign('/login');
+    clearAuthStorage();
+    window.location.replace('/login');
   };
 
   useEffect(() => {

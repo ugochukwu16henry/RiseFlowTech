@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import './LoginPage.css';
-import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+import { apiFetch, clearAuthStorage, STORAGE_TENANT_KEY } from '../api';
 
 const ROLE_ROUTE = {
   SchoolAdmin: '/school',
@@ -13,7 +13,6 @@ const ROLE_ROUTE = {
 };
 
 export default function LoginPage() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -21,7 +20,8 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setError('Enter your email and password.');
       return;
     }
@@ -30,8 +30,9 @@ export default function LoginPage() {
     try {
       const res = await apiFetch('/api/auth/login', {
         method: 'POST',
+        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
       if (res.status === 401) {
         setError('Incorrect email or password.');
@@ -46,18 +47,16 @@ export default function LoginPage() {
         setError(data?.message || 'Incorrect email or password.');
         return;
       }
+      clearAuthStorage();
       try {
         if (data.schoolId) {
           localStorage.setItem(STORAGE_TENANT_KEY, data.schoolId);
-        } else {
-          // Important: clear stale tenant when signing in as SuperAdmin/global user.
-          localStorage.removeItem(STORAGE_TENANT_KEY);
         }
       } catch {
         // ignore
       }
       const route = data.primaryRole && ROLE_ROUTE[data.primaryRole];
-      navigate(route || '/school');
+      window.location.replace(route || '/school');
     } catch {
       setError('Network error. Check your connection and try again.');
     } finally {

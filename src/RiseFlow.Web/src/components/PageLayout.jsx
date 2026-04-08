@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, NavLink, Link } from 'react-router-dom';
-import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
+import { NavLink, Link } from 'react-router-dom';
+import { apiFetch, clearAuthStorage, getApiBase, STORAGE_TENANT_KEY } from '../api';
 
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
@@ -73,7 +73,6 @@ export default function PageLayout({
   showSignOut,
   authHeaderRight,
 }) {
-  const navigate = useNavigate();
   const items = role ? NAV_BY_ROLE[role] : null;
   const showSignOutButton = showSignOut ?? variant === 'app';
   const [schoolBrand, setSchoolBrand] = useState(null);
@@ -137,16 +136,12 @@ export default function PageLayout({
 
   async function handleSignOut() {
     try {
-      await apiFetch('/api/auth/logout', { method: 'POST' });
+      await apiFetch('/api/auth/logout', { method: 'POST', skipTenantHeader: true });
     } catch {
       // best effort
     }
-    try {
-      localStorage.removeItem(STORAGE_TENANT_KEY);
-    } catch {
-      // ignore
-    }
-    navigate('/login', { replace: true });
+    clearAuthStorage();
+    window.location.replace('/login');
   }
 
   if (variant === 'auth') {

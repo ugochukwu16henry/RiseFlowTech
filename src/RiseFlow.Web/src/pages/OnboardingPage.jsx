@@ -102,6 +102,7 @@ export default function OnboardingPage() {
       // Auto sign-in owner and take them directly to School Admin dashboard.
       const loginRes = await apiFetch('/api/auth/login', {
         method: 'POST',
+        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: form.email.trim(),
