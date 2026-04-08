@@ -18,7 +18,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV RISEFLOW_STORAGE_ROOT=/data/riseflow-assets
-VOLUME ["/data"]
-# Railway sets PORT at runtime; Program.cs configures UseUrls from it
+# Railway sets PORT at runtime; Program.cs configures UseUrls from it.
+# Mount a Railway volume at /data in the service settings.
 EXPOSE 5000
 ENTRYPOINT ["dotnet", "RiseFlow.Api.dll"]
