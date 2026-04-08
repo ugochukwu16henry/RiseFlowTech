@@ -34,16 +34,16 @@ public class PaymentService
         if (record.AmountDue <= 0)
             throw new InvalidOperationException("No amount due for this billing record.");
 
-        var secretKey = _config["Paystack:SecretKey"];
+        var secretKey = GetSetting("Paystack:SecretKey", "PAYSTACK_SECRET_KEY");
         if (string.IsNullOrWhiteSpace(secretKey))
-            throw new InvalidOperationException("Paystack secret key is not configured.");
+            throw new InvalidOperationException("Paystack secret key is not configured. Set Paystack:SecretKey or PAYSTACK_SECRET_KEY.");
 
         var client = _httpClientFactory.CreateClient("Paystack");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
 
         var email = record.School.Email ?? $"billing+{record.SchoolId:N}@riseflow.com";
         var reference = $"RF-{record.SchoolId:N}-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        var callbackUrl = _config["Paystack:CallbackUrl"] ?? "https://riseflow.com/payment-success";
+        var callbackUrl = GetSetting("Paystack:CallbackUrl", "PAYSTACK_CALLBACK_URL") ?? "https://riseflow.com/payment-success";
 
         var requestData = new
         {
@@ -77,8 +77,8 @@ public class PaymentService
     /// </summary>
     public async Task HandlePaystackWebhookAsync(string rawBody, string? signature, CancellationToken ct = default)
     {
-        // Optional: verify signature using Paystack:WebhookSecret
-        var webhookSecret = _config["Paystack:WebhookSecret"];
+        // Optional: verify signature using Paystack:WebhookSecret or PAYSTACK_WEBHOOK_SECRET
+        var webhookSecret = GetSetting("Paystack:WebhookSecret", "PAYSTACK_WEBHOOK_SECRET");
         if (!string.IsNullOrWhiteSpace(webhookSecret) && !VerifySignature(rawBody, signature, webhookSecret))
             throw new InvalidOperationException("Invalid Paystack webhook signature.");
 
@@ -104,6 +104,18 @@ public class PaymentService
         record.AmountPaid = record.AmountDue;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+    }
+
+    private string? GetSetting(params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = _config[key];
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
     }
 
     private static bool VerifySignature(string body, string? signature, string secret)

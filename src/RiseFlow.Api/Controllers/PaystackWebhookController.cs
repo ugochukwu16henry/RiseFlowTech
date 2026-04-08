@@ -51,7 +51,7 @@ public class PaystackWebhookController : ControllerBase
         if (remoteIp == null)
             return false;
 
-        var configValue = _config["Paystack:WebhookTrustedIPs"];
+        var configValue = _config["Paystack:WebhookTrustedIPs"] ?? _config["PAYSTACK_WEBHOOK_TRUSTED_IPS"];
         if (string.IsNullOrWhiteSpace(configValue))
         {
             // No allow-list configured: accept all (suitable for development; tighten in production).
