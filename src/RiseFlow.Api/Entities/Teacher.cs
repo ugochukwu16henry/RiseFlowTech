@@ -61,5 +61,6 @@ public class Teacher : ITenantEntity
     public ICollection<TeacherClass> TeacherClasses { get; set; } = new List<TeacherClass>();
     public ICollection<TeacherSubject> TeacherSubjects { get; set; } = new List<TeacherSubject>();
     public ICollection<TeacherClassSubject> TeacherClassSubjects { get; set; } = new List<TeacherClassSubject>();
+    public ICollection<TeacherCustomFieldValue> CustomFieldValues { get; set; } = new List<TeacherCustomFieldValue>();
     public ICollection<StudentResult> EnteredResults { get; set; } = new List<StudentResult>();
 }

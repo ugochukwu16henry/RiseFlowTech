@@ -48,6 +48,7 @@ export default function TeacherPage() {
   const [studentGradeFilter, setStudentGradeFilter] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
+  const [customProfileFields, setCustomProfileFields] = useState([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState(null);
   const photoInputRef = useRef(null);
@@ -115,6 +116,7 @@ export default function TeacherPage() {
       previousSchools: me.previousSchools || '',
       professionalBodies: me.professionalBodies || '',
     });
+    setCustomProfileFields(Array.isArray(me.customFields) ? me.customFields.map((field) => ({ ...field })) : []);
     setProfileMessage(null);
   }, [me]);
 
@@ -139,6 +141,13 @@ export default function TeacherPage() {
   const handleProfileFieldChange = (e) => {
     const { name, value } = e.target;
     setProfileForm((prev) => ({ ...prev, [name]: value }));
+    setProfileMessage(null);
+  };
+
+  const handleCustomFieldValueChange = (fieldKey, value) => {
+    setCustomProfileFields((prev) => prev.map((field) => (
+      field.fieldKey === fieldKey ? { ...field, value } : field
+    )));
     setProfileMessage(null);
   };
 
@@ -179,6 +188,15 @@ export default function TeacherPage() {
         yearsOfExperience: profileForm.yearsOfExperience === '' ? null : Number(profileForm.yearsOfExperience),
         previousSchools: profileForm.previousSchools.trim() || null,
         professionalBodies: profileForm.professionalBodies.trim() || null,
+        customFields: customProfileFields.map((field) => ({
+          fieldKey: field.fieldKey,
+          displayName: field.displayName,
+          value: field.value || null,
+          isVisibleToTeacher: field.isVisibleToTeacher,
+          isEditableByTeacher: field.isEditableByTeacher,
+          isAdminOnly: field.isAdminOnly,
+          sortOrder: field.sortOrder || 0,
+        })),
       };
 
       const res = await apiFetch('/api/teachers/me/profile', {
@@ -375,6 +393,32 @@ export default function TeacherPage() {
                     </article>
                   </div>
 
+                  {(me.baseSalaryAmount != null || me.allowancesNote || me.recognitions) && (
+                    <div className="dashboard-grid" style={{ marginBottom: '1rem' }}>
+                      {me.baseSalaryAmount != null && (
+                        <article className="dashboard-card">
+                          <p className="dashboard-label">Base salary</p>
+                          <p className="dashboard-value">
+                            {new Intl.NumberFormat(undefined, { style: 'currency', currency: me.baseSalaryCurrency || 'NGN', maximumFractionDigits: 0 }).format(Number(me.baseSalaryAmount) || 0)}
+                          </p>
+                          <p className="dashboard-sub">School-admin managed</p>
+                        </article>
+                      )}
+                      {me.allowancesNote && (
+                        <article className="dashboard-card">
+                          <p className="dashboard-label">Allowances</p>
+                          <p className="dashboard-sub">{me.allowancesNote}</p>
+                        </article>
+                      )}
+                      {me.recognitions && (
+                        <article className="dashboard-card">
+                          <p className="dashboard-label">Recognitions</p>
+                          <p className="dashboard-sub">{me.recognitions}</p>
+                        </article>
+                      )}
+                    </div>
+                  )}
+
                   <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>Profile settings</h3>
                   <p className="card-desc" style={{ marginBottom: '0.75rem' }}>Update your information here. School Admin will see the latest details.</p>
 
@@ -486,11 +530,30 @@ export default function TeacherPage() {
                       </label>
                     </div>
 
+                    {customProfileFields.length > 0 && (
+                      <div style={{ marginTop: '1rem' }}>
+                        <h4 className="card-title" style={{ marginBottom: '0.35rem' }}>Extra fields from your school</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                          {customProfileFields.map((field) => (
+                            <label key={field.fieldKey}>
+                              <span className="dashboard-label">{field.displayName}</span>
+                              <input
+                                className="form-input"
+                                value={field.value || ''}
+                                onChange={(e) => handleCustomFieldValueChange(field.fieldKey, e.target.value)}
+                                disabled={!field.isEditableByTeacher}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="form-actions" style={{ marginTop: '0.85rem', alignItems: 'center' }}>
                       <button type="submit" className="btn-excel btn-generate" disabled={savingProfile}>
                         {savingProfile ? 'Saving…' : 'Save profile settings'}
                       </button>
-                      <span className="card-desc">School-managed items like account status, salary, and official role remain read-only.</span>
+                      <span className="card-desc">School-managed items like account status, salary, and locked custom fields remain read-only.</span>
                     </div>
                   </form>
                 </section>

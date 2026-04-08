@@ -41,4 +41,6 @@ public class School
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
     public ICollection<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings { get; set; } = new List<StudentProfileVisibilitySetting>();
+    public ICollection<TeacherProfileFieldSetting> TeacherProfileFieldSettings { get; set; } = new List<TeacherProfileFieldSetting>();
+    public ICollection<TeacherCustomFieldValue> TeacherCustomFieldValues { get; set; } = new List<TeacherCustomFieldValue>();
 }

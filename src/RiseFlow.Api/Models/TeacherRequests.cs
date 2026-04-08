@@ -69,7 +69,9 @@ public record UpdateTeacherRequest(
     string? AllowancesNote,
     string? PromotionHistory,
     string? Recognitions,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<TeacherProfileFieldSettingUpdateDto>? FieldSettings,
+    IReadOnlyList<TeacherCustomFieldInputDto>? CustomFields);
 
 public record UpdateMyTeacherProfileRequest(
     string FirstName,
@@ -94,7 +96,8 @@ public record UpdateMyTeacherProfileRequest(
     string? FieldOfStudy,
     int? YearsOfExperience,
     string? PreviousSchools,
-    string? ProfessionalBodies);
+    string? ProfessionalBodies,
+    IReadOnlyList<TeacherCustomFieldInputDto>? CustomFields);
 
 public record AssignTeacherToClassRequest(string? RoleInClass);
 
@@ -126,6 +129,42 @@ public record TeacherSignupRequest(
     string? ProfessionalBodies);
 
 public record TeacherSignupResult(bool Success, string Message);
+
+public record TeacherProfileFieldSettingDto(
+    string FieldKey,
+    string DisplayName,
+    bool IsCustom,
+    bool IsVisibleToTeacher,
+    bool IsEditableByTeacher,
+    bool IsAdminOnly,
+    int SortOrder);
+
+public record TeacherProfileFieldSettingUpdateDto(
+    string FieldKey,
+    string DisplayName,
+    bool IsCustom,
+    bool IsVisibleToTeacher,
+    bool IsEditableByTeacher,
+    bool IsAdminOnly,
+    int SortOrder);
+
+public record TeacherCustomFieldDto(
+    string FieldKey,
+    string DisplayName,
+    string? Value,
+    bool IsVisibleToTeacher,
+    bool IsEditableByTeacher,
+    bool IsAdminOnly,
+    int SortOrder);
+
+public record TeacherCustomFieldInputDto(
+    string FieldKey,
+    string? DisplayName,
+    string? Value,
+    bool IsVisibleToTeacher = true,
+    bool IsEditableByTeacher = true,
+    bool IsAdminOnly = false,
+    int SortOrder = 0);
 
 public record TeacherAssignedClassDto(Guid ClassId, string ClassName, string? AcademicYear, string? RoleInClass);
 
@@ -171,4 +210,6 @@ public record TeacherProfileDto(
     int AssignedStudentCount,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
-    IReadOnlyList<TeacherAssignedClassDto> TeacherClasses);
+    IReadOnlyList<TeacherAssignedClassDto> TeacherClasses,
+    IReadOnlyList<TeacherProfileFieldSettingDto> FieldSettings,
+    IReadOnlyList<TeacherCustomFieldDto> CustomFields);
