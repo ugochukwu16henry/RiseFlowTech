@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
@@ -11,7 +11,19 @@ function formatMoney(amount, currencyCode) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'NGN', maximumFractionDigits: 0 }).format(n);
 }
 
+function getSchoolAdminViewFromHash(hash) {
+  switch ((hash || '').replace(/^#/, '').toLowerCase()) {
+    case 'people':
+      return 'people';
+    case 'operations':
+      return 'operations';
+    default:
+      return 'overview';
+  }
+}
+
 export default function SchoolAdminPage() {
+  const location = useLocation();
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
@@ -24,7 +36,7 @@ export default function SchoolAdminPage() {
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
-  const [activeView, setActiveView] = useState('overview');
+  const [activeView, setActiveView] = useState(() => getSchoolAdminViewFromHash(typeof window !== 'undefined' ? window.location.hash : ''));
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
@@ -67,6 +79,10 @@ export default function SchoolAdminPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    setActiveView(getSchoolAdminViewFromHash(location.hash));
+  }, [location.hash]);
 
   // Keep X-Tenant-Id in sync with the signed-in school (fixes teacher/parent share links if localStorage was cleared).
   useEffect(() => {
@@ -187,20 +203,28 @@ export default function SchoolAdminPage() {
     }
   };
 
+  const switchView = (view) => {
+    setActiveView(view);
+    if (typeof window !== 'undefined') {
+      const nextHash = view === 'overview' ? '#overview' : `#${view}`;
+      window.history.replaceState(null, '', `${window.location.pathname}${nextHash}`);
+    }
+  };
+
   return (
     <PageLayout title="School Admin" role="school">
       <div className="school-admin-shell">
         <aside className="school-admin-nav">
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => switchView('overview')}>
             Overview
           </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => setActiveView('people')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => switchView('people')}>
             People
           </button>
           <Link to="/school/classes" className="school-admin-nav-btn school-admin-nav-link">
             Grades &amp; classes
           </Link>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => switchView('operations')}>
             Operations
           </button>
         </aside>

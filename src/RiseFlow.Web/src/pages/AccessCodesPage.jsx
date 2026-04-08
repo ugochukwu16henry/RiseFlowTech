@@ -8,6 +8,7 @@ export default function AccessCodesPage() {
   const [list, setList] = useState([]);
   const [classes, setClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [schoolId, setSchoolId] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -39,6 +40,26 @@ export default function AccessCodesPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (schoolId) return undefined;
+    let cancelled = false;
+    apiFetch('/api/schools/dashboard')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.schoolId) return;
+        setSchoolId(data.schoolId);
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(STORAGE_TENANT_KEY, data.schoolId);
+          }
+        } catch {
+          // ignore storage errors
+        }
+      })
+      .catch(() => { /* best effort */ });
+    return () => { cancelled = true; };
+  }, [schoolId]);
+
   const handleGenerateAll = async () => {
     setGenerating(true);
     setLastResult(null);
@@ -63,20 +84,41 @@ export default function AccessCodesPage() {
   const withoutCode = list.filter((s) => !s.parentAccessCode || s.parentAccessCode === '');
   const withCode = list.filter((s) => s.parentAccessCode);
 
-  const schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
-  const parentSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/parent/signup?school=${schoolId}` : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const teacherSignupUrl = schoolId ? `${origin}/teacher/signup?school=${encodeURIComponent(schoolId)}` : '';
+  const parentSignupUrl = schoolId ? `${origin}/parent/signup?school=${encodeURIComponent(schoolId)}` : '';
+  const copyTeacherSignupLink = () => {
+    if (teacherSignupUrl) navigator.clipboard.writeText(teacherSignupUrl);
+  };
   const copyParentSignupLink = () => {
     if (parentSignupUrl) navigator.clipboard.writeText(parentSignupUrl);
   };
 
-  if (loading) return <PageLayout title="Parent Access Codes" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="Parent Access Codes" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading) return <PageLayout title="Share Links & Access Codes" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (error) return <PageLayout title="Share Links & Access Codes" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   return (
-    <PageLayout title="Parent Access Codes" role="school">
+    <PageLayout title="Share Links & Access Codes" role="school">
       <p className="card-desc">
         Each student has a unique code (e.g. <strong>RF-8821</strong>). Give this code to the parent so they can open the RiseFlow app or web and &quot;Claim&quot; their child&apos;s profile.
       </p>
+
+      <section className="parent-signup-link-section" aria-label="Teacher signup link">
+        <h2 className="section-title">Share with teachers</h2>
+        <p className="card-desc">
+          Teachers can create their own account using this link and then you can assign them to classes from the Classes page.
+        </p>
+        {teacherSignupUrl ? (
+          <div className="parent-signup-link-box">
+            <code className="parent-signup-url">{teacherSignupUrl}</code>
+            <button type="button" className="btn-copy" onClick={copyTeacherSignupLink} title="Copy teacher signup link">
+              Copy link
+            </button>
+          </div>
+        ) : (
+          <p className="empty-state">Sign in as School Admin to see your teacher signup link here.</p>
+        )}
+      </section>
 
       <section className="parent-signup-link-section" aria-label="Parent signup link">
         <h2 className="section-title">Share with parents</h2>

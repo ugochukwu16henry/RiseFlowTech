@@ -5,12 +5,13 @@ import { apiFetch, clearAuthStorage, getApiBase, STORAGE_TENANT_KEY } from '../a
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
   school: [
-    { to: '/school', label: 'Dashboard', end: true },
+    { to: '/school#overview', label: 'Dashboard', end: true },
+    { to: '/school/classes', label: 'Classes' },
+    { to: '/school/access-codes', label: 'Share & codes' },
     { to: '/school/students', label: 'People' },
+    { to: '/school/import', label: 'Import' },
     { to: '/school/billing', label: 'Billing' },
     { to: '/school/reports', label: 'Reports' },
-    { to: '/school/import', label: 'Import' },
-    { to: '/school/access-codes', label: 'Access codes' },
   ],
   super: [
     { to: '/super-admin', label: 'Control room', end: true },

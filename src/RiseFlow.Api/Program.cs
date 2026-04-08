@@ -21,18 +21,25 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database: Sqlite by default (local file). Set Database:Provider to Npgsql and ConnectionStrings:DefaultConnection for PostgreSQL (same engine family as FullStackHero playground).
-var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
+// Database: local development uses SQLite, while deployed environments should use PostgreSQL for durable storage.
+var configuredProvider = builder.Configuration["Database:Provider"];
+var hasPostgresEnvironment = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_URL"))
+    || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_PUBLIC_URL"));
+var dbProvider = !string.IsNullOrWhiteSpace(configuredProvider)
+    ? configuredProvider
+    : (builder.Environment.IsDevelopment() ? "Sqlite" : "Npgsql");
+
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
-    if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
+    if (hasPostgresEnvironment
+        || string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
         || string.Equals(dbProvider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
     {
-        var pg = builder.Configuration.GetConnectionString("DefaultConnection");
+        var pg = DatabaseConnectionHelper.GetConnectionString(builder.Configuration);
         if (string.IsNullOrWhiteSpace(pg))
         {
             throw new InvalidOperationException(
-                "Database:Provider requests PostgreSQL but ConnectionStrings:DefaultConnection is missing or empty.");
+                "PostgreSQL is configured but no valid connection string was found. Set DATABASE_URL, DATABASE_PUBLIC_URL, or ConnectionStrings:DefaultConnection.");
         }
 
         options.UseNpgsql(pg);
