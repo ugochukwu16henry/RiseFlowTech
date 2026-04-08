@@ -16,12 +16,14 @@ public class FileAssetsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
 
-    public FileAssetsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env)
+    public FileAssetsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, FileStorageService fileStorage)
     {
         _db = db;
         _tenant = tenant;
         _env = env;
+        _fileStorage = fileStorage;
     }
 
     /// <summary>
@@ -40,8 +42,8 @@ public class FileAssetsController : ControllerBase
         if (!schoolId.HasValue)
             return Forbid();
 
-        // Ensure uploads folder exists: wwwroot/uploads/{SchoolId}
-        var uploadsRoot = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", schoolId.Value.ToString());
+        // Ensure uploads folder exists in the stable storage root.
+        var uploadsRoot = Path.Combine(_fileStorage.RootPath, "uploads", schoolId.Value.ToString());
         Directory.CreateDirectory(uploadsRoot);
 
         var storedName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
@@ -101,7 +103,7 @@ public class FileAssetsController : ControllerBase
         if (asset == null)
             return NotFound();
 
-        var fullPath = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), asset.RelativePath.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        var fullPath = _fileStorage.ResolveReadPath(asset.RelativePath);
         if (!System.IO.File.Exists(fullPath))
             return NotFound("File not found on disk.");
 

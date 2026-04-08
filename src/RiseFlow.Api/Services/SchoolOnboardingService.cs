@@ -16,12 +16,14 @@ public class SchoolOnboardingService
     private readonly RiseFlowDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
 
-    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, FileStorageService fileStorage)
     {
         _db = db;
         _userManager = userManager;
         _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<SchoolOnboardingResult> OnboardSchoolAsync(OnboardSchoolRequest request, CancellationToken ct = default)
@@ -127,8 +129,7 @@ public class SchoolOnboardingService
         if (!allowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return null;
 
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var dir = Path.Combine(root, folderName);
+        var dir = Path.Combine(_fileStorage.RootPath, folderName);
         Directory.CreateDirectory(dir);
 
         var fileName = $"{schoolId:N}{ext}";

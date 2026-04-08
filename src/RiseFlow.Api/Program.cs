@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Extensions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
@@ -137,6 +138,7 @@ builder.Services
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<IClaimsTransformation, EnsureSchoolIdClaimTransformation>();
+builder.Services.AddSingleton<FileStorageService>();
 builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddScoped<SchoolOffboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
@@ -187,6 +189,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+var fileStorage = app.Services.GetRequiredService<FileStorageService>();
 
 app.UseCors();
 app.UseRateLimiter();
@@ -234,6 +237,11 @@ if (app.Environment.IsDevelopment())
 // In containerized hosting (Railway, etc.) HTTPS is typically terminated at the proxy,
 // so we skip UseHttpsRedirection here to avoid interfering with health checks.
 app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(fileStorage.RootPath),
+    RequestPath = ""
+});
 app.UseAuthentication();
 app.UseAuthorization();
 

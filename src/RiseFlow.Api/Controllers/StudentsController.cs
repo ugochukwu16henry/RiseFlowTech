@@ -20,6 +20,7 @@ public class StudentsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
     private readonly StudentBulkUploadService _bulkUpload;
     private readonly ExcelService _excelService;
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
@@ -27,11 +28,12 @@ public class StudentsController : ControllerBase
     private readonly StudentAdmissionNumberService _admissionNumbers;
     private readonly IAuditLogService _audit;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, StudentAdmissionNumberService admissionNumbers, IAuditLogService audit)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, FileStorageService fileStorage, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, StudentAdmissionNumberService admissionNumbers, IAuditLogService audit)
     {
         _db = db;
         _tenant = tenant;
         _env = env;
+        _fileStorage = fileStorage;
         _bulkUpload = bulkUpload;
         _excelService = excelService;
         _parentLetterPdf = parentLetterPdf;
@@ -685,8 +687,7 @@ public class StudentsController : ControllerBase
         byte[]? logoBytes = null;
         if (!string.IsNullOrEmpty(school.LogoFileName))
         {
-            var root = _env.WebRootPath ?? _env.ContentRootPath;
-            var path = Path.Combine(root, school.LogoFileName.Replace('/', Path.DirectorySeparatorChar));
+            var path = _fileStorage.ResolveReadPath(school.LogoFileName);
             if (System.IO.File.Exists(path))
             {
                 try { logoBytes = await System.IO.File.ReadAllBytesAsync(path, ct); } catch { /* ignore */ }
@@ -722,8 +723,7 @@ public class StudentsController : ControllerBase
             return NotFound();
         if (!await CanViewStudentAsync(id, ct))
             return Forbid();
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var path = Path.Combine(root, student.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
+        var path = _fileStorage.ResolveReadPath(student.ProfilePhotoFileName);
         if (!System.IO.File.Exists(path))
             return NotFound();
         var contentType = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
@@ -771,12 +771,9 @@ public class StudentsController : ControllerBase
         var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
         if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var studentsDir = Path.Combine(root, "students", student.SchoolId.ToString("N"));
-        Directory.CreateDirectory(studentsDir);
         var fileName = $"{student.Id:N}{ext}";
         var relativePath = $"students/{student.SchoolId:N}/{fileName}";
-        var fullPath = Path.Combine(studentsDir, fileName);
+        var fullPath = _fileStorage.EnsureWritePath(relativePath);
         await using (var stream = System.IO.File.Create(fullPath))
             await file.CopyToAsync(stream, ct);
         student.ProfilePhotoFileName = relativePath;

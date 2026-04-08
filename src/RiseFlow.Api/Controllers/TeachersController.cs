@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
+using RiseFlow.Api.Services;
 
 namespace RiseFlow.Api.Controllers;
 
@@ -19,13 +20,15 @@ public class TeachersController : ControllerBase
     private readonly Services.ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
 
-    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, FileStorageService fileStorage)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
         _env = env;
+        _fileStorage = fileStorage;
     }
 
     [HttpGet]
@@ -433,8 +436,7 @@ public class TeachersController : ControllerBase
             return NotFound();
         if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var path = Path.Combine(root, teacher.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
+        var path = _fileStorage.ResolveReadPath(teacher.ProfilePhotoFileName);
         if (!System.IO.File.Exists(path))
             return NotFound();
         var contentType = path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
@@ -475,12 +477,9 @@ public class TeachersController : ControllerBase
         if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
 
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var dir = Path.Combine(root, "teachers", teacher.SchoolId.ToString("N"));
-        Directory.CreateDirectory(dir);
         var fileName = $"{teacher.Id:N}{ext}";
         var relativePath = $"teachers/{teacher.SchoolId:N}/{fileName}";
-        var fullPath = Path.Combine(dir, fileName);
+        var fullPath = _fileStorage.EnsureWritePath(relativePath);
         await using (var stream = System.IO.File.Create(fullPath))
             await file.CopyToAsync(stream, ct);
 
