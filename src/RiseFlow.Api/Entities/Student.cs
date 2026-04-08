@@ -30,6 +30,7 @@ public class Student : ITenantEntity
     public Guid? ClassId { get; set; }
     public Guid? GradeId { get; set; }
     public string? PreviousSchool { get; set; }
+    public string? PreviousClass { get; set; }
 
     // ——— Health ———
     public string? BloodGroup { get; set; }
@@ -47,6 +48,7 @@ public class Student : ITenantEntity
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+    public DateTime? ParentProfileLastUpdatedAtUtc { get; set; }
 
     public School School { get; set; } = null!;
     public Class? Class { get; set; }

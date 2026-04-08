@@ -40,4 +40,5 @@ public class School
     public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
+    public ICollection<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings { get; set; } = new List<StudentProfileVisibilitySetting>();
 }

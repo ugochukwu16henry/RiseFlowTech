@@ -25,8 +25,9 @@ public class StudentsController : ControllerBase
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
     private readonly BillingService _billing;
     private readonly StudentAdmissionNumberService _admissionNumbers;
+    private readonly IAuditLogService _audit;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, StudentAdmissionNumberService admissionNumbers)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, StudentAdmissionNumberService admissionNumbers, IAuditLogService audit)
     {
         _db = db;
         _tenant = tenant;
@@ -36,6 +37,7 @@ public class StudentsController : ControllerBase
         _parentLetterPdf = parentLetterPdf;
         _billing = billing;
         _admissionNumbers = admissionNumbers;
+        _audit = audit;
     }
 
     /// <summary>
@@ -43,7 +45,7 @@ public class StudentsController : ControllerBase
     /// SchoolAdmin/Teacher only; tenant filter ensures isolation.
     /// </summary>
     [HttpGet("{id:guid}/profile")]
-    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent}")]
     [ProducesResponseType(typeof(StudentProfileViewModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<StudentProfileViewModel>> GetProfile(Guid id, CancellationToken ct)
@@ -65,6 +67,9 @@ public class StudentsController : ControllerBase
 
         if (student == null)
             return NotFound();
+
+        if (!await CanAccessStudentRecordAsync(student, ct))
+            return Forbid();
 
         var fullName = $"{student.FirstName} {student.LastName}".Trim();
 
@@ -171,6 +176,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(List<StudentListItemDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<StudentListItemDto>>> List(CancellationToken ct)
     {
@@ -204,67 +210,36 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent}")]
     [ProducesResponseType(typeof(StudentDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<StudentDetailDto>> GetById(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+
         var schoolId = _tenant.CurrentSchoolId.Value;
         var student = await _db.Students
-            .AsNoTracking()
-            .Where(s => s.Id == id && s.SchoolId == schoolId)
-            .Select(s => new StudentDetailDto(
-                s.Id,
-                s.SchoolId,
-                s.FirstName,
-                s.LastName,
-                s.MiddleName,
-                s.DateOfBirth,
-                s.Gender,
-                s.Nationality,
-                s.StateOfOrigin,
-                s.LGA,
-                s.NIN,
-                s.NationalIdType,
-                s.NationalIdNumber,
-                s.AdmissionNumber,
-                s.DateOfAdmission,
-                s.PreviousSchool,
-                s.BloodGroup,
-                s.Genotype,
-                s.Allergies,
-                s.EmergencyContactName,
-                s.EmergencyContactPhone,
-                s.ParentAccessCode,
-                s.ProfilePhotoFileName,
-                s.IsActive,
-                s.CreatedAtUtc,
-                s.UpdatedAtUtc,
-                s.Class == null
-                    ? null
-                    : new StudentClassSummaryDto(
-                        s.Class.Id,
-                        s.Class.Name,
-                        s.Class.AcademicYear,
-                        s.Class.Grade == null ? null : new StudentGradeSummaryDto(s.Class.Grade.Id, s.Class.Grade.Name, s.Class.Grade.LevelOrder)),
-                s.Grade == null ? null : new StudentGradeSummaryDto(s.Grade.Id, s.Grade.Name, s.Grade.LevelOrder),
-                s.StudentParents
-                    .OrderBy(sp => sp.Parent.LastName)
-                    .ThenBy(sp => sp.Parent.FirstName)
-                    .Select(sp => new StudentParentSummaryDto(
-                        sp.ParentId,
-                        sp.Parent.FirstName,
-                        sp.Parent.LastName,
-                        sp.Parent.Email,
-                        sp.Parent.Phone,
-                        sp.RelationshipToStudent,
-                        sp.IsPrimaryContact))
-                    .ToList()))
-            .FirstOrDefaultAsync(ct);
+            .Include(s => s.Class)
+                .ThenInclude(c => c!.Grade)
+            .Include(s => s.Grade)
+            .Include(s => s.StudentParents)
+                .ThenInclude(sp => sp.Parent)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Subject)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Term)
+            .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+
         if (student == null)
             return NotFound();
-        return Ok(student);
+
+        if (!await CanAccessStudentRecordAsync(student, ct))
+            return Forbid();
+
+        var settings = await GetStudentProfileVisibilitySettingsAsync(schoolId, ct);
+        var detail = await BuildStudentDetailDtoAsync(student, settings, ct);
+        return Ok(detail);
     }
 
     /// <summary>Register a single student. SchoolAdmin only. Use this to add new students one-by-one; use bulk upload for many at once.</summary>
@@ -320,6 +295,7 @@ public class StudentsController : ControllerBase
             ClassId = request.ClassId,
             GradeId = request.GradeId ?? schoolClass?.GradeId,
             PreviousSchool = request.PreviousSchool,
+            PreviousClass = request.PreviousClass,
             BloodGroup = request.BloodGroup,
             Genotype = request.Genotype,
             Allergies = request.Allergies,
@@ -424,6 +400,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Student>> Update(Guid id, [FromBody] UpdateStudentRequest request, CancellationToken ct)
@@ -465,6 +442,7 @@ public class StudentsController : ControllerBase
         student.ClassId = request.ClassId;
         student.GradeId = request.GradeId ?? schoolClass?.GradeId ?? student.GradeId;
         student.PreviousSchool = request.PreviousSchool;
+        student.PreviousClass = request.PreviousClass;
         student.BloodGroup = request.BloodGroup;
         student.Genotype = request.Genotype;
         student.Allergies = request.Allergies;
@@ -474,6 +452,132 @@ public class StudentsController : ControllerBase
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(student);
+    }
+
+    [HttpPut("{id:guid}/parent-corrections")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(ParentStudentCorrectionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ParentStudentCorrectionResult>> UpdateParentCorrections(Guid id, [FromBody] ParentStudentCorrectionRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+        if (student == null)
+            return NotFound();
+
+        var parent = await GetCurrentParentAsync(ct);
+        if (parent == null)
+            return Forbid();
+
+        var linkedToStudent = await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
+        if (!linkedToStudent)
+            return Forbid();
+
+        var nextEditAvailableAtUtc = student.ParentProfileLastUpdatedAtUtc?.AddMonths(3);
+        if (nextEditAvailableAtUtc.HasValue && nextEditAvailableAtUtc.Value > DateTime.UtcNow)
+        {
+            return BadRequest(new ParentStudentCorrectionResult(
+                false,
+                $"This child profile is locked until {nextEditAvailableAtUtc.Value:dd MMM yyyy}. School Admin can still make urgent changes for you.",
+                nextEditAvailableAtUtc));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FirstName)) student.FirstName = request.FirstName.Trim();
+        if (!string.IsNullOrWhiteSpace(request.LastName)) student.LastName = request.LastName.Trim();
+        student.MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim();
+        student.DateOfBirth = request.DateOfBirth;
+        student.Gender = string.IsNullOrWhiteSpace(request.Gender) ? null : request.Gender.Trim();
+        student.Nationality = string.IsNullOrWhiteSpace(request.Nationality) ? null : request.Nationality.Trim();
+        student.StateOfOrigin = string.IsNullOrWhiteSpace(request.StateOfOrigin) ? null : request.StateOfOrigin.Trim();
+        student.LGA = string.IsNullOrWhiteSpace(request.LGA) ? null : request.LGA.Trim();
+        student.PreviousSchool = string.IsNullOrWhiteSpace(request.PreviousSchool) ? null : request.PreviousSchool.Trim();
+        student.PreviousClass = string.IsNullOrWhiteSpace(request.PreviousClass) ? null : request.PreviousClass.Trim();
+        student.BloodGroup = string.IsNullOrWhiteSpace(request.BloodGroup) ? null : request.BloodGroup.Trim();
+        student.Genotype = string.IsNullOrWhiteSpace(request.Genotype) ? null : request.Genotype.Trim();
+        student.Allergies = string.IsNullOrWhiteSpace(request.Allergies) ? null : request.Allergies.Trim();
+        student.EmergencyContactName = string.IsNullOrWhiteSpace(request.EmergencyContactName) ? null : request.EmergencyContactName.Trim();
+        student.EmergencyContactPhone = string.IsNullOrWhiteSpace(request.EmergencyContactPhone) ? null : request.EmergencyContactPhone.Trim();
+        student.ParentProfileLastUpdatedAtUtc = DateTime.UtcNow;
+        student.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        var unlockAt = student.ParentProfileLastUpdatedAtUtc.Value.AddMonths(3);
+        await _audit.LogAsync(
+            schoolId,
+            "ParentCorrection",
+            nameof(Student),
+            student.Id.ToString(),
+            parent.Email,
+            $"{parent.FirstName} {parent.LastName}".Trim(),
+            $"Parent corrected student information. Next edit opens {unlockAt:yyyy-MM-dd} UTC.",
+            ct);
+
+        return Ok(new ParentStudentCorrectionResult(
+            true,
+            $"Child information updated successfully. The next parent correction window opens on {unlockAt:dd MMM yyyy}.",
+            unlockAt));
+    }
+
+    [HttpGet("profile-visibility-settings")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [ProducesResponseType(typeof(StudentProfileVisibilitySettingsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StudentProfileVisibilitySettingsDto>> GetProfileVisibilitySettings(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var settings = await GetStudentProfileVisibilitySettingsAsync(_tenant.CurrentSchoolId.Value, ct);
+        return Ok(MapVisibilitySettings(settings));
+    }
+
+    [HttpPut("profile-visibility-settings")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentProfileVisibilitySettingsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StudentProfileVisibilitySettingsDto>> UpdateProfileVisibilitySettings([FromBody] UpdateStudentProfileVisibilitySettingsRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var settings = await _db.StudentProfileVisibilitySettings
+            .FirstOrDefaultAsync(x => x.SchoolId == schoolId, ct);
+
+        if (settings == null)
+        {
+            settings = new StudentProfileVisibilitySetting
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _db.StudentProfileVisibilitySettings.Add(settings);
+        }
+
+        settings.ShowDateOfBirthToTeachers = request.ShowDateOfBirthToTeachers;
+        settings.ShowLocationDetailsToTeachers = request.ShowLocationDetailsToTeachers;
+        settings.ShowHealthDetailsToTeachers = request.ShowHealthDetailsToTeachers;
+        settings.ShowParentContactsToTeachers = request.ShowParentContactsToTeachers;
+        settings.ShowAcademicHistoryToTeachers = request.ShowAcademicHistoryToTeachers;
+        settings.ShowPreviousRecordToTeachers = request.ShowPreviousRecordToTeachers;
+        settings.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        await _audit.LogAsync(
+            schoolId,
+            "TeacherViewRules",
+            nameof(StudentProfileVisibilitySetting),
+            settings.Id.ToString(),
+            _tenant.CurrentUserEmail,
+            User.Identity?.Name,
+            "School admin updated teacher visibility controls for student records.",
+            ct);
+
+        return Ok(MapVisibilitySettings(settings));
     }
 
     /// <summary>List students with their Parent Access Codes (for school to give to parents). SchoolAdmin/Teacher.</summary>
@@ -683,19 +787,314 @@ public class StudentsController : ControllerBase
 
     private async Task<bool> CanViewStudentAsync(Guid studentId, CancellationToken ct)
     {
-        if (_tenant.CurrentSchoolId.HasValue)
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return false;
+
+        var student = await _db.Students
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == studentId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
+
+        if (student == null)
+            return false;
+
+        return await CanAccessStudentRecordAsync(student, ct);
+    }
+
+    private async Task<bool> CanAccessStudentRecordAsync(Student student, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue || student.SchoolId != _tenant.CurrentSchoolId.Value)
+            return false;
+
+        if (User.IsInRole(Roles.SchoolAdmin))
+            return true;
+
+        if (User.IsInRole(Roles.Teacher))
+            return await CanTeacherAccessStudentAsync(student, ct);
+
+        if (User.IsInRole(Roles.Parent))
         {
-            var inSchool = await _db.Students.AnyAsync(s => s.Id == studentId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
-            if (inSchool) return true;
+            var parent = await GetCurrentParentAsync(ct);
+            if (parent == null)
+                return false;
+
+            return await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
         }
-        var email = User.FindFirstValue(ClaimTypes.Email) ?? _tenant.CurrentUserEmail;
-        if (string.IsNullOrEmpty(email) || !_tenant.CurrentSchoolId.HasValue) return false;
-        var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == email, ct);
-        if (parent == null) return false;
-        return await _db.StudentParents.AnyAsync(sp => sp.StudentId == studentId && sp.ParentId == parent.Id, ct);
+
+        return false;
+    }
+
+    private async Task<bool> CanTeacherAccessStudentAsync(Student student, CancellationToken ct)
+    {
+        if (!student.ClassId.HasValue || !_tenant.CurrentSchoolId.HasValue)
+            return false;
+
+        var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var teacher = await _db.Teachers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
+
+        if (teacher == null)
+            return false;
+
+        var classId = student.ClassId.Value;
+        var hasDirectClass = await _db.TeacherClasses.AnyAsync(tc => tc.TeacherId == teacher.Id && tc.ClassId == classId, ct);
+        if (hasDirectClass)
+            return true;
+
+        return await _db.TeacherClassSubjects.AnyAsync(tcs => tcs.TeacherId == teacher.Id && tcs.ClassId == classId, ct);
+    }
+
+    private async Task<Parent?> GetCurrentParentAsync(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return null;
+
+        var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        return await _db.Parents
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId.Value && p.Email == email, ct);
+    }
+
+    private async Task<StudentProfileVisibilitySetting> GetStudentProfileVisibilitySettingsAsync(Guid schoolId, CancellationToken ct)
+    {
+        return await _db.StudentProfileVisibilitySettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.SchoolId == schoolId, ct)
+            ?? new StudentProfileVisibilitySetting
+            {
+                Id = Guid.Empty,
+                SchoolId = schoolId,
+                CreatedAtUtc = DateTime.UtcNow,
+                ShowDateOfBirthToTeachers = true,
+                ShowLocationDetailsToTeachers = false,
+                ShowHealthDetailsToTeachers = true,
+                ShowParentContactsToTeachers = false,
+                ShowAcademicHistoryToTeachers = true,
+                ShowPreviousRecordToTeachers = false
+            };
+    }
+
+    private StudentProfileVisibilitySettingsDto MapVisibilitySettings(StudentProfileVisibilitySetting settings)
+        => new(
+            settings.ShowDateOfBirthToTeachers,
+            settings.ShowLocationDetailsToTeachers,
+            settings.ShowHealthDetailsToTeachers,
+            settings.ShowParentContactsToTeachers,
+            settings.ShowAcademicHistoryToTeachers,
+            settings.ShowPreviousRecordToTeachers);
+
+    private async Task<List<StudentAssignedTeacherDto>> GetAssignedTeachersAsync(Student student, CancellationToken ct)
+    {
+        if (!student.ClassId.HasValue)
+            return new List<StudentAssignedTeacherDto>();
+
+        var classId = student.ClassId.Value;
+
+        var subjectAssignments = await _db.TeacherClassSubjects
+            .AsNoTracking()
+            .Include(tcs => tcs.Teacher)
+            .Include(tcs => tcs.Subject)
+            .Where(tcs => tcs.ClassId == classId && tcs.Teacher.IsActive)
+            .Select(tcs => new StudentAssignedTeacherDto(
+                tcs.TeacherId,
+                $"{tcs.Teacher.FirstName} {tcs.Teacher.LastName}".Trim(),
+                tcs.Subject.Name,
+                tcs.Teacher.Email,
+                tcs.Teacher.Phone,
+                tcs.Teacher.WhatsAppNumber ?? tcs.Teacher.Phone))
+            .ToListAsync(ct);
+
+        var classAssignments = await _db.TeacherClasses
+            .AsNoTracking()
+            .Include(tc => tc.Teacher)
+            .Where(tc => tc.ClassId == classId && tc.Teacher.IsActive)
+            .Select(tc => new StudentAssignedTeacherDto(
+                tc.TeacherId,
+                $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim(),
+                tc.RoleInClass ?? "Class Teacher",
+                tc.Teacher.Email,
+                tc.Teacher.Phone,
+                tc.Teacher.WhatsAppNumber ?? tc.Teacher.Phone))
+            .ToListAsync(ct);
+
+        return subjectAssignments
+            .Concat(classAssignments)
+            .GroupBy(t => new { t.TeacherId, t.RoleOrSubject, t.Email, t.Phone, t.WhatsAppNumber })
+            .Select(g => g.First())
+            .OrderBy(t => t.FullName)
+            .ThenBy(t => t.RoleOrSubject)
+            .ToList();
+    }
+
+    private async Task<StudentDetailDto> BuildStudentDetailDtoAsync(Student student, StudentProfileVisibilitySetting settings, CancellationToken ct)
+    {
+        var isSchoolAdmin = User.IsInRole(Roles.SchoolAdmin);
+        var isParent = User.IsInRole(Roles.Parent);
+        var isTeacher = User.IsInRole(Roles.Teacher);
+
+        var parents = student.StudentParents
+            .OrderBy(sp => sp.Parent.LastName)
+            .ThenBy(sp => sp.Parent.FirstName)
+            .Select(sp => new StudentParentSummaryDto(
+                sp.ParentId,
+                sp.Parent.FirstName,
+                sp.Parent.LastName,
+                sp.Parent.Email,
+                sp.Parent.Phone,
+                sp.RelationshipToStudent,
+                sp.IsPrimaryContact))
+            .ToList();
+
+        var academicHistory = student.Results
+            .OrderByDescending(r => r.Term.StartDate)
+            .ThenBy(r => r.Subject.Name)
+            .Select(r =>
+            {
+                var percentage = r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m;
+                return new StudentAcademicHistoryItem(
+                    r.Id,
+                    $"{r.Term.Name} {r.Term.AcademicYear}",
+                    r.Subject.Name,
+                    r.AssessmentType,
+                    r.Score,
+                    r.MaxScore,
+                    decimal.Round(percentage, 1),
+                    r.GradeLetter);
+            })
+            .ToList();
+
+        if (isTeacher && !settings.ShowParentContactsToTeachers)
+            parents = new List<StudentParentSummaryDto>();
+
+        if (isTeacher && !settings.ShowAcademicHistoryToTeachers)
+            academicHistory = new List<StudentAcademicHistoryItem>();
+
+        var termResults = academicHistory
+            .GroupBy(r => r.Term)
+            .Select(g => new StudentTermSummaryDto(
+                g.Key,
+                decimal.Round(g.Average(x => x.Percentage), 1),
+                g.ToList()))
+            .ToList();
+
+        var currentAverage = academicHistory.Count > 0
+            ? decimal.Round(academicHistory.Average(x => x.Percentage), 1)
+            : 0m;
+
+        var dateOfBirth = student.DateOfBirth;
+        var nationality = student.Nationality;
+        var stateOfOrigin = student.StateOfOrigin;
+        var lga = student.LGA;
+        var previousSchool = student.PreviousSchool;
+        var previousClass = student.PreviousClass;
+        var bloodGroup = student.BloodGroup;
+        var genotype = student.Genotype;
+        var allergies = student.Allergies;
+        var emergencyContactName = student.EmergencyContactName;
+        var emergencyContactPhone = student.EmergencyContactPhone;
+        var nin = student.NIN;
+        var nationalIdNumber = student.NationalIdNumber;
+        var parentAccessCode = isSchoolAdmin ? student.ParentAccessCode : null;
+
+        if (isTeacher)
+        {
+            nin = null;
+            nationalIdNumber = null;
+            parentAccessCode = null;
+
+            if (!settings.ShowDateOfBirthToTeachers)
+                dateOfBirth = null;
+
+            if (!settings.ShowLocationDetailsToTeachers)
+            {
+                nationality = null;
+                stateOfOrigin = null;
+                lga = null;
+            }
+
+            if (!settings.ShowHealthDetailsToTeachers)
+            {
+                bloodGroup = null;
+                genotype = null;
+                allergies = null;
+                emergencyContactName = null;
+                emergencyContactPhone = null;
+            }
+
+            if (!settings.ShowPreviousRecordToTeachers)
+            {
+                previousSchool = null;
+                previousClass = null;
+            }
+        }
+
+        var parentEditLockedUntilUtc = student.ParentProfileLastUpdatedAtUtc?.AddMonths(3);
+        var canParentEdit = isParent && (!parentEditLockedUntilUtc.HasValue || parentEditLockedUntilUtc.Value <= DateTime.UtcNow);
+        string? parentEditMessage = null;
+        if (isParent)
+        {
+            parentEditMessage = canParentEdit
+                ? "You can correct this child profile now. After saving, the form locks for 3 months."
+                : $"This form is locked until {parentEditLockedUntilUtc:dd MMM yyyy}. School Admin can still help with urgent changes.";
+        }
+
+        return new StudentDetailDto(
+            student.Id,
+            student.SchoolId,
+            student.FirstName,
+            student.LastName,
+            student.MiddleName,
+            dateOfBirth,
+            student.Gender,
+            nationality,
+            stateOfOrigin,
+            lga,
+            nin,
+            student.NationalIdType,
+            nationalIdNumber,
+            student.AdmissionNumber,
+            student.DateOfAdmission,
+            previousSchool,
+            previousClass,
+            bloodGroup,
+            genotype,
+            allergies,
+            emergencyContactName,
+            emergencyContactPhone,
+            parentAccessCode,
+            student.ProfilePhotoFileName,
+            student.IsActive,
+            student.CreatedAtUtc,
+            student.UpdatedAtUtc,
+            student.Class == null
+                ? null
+                : new StudentClassSummaryDto(
+                    student.Class.Id,
+                    student.Class.Name,
+                    student.Class.AcademicYear,
+                    student.Class.Grade == null ? null : new StudentGradeSummaryDto(student.Class.Grade.Id, student.Class.Grade.Name, student.Class.Grade.LevelOrder)),
+            student.Grade == null ? null : new StudentGradeSummaryDto(student.Grade.Id, student.Grade.Name, student.Grade.LevelOrder),
+            parents,
+            await GetAssignedTeachersAsync(student, ct),
+            academicHistory,
+            termResults,
+            currentAverage,
+            MapVisibilitySettings(settings),
+            isSchoolAdmin || canParentEdit,
+            canParentEdit,
+            isSchoolAdmin,
+            parentEditLockedUntilUtc,
+            parentEditMessage);
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
@@ -751,6 +1150,7 @@ public record StudentDetailDto(
     string? AdmissionNumber,
     DateTime? DateOfAdmission,
     string? PreviousSchool,
+    string? PreviousClass,
     string? BloodGroup,
     string? Genotype,
     string? Allergies,
@@ -763,7 +1163,26 @@ public record StudentDetailDto(
     DateTime? UpdatedAtUtc,
     StudentClassSummaryDto? Class,
     StudentGradeSummaryDto? Grade,
-    List<StudentParentSummaryDto> StudentParents);
+    List<StudentParentSummaryDto> StudentParents,
+    List<StudentAssignedTeacherDto> AssignedTeachers,
+    List<StudentAcademicHistoryItem> AcademicHistory,
+    List<StudentTermSummaryDto> TermResults,
+    decimal CurrentAveragePercentage,
+    StudentProfileVisibilitySettingsDto TeacherVisibilitySettings,
+    bool CanEdit,
+    bool CanParentEdit,
+    bool CanManageTeacherVisibility,
+    DateTime? ParentEditLockedUntilUtc,
+    string? ParentEditMessage);
+public record StudentAssignedTeacherDto(Guid TeacherId, string FullName, string? RoleOrSubject, string? Email, string? Phone, string? WhatsAppNumber);
+public record StudentTermSummaryDto(string Term, decimal AveragePercentage, List<StudentAcademicHistoryItem> Results);
+public record StudentProfileVisibilitySettingsDto(
+    bool ShowDateOfBirthToTeachers,
+    bool ShowLocationDetailsToTeachers,
+    bool ShowHealthDetailsToTeachers,
+    bool ShowParentContactsToTeachers,
+    bool ShowAcademicHistoryToTeachers,
+    bool ShowPreviousRecordToTeachers);
 public record AccessCodeDto(string Code);
 public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);
 public record StudentWithAccessCodeDto(Guid Id, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? ParentAccessCode);

@@ -43,6 +43,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
     public DbSet<FileAsset> FileAssets => Set<FileAsset>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings => Set<StudentProfileVisibilitySetting>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -106,6 +107,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.AdmissionNumber).HasMaxLength(64);
             e.Property(x => x.PreviousSchool).HasMaxLength(256);
+            e.Property(x => x.PreviousClass).HasMaxLength(128);
             e.Property(x => x.BloodGroup).HasMaxLength(16);
             e.Property(x => x.Genotype).HasMaxLength(16);
             e.Property(x => x.Allergies).HasMaxLength(512);
@@ -257,6 +259,16 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Term).WithMany(t => t.StudentAssessments).HasForeignKey(x => x.TermId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Item).WithMany(i => i.StudentAssessments).HasForeignKey(x => x.AssessmentItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StudentProfileVisibilitySetting>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.SchoolId).IsUnique();
+            e.HasOne(x => x.School)
+                .WithMany(s => s.StudentProfileVisibilitySettings)
+                .HasForeignKey(x => x.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // FileAsset (uploaded files/photos stored on disk; metadata in SQLite)

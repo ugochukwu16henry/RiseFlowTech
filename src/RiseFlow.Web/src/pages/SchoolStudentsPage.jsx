@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
+import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
@@ -16,26 +17,27 @@ export default function SchoolStudentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
+  const loadStudents = async (cancelledRef) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/students');
+      if (!res.ok) throw new Error('Could not load students');
+      const data = await res.json();
+      if (!cancelledRef?.cancelled) setStudents(Array.isArray(data) ? data : []);
+    } catch (e) {
+      if (!cancelledRef?.cancelled) setError(e.message || 'Failed to load students');
+    } finally {
+      if (!cancelledRef?.cancelled) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    apiFetch('/api/students')
-      .then((res) => {
-        if (cancelled) return null;
-        if (!res.ok) throw new Error('Could not load students');
-        return res.json();
-      })
-      .then((data) => {
-        if (!cancelled) setStudents(Array.isArray(data) ? data : []);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || 'Failed to load students');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
+    const cancelledRef = { cancelled: false };
+    loadStudents(cancelledRef);
+    return () => { cancelledRef.cancelled = true; };
   }, []);
 
   const classOptions = useMemo(
@@ -89,7 +91,7 @@ export default function SchoolStudentsPage() {
         </select>
       </div>
       {!loading && !error && students.length > 0 && (
-        <p className="card-desc">Showing {filteredStudents.length} of {students.length} students.</p>
+        <p className="card-desc">Showing {filteredStudents.length} of {students.length} students. Click “Open record” on any row to view full details, teachers, results, and edit controls.</p>
       )}
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
@@ -107,6 +109,7 @@ export default function SchoolStudentsPage() {
                 <th>Admission #</th>
                 <th>Class</th>
                 <th>Grade</th>
+                <th>Record</th>
               </tr>
             </thead>
             <tbody>
@@ -117,11 +120,25 @@ export default function SchoolStudentsPage() {
                   <td>{s.admissionNumber || '—'}</td>
                   <td>{s.class?.name || '—'}</td>
                   <td>{getGradeName(s)}</td>
+                  <td>
+                    <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setSelectedStudentId(s.id)}>
+                      Open record
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {selectedStudentId && (
+        <StudentRecordPanel
+          studentId={selectedStudentId}
+          role="school"
+          onClose={() => setSelectedStudentId(null)}
+          onSaved={() => loadStudents()}
+        />
       )}
     </PageLayout>
   );

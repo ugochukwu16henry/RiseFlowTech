@@ -346,6 +346,109 @@ a.school-admin-nav-link.school-admin-nav-btn {
   }
 }
 
+.student-record-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-neutral-border);
+  background: #fff;
+}
+.student-record-header,
+.student-record-hero,
+.student-term-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.student-record-header { margin-bottom: 0.75rem; }
+.student-record-hero { justify-content: flex-start; margin-bottom: 0.75rem; }
+.student-record-name {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  color: var(--color-deep-blue);
+}
+.student-note {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.875rem;
+}
+.student-note--success {
+  background: #ecfdf5;
+  color: #047857;
+}
+.student-record-grid,
+.student-term-grid,
+.student-edit-grid,
+.student-visibility-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+.student-record-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 0.85rem;
+}
+.student-term-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.student-record-card,
+.student-term-card {
+  padding: 0.9rem;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 10px;
+  background: #fafcff;
+}
+.student-record-list,
+.student-term-results {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.student-record-list li,
+.student-term-results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--color-neutral-border);
+}
+.student-record-list li:last-child,
+.student-term-results li:last-child {
+  border-bottom: none;
+}
+.student-record-list span,
+.student-term-results span:last-child {
+  color: var(--color-neutral-text-secondary);
+  font-size: 0.875rem;
+}
+.student-edit-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.student-edit-grid label,
+.student-visibility-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+.student-edit-grid__wide {
+  grid-column: 1 / -1;
+}
+.student-visibility-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.student-visibility-item {
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
 /* ========== Mission Control (SuperAdmin split layout) ========== */
 .dashboard-split {
   display: grid;

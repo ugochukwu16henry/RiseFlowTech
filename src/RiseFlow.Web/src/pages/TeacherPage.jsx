@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
+import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
@@ -19,6 +20,7 @@ export default function TeacherPage() {
   const [studentSearch, setStudentSearch] = useState('');
   const [studentClassFilter, setStudentClassFilter] = useState('');
   const [studentGradeFilter, setStudentGradeFilter] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -253,7 +255,7 @@ export default function TeacherPage() {
                       {gradeOptions.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
                     </select>
                   </div>
-                  <p className="card-desc">Showing {filteredStudents.length} of {students.length} students.</p>
+                  <p className="card-desc">Showing {filteredStudents.length} of {students.length} students. Open a student record to see the information your School Admin has allowed teachers to view.</p>
                   {filteredStudents.length === 0 ? (
                     <p className="empty-state">No students match your current search or filters.</p>
                   ) : (
@@ -268,6 +270,7 @@ export default function TeacherPage() {
                             <th>Grade</th>
                             <th>Gender</th>
                             <th>Today&apos;s attendance</th>
+                            <th>Record</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -291,11 +294,23 @@ export default function TeacherPage() {
                                   <option value="Excused">Excused</option>
                                 </select>
                               </td>
+                              <td>
+                                <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setSelectedStudentId(s.studentId)}>
+                                  Open record
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                  )}
+                  {selectedStudentId && (
+                    <StudentRecordPanel
+                      studentId={selectedStudentId}
+                      role="teacher"
+                      onClose={() => setSelectedStudentId(null)}
+                    />
                   )}
                 </>
               )}

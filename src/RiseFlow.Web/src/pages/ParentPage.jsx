@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
+import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 import './ParentPage.css';
@@ -295,6 +296,10 @@ export default function ParentPage() {
                 <dd>{selectedChild.termAverage != null ? `${selectedChild.termAverage}%` : '—'}</dd>
               </dl>
             </section>
+          )}
+
+          {!loadingChildren && selectedChild && activeView === 'overview' && (
+            <StudentRecordPanel studentId={selectedChild.studentId} role="parent" />
           )}
 
           {!loadingChildren && selectedChild && activeView === 'teachers' && (
