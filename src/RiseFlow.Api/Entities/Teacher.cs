@@ -23,6 +23,7 @@ public class Teacher : ITenantEntity
     public string? Nationality { get; set; }
     public string? StateOfOrigin { get; set; }
     public string? LGA { get; set; }
+    public string? Religion { get; set; }
     public string? NIN { get; set; }
     public string? NationalIdType { get; set; }
     public string? NationalIdNumber { get; set; }

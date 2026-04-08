@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
+import TeacherPhoto from '../components/TeacherPhoto';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 
@@ -33,6 +34,7 @@ export default function SchoolAdminPage() {
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
@@ -79,6 +81,17 @@ export default function SchoolAdminPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (teachers.length === 0) {
+      setSelectedTeacherId(null);
+      return;
+    }
+
+    if (!selectedTeacherId || !teachers.some((teacher) => teacher.id === selectedTeacherId)) {
+      setSelectedTeacherId(teachers[0].id);
+    }
+  }, [teachers, selectedTeacherId]);
 
   useEffect(() => {
     setActiveView(getSchoolAdminViewFromHash(location.hash));
@@ -202,6 +215,7 @@ export default function SchoolAdminPage() {
       // ignore
     }
   };
+  const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
 
   const switchView = (view) => {
     setActiveView(view);
@@ -373,26 +387,46 @@ export default function SchoolAdminPage() {
       {teachers.length === 0 ? (
         <p className="empty-state">No teachers yet.</p>
       ) : (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.map((t) => (
-                <tr key={t.id}>
-                  <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
-                  <td>{t.email || '—'}</td>
-                  <td>{t.phone || '—'}</td>
+        <>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Role</th>
+                  <th>Classes</th>
+                  <th>Students</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {teachers.map((t) => (
+                  <tr key={t.id} style={selectedTeacherId === t.id ? { background: 'rgba(59, 130, 246, 0.08)' } : undefined}>
+                    <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
+                    <td>{t.email || '—'}</td>
+                    <td>{t.phone || '—'}</td>
+                    <td>{t.roleTitle || 'Teacher'}</td>
+                    <td>{t.assignedClassCount ?? t.teacherClasses?.length ?? 0}</td>
+                    <td>{t.assignedStudentCount ?? 0}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => setSelectedTeacherId(t.id)}
+                      >
+                        {selectedTeacherId === t.id ? 'Viewing' : 'View details'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedTeacher && <TeacherDetailsPanel teacher={selectedTeacher} />}
+        </>
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Parents</h2>
@@ -620,5 +654,86 @@ function ParentSignupLink({ schoolIdFromApi }) {
       </button>
     </div>
   );
+}
+
+function TeacherDetailsPanel({ teacher }) {
+  const fullName = [teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(' ') || 'Teacher';
+  const infoItems = [
+    ['Email', teacher.email],
+    ['Phone', teacher.phone],
+    ['WhatsApp', teacher.whatsAppNumber],
+    ['Staff ID', teacher.staffId],
+    ['Subject specialization', teacher.subjectSpecialization],
+    ['Highest qualification', teacher.highestQualification],
+    ['Field of study', teacher.fieldOfStudy],
+    ['Years of experience', teacher.yearsOfExperience != null ? `${teacher.yearsOfExperience} year(s)` : '—'],
+    ['Date of birth', formatTeacherDate(teacher.dateOfBirth)],
+    ['Gender', teacher.gender],
+    ['Nationality', teacher.nationality],
+    ['State of origin', teacher.stateOfOrigin],
+    ['LGA', teacher.lga],
+    ['Religion', teacher.religion],
+    ['Residential address', teacher.residentialAddress],
+    ['NIN', teacher.nin],
+    ['National ID type', teacher.nationalIdType],
+    ['National ID number', teacher.nationalIdNumber],
+    ['TRCN number', teacher.trcnNumber],
+    ['Employment type', teacher.employmentType],
+    ['Date employed', formatTeacherDate(teacher.dateEmployed)],
+    ['Base salary', teacher.baseSalaryAmount != null ? formatMoney(teacher.baseSalaryAmount, teacher.baseSalaryCurrency || 'NGN') : '—'],
+    ['Allowances', teacher.allowancesNote],
+    ['Promotion history', teacher.promotionHistory],
+    ['Recognitions', teacher.recognitions],
+    ['Created', formatTeacherDate(teacher.createdAtUtc)],
+    ['Last updated', formatTeacherDate(teacher.updatedAtUtc)],
+  ];
+
+  return (
+    <section className="progress-section" aria-label="Teacher details" style={{ marginTop: '1rem' }}>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <TeacherPhoto teacherId={teacher.id} fullName={fullName} size={56} />
+        <div>
+          <h3 className="card-title" style={{ margin: 0 }}>{fullName}</h3>
+          <p className="card-desc">Role: {teacher.roleTitle || 'Teacher'} • Department: {teacher.department || '—'} • Status: {teacher.isActive ? 'Active' : 'Inactive'}</p>
+          <p className="card-desc">Classes handled: {teacher.assignedClassCount ?? teacher.teacherClasses?.length ?? 0} • Students handled: {teacher.assignedStudentCount ?? 0}</p>
+        </div>
+      </div>
+
+      {Array.isArray(teacher.teacherClasses) && teacher.teacherClasses.length > 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <p className="dashboard-label">Assigned classes</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.35rem' }}>
+            {teacher.teacherClasses.map((assignedClass) => (
+              <span
+                key={`${teacher.id}-${assignedClass.classId}-${assignedClass.roleInClass || 'teacher'}`}
+                style={{ padding: '0.3rem 0.6rem', borderRadius: '999px', background: '#eef2ff', color: '#3730a3', fontSize: '0.85rem' }}
+              >
+                {assignedClass.className}
+                {assignedClass.roleInClass ? ` • ${assignedClass.roleInClass}` : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+        {infoItems.map(([label, value]) => (
+          <div key={label} className="dashboard-card" style={{ padding: '0.85rem 1rem' }}>
+            <p className="dashboard-label">{label}</p>
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>{value || '—'}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatTeacherDate(value) {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch {
+    return String(value);
+  }
 }
 

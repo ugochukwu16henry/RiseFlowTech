@@ -43,11 +43,18 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses)
             .ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Class)
             .Where(t => t.SchoolId == schoolId)
             .OrderBy(t => t.LastName)
             .ThenBy(t => t.FirstName)
             .ToListAsync(ct);
-        return Ok(list.Select(MapTeacherProfile).ToList());
+
+        var result = new List<TeacherProfileDto>(list.Count);
+        foreach (var teacher in list)
+            result.Add(await MapTeacherProfileAsync(teacher, ct));
+
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
@@ -63,10 +70,12 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses)
             .ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Class)
             .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
-        return Ok(MapTeacherProfile(teacher));
+        return Ok(await MapTeacherProfileAsync(teacher, ct));
     }
 
     [HttpPost]
@@ -94,6 +103,7 @@ public class TeachersController : ControllerBase
             Nationality = request.Nationality,
             StateOfOrigin = request.StateOfOrigin,
             LGA = request.LGA,
+            Religion = request.Religion,
             NIN = request.NIN,
             NationalIdType = request.NationalIdType,
             NationalIdNumber = request.NationalIdNumber,
@@ -147,6 +157,7 @@ public class TeachersController : ControllerBase
         teacher.Nationality = request.Nationality;
         teacher.StateOfOrigin = request.StateOfOrigin;
         teacher.LGA = request.LGA;
+        teacher.Religion = request.Religion;
         teacher.NIN = request.NIN;
         teacher.NationalIdType = request.NationalIdType;
         teacher.NationalIdNumber = request.NationalIdNumber;
@@ -251,6 +262,7 @@ public class TeachersController : ControllerBase
             Nationality = request.Nationality,
             StateOfOrigin = request.StateOfOrigin,
             LGA = request.LGA,
+            Religion = request.Religion,
             NIN = request.NIN,
             NationalIdType = request.NationalIdType,
             NationalIdNumber = request.NationalIdNumber,
@@ -284,10 +296,68 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
             .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
         if (teacher == null)
             return Ok(null);
-        return Ok(MapTeacherProfile(teacher));
+        return Ok(await MapTeacherProfileAsync(teacher, ct));
+    }
+
+    /// <summary>Teacher-managed profile settings (contact, identity, and professional details). Teacher only.</summary>
+    [HttpPut("me/profile")]
+    [Authorize(Roles = Constants.Roles.Teacher)]
+    [ProducesResponseType(typeof(TeacherProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TeacherProfileDto>> UpdateMyProfile([FromBody] UpdateMyTeacherProfileRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var email = _tenant.CurrentUserEmail;
+        if (string.IsNullOrWhiteSpace(email))
+            return Forbid();
+
+        var firstName = (request.FirstName ?? string.Empty).Trim();
+        var lastName = (request.LastName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+            return BadRequest("First name and last name are required.");
+
+        var teacher = await _db.Teachers
+            .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
+
+        if (teacher == null)
+            return NotFound();
+
+        teacher.FirstName = firstName;
+        teacher.LastName = lastName;
+        teacher.MiddleName = request.MiddleName;
+        teacher.Phone = request.Phone;
+        teacher.WhatsAppNumber = request.WhatsAppNumber;
+        teacher.StaffId = request.StaffId;
+        teacher.SubjectSpecialization = request.SubjectSpecialization;
+        teacher.DateOfBirth = request.DateOfBirth;
+        teacher.Gender = request.Gender;
+        teacher.Nationality = request.Nationality;
+        teacher.StateOfOrigin = request.StateOfOrigin;
+        teacher.LGA = request.LGA;
+        teacher.Religion = request.Religion;
+        teacher.NIN = request.NIN;
+        teacher.NationalIdType = request.NationalIdType;
+        teacher.NationalIdNumber = request.NationalIdNumber;
+        teacher.TrcnNumber = request.TrcnNumber;
+        teacher.ResidentialAddress = request.ResidentialAddress;
+        teacher.HighestQualification = request.HighestQualification;
+        teacher.FieldOfStudy = request.FieldOfStudy;
+        teacher.YearsOfExperience = request.YearsOfExperience;
+        teacher.PreviousSchools = request.PreviousSchools;
+        teacher.ProfessionalBodies = request.ProfessionalBodies;
+        teacher.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(await MapTeacherProfileAsync(teacher, ct));
     }
 
     /// <summary>Students in classes assigned to the current teacher. Teacher only. Returns empty list until admin assigns classes/subjects.</summary>
@@ -391,9 +461,9 @@ public class TeachersController : ControllerBase
         return NoContent();
     }
 
-    private static TeacherProfileDto MapTeacherProfile(Teacher teacher)
+    private async Task<TeacherProfileDto> MapTeacherProfileAsync(Teacher teacher, CancellationToken ct)
     {
-        var assignedClasses = teacher.TeacherClasses
+        var directClasses = teacher.TeacherClasses
             .OrderBy(tc => tc.Class?.Grade?.LevelOrder ?? int.MaxValue)
             .ThenBy(tc => tc.Class?.Name)
             .Select(tc => new TeacherAssignedClassDto(
@@ -402,6 +472,30 @@ public class TeachersController : ControllerBase
                 tc.Class?.AcademicYear,
                 tc.RoleInClass))
             .ToList();
+
+        var seenClassIds = directClasses.Select(tc => tc.ClassId).ToHashSet();
+        var subjectLinkedClasses = teacher.TeacherClassSubjects
+            .Where(tcs => seenClassIds.Add(tcs.ClassId))
+            .GroupBy(tcs => new { tcs.ClassId, ClassName = tcs.Class?.Name ?? "—", tcs.Class?.AcademicYear })
+            .Select(g => new TeacherAssignedClassDto(
+                g.Key.ClassId,
+                g.Key.ClassName,
+                g.Key.AcademicYear,
+                "Subject teacher"))
+            .ToList();
+
+        var assignedClasses = directClasses
+            .Concat(subjectLinkedClasses)
+            .OrderBy(tc => tc.ClassName)
+            .ThenBy(tc => tc.RoleInClass)
+            .ToList();
+
+        var classIds = assignedClasses.Select(tc => tc.ClassId).Distinct().ToList();
+        var assignedStudentCount = classIds.Count == 0
+            ? 0
+            : await _db.Students
+                .AsNoTracking()
+                .CountAsync(s => s.SchoolId == teacher.SchoolId && s.ClassId.HasValue && classIds.Contains(s.ClassId.Value), ct);
 
         return new TeacherProfileDto(
             teacher.Id,
@@ -414,12 +508,35 @@ public class TeachersController : ControllerBase
             teacher.WhatsAppNumber,
             teacher.StaffId,
             teacher.SubjectSpecialization,
+            teacher.DateOfBirth,
+            teacher.Gender,
+            teacher.Nationality,
+            teacher.StateOfOrigin,
+            teacher.LGA,
+            teacher.Religion,
+            teacher.NIN,
+            teacher.NationalIdType,
+            teacher.NationalIdNumber,
+            teacher.TrcnNumber,
+            teacher.ResidentialAddress,
             teacher.HighestQualification,
             teacher.FieldOfStudy,
+            teacher.YearsOfExperience,
+            teacher.PreviousSchools,
+            teacher.ProfessionalBodies,
+            teacher.DateEmployed,
+            teacher.EmploymentType,
             teacher.RoleTitle,
             teacher.Department,
+            teacher.BaseSalaryAmount,
+            teacher.BaseSalaryCurrency,
+            teacher.AllowancesNote,
+            teacher.PromotionHistory,
+            teacher.Recognitions,
             teacher.ProfilePhotoFileName,
             teacher.IsActive,
+            assignedClasses.Count,
+            assignedStudentCount,
             teacher.CreatedAtUtc,
             teacher.UpdatedAtUtc,
             assignedClasses);

@@ -6,6 +6,32 @@ import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
+const EMPTY_PROFILE_FORM = {
+  firstName: '',
+  lastName: '',
+  middleName: '',
+  phone: '',
+  whatsAppNumber: '',
+  staffId: '',
+  subjectSpecialization: '',
+  dateOfBirth: '',
+  gender: '',
+  nationality: '',
+  stateOfOrigin: '',
+  lga: '',
+  religion: '',
+  nin: '',
+  nationalIdType: '',
+  nationalIdNumber: '',
+  trcnNumber: '',
+  residentialAddress: '',
+  highestQualification: '',
+  fieldOfStudy: '',
+  yearsOfExperience: '',
+  previousSchools: '',
+  professionalBodies: '',
+};
+
 export default function TeacherPage() {
   const [me, setMe] = useState(null);
   const [students, setStudents] = useState([]);
@@ -21,6 +47,9 @@ export default function TeacherPage() {
   const [studentClassFilter, setStudentClassFilter] = useState('');
   const [studentGradeFilter, setStudentGradeFilter] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState(null);
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -55,6 +84,40 @@ export default function TeacherPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!me) {
+      setProfileForm(EMPTY_PROFILE_FORM);
+      return;
+    }
+
+    setProfileForm({
+      firstName: me.firstName || '',
+      lastName: me.lastName || '',
+      middleName: me.middleName || '',
+      phone: me.phone || '',
+      whatsAppNumber: me.whatsAppNumber || '',
+      staffId: me.staffId || '',
+      subjectSpecialization: me.subjectSpecialization || '',
+      dateOfBirth: me.dateOfBirth || '',
+      gender: me.gender || '',
+      nationality: me.nationality || '',
+      stateOfOrigin: me.stateOfOrigin || '',
+      lga: me.lga || '',
+      religion: me.religion || '',
+      nin: me.nin || '',
+      nationalIdType: me.nationalIdType || '',
+      nationalIdNumber: me.nationalIdNumber || '',
+      trcnNumber: me.trcnNumber || '',
+      residentialAddress: me.residentialAddress || '',
+      highestQualification: me.highestQualification || '',
+      fieldOfStudy: me.fieldOfStudy || '',
+      yearsOfExperience: me.yearsOfExperience ?? '',
+      previousSchools: me.previousSchools || '',
+      professionalBodies: me.professionalBodies || '',
+    });
+    setProfileMessage(null);
+  }, [me]);
+
   const handlePhotoChange = async (e) => {
     const file = e.target?.files?.[0];
     if (!file || !me?.id) return;
@@ -70,6 +133,71 @@ export default function TeacherPage() {
     } finally {
       setUploadingPhoto(false);
       e.target.value = '';
+    }
+  };
+
+  const handleProfileFieldChange = (e) => {
+    const { name, value } = e.target;
+    setProfileForm((prev) => ({ ...prev, [name]: value }));
+    setProfileMessage(null);
+  };
+
+  const saveProfileSettings = async (e) => {
+    e.preventDefault();
+    const firstName = profileForm.firstName.trim();
+    const lastName = profileForm.lastName.trim();
+
+    if (!firstName || !lastName) {
+      setProfileMessage({ type: 'error', text: 'First name and last name are required.' });
+      return;
+    }
+
+    setSavingProfile(true);
+    setProfileMessage(null);
+    try {
+      const payload = {
+        firstName,
+        lastName,
+        middleName: profileForm.middleName.trim() || null,
+        phone: profileForm.phone.trim() || null,
+        whatsAppNumber: profileForm.whatsAppNumber.trim() || null,
+        staffId: profileForm.staffId.trim() || null,
+        subjectSpecialization: profileForm.subjectSpecialization.trim() || null,
+        dateOfBirth: profileForm.dateOfBirth || null,
+        gender: profileForm.gender.trim() || null,
+        nationality: profileForm.nationality.trim() || null,
+        stateOfOrigin: profileForm.stateOfOrigin.trim() || null,
+        lga: profileForm.lga.trim() || null,
+        religion: profileForm.religion.trim() || null,
+        nin: profileForm.nin.trim() || null,
+        nationalIdType: profileForm.nationalIdType.trim() || null,
+        nationalIdNumber: profileForm.nationalIdNumber.trim() || null,
+        trcnNumber: profileForm.trcnNumber.trim() || null,
+        residentialAddress: profileForm.residentialAddress.trim() || null,
+        highestQualification: profileForm.highestQualification.trim() || null,
+        fieldOfStudy: profileForm.fieldOfStudy.trim() || null,
+        yearsOfExperience: profileForm.yearsOfExperience === '' ? null : Number(profileForm.yearsOfExperience),
+        previousSchools: profileForm.previousSchools.trim() || null,
+        professionalBodies: profileForm.professionalBodies.trim() || null,
+      };
+
+      const res = await apiFetch('/api/teachers/me/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || data?.title || 'Could not save your profile settings.');
+      }
+
+      setMe(data);
+      setProfileMessage({ type: 'success', text: 'Profile settings updated successfully.' });
+    } catch (err) {
+      setProfileMessage({ type: 'error', text: err.message || 'Could not save your profile settings.' });
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -198,16 +326,16 @@ export default function TeacherPage() {
               )}
               {me && (
                 <section className="progress-section" aria-label="Teacher profile">
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                     <TeacherPhoto teacherId={me.id} fullName={`${me.firstName} ${me.lastName}`} size={56} />
                     <div>
                       <h3 className="card-title" style={{ margin: 0 }}>{[me.firstName, me.middleName, me.lastName].filter(Boolean).join(' ')}</h3>
                       <p className="card-desc">Email: {me.email || '—'} • Phone: {me.phone || '—'}</p>
                       <p className="card-desc">Role: {me.roleTitle || 'Teacher'} • Department: {me.department || '—'}</p>
-                      <p className="card-desc">Highest qualification: {me.highestQualification || '—'}</p>
+                      <p className="card-desc">Highest qualification: {me.highestQualification || '—'} • Experience: {me.yearsOfExperience ?? '—'} year(s)</p>
                     </div>
                   </div>
-                  <div className="form-actions" style={{ marginTop: '0.5rem' }}>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
                     <input
                       type="file"
                       accept=".jpg,.jpeg,.png,.gif,.webp"
@@ -225,6 +353,146 @@ export default function TeacherPage() {
                       {uploadingPhoto ? 'Uploading…' : 'Upload / change photo'}
                     </button>
                   </div>
+
+                  <div className="dashboard-grid" style={{ marginBottom: '1rem' }}>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Classes assigned</p>
+                      <p className="dashboard-value">{me.assignedClassCount ?? classCount}</p>
+                      <p className="dashboard-sub">Classes currently linked to your profile.</p>
+                    </article>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Students handled</p>
+                      <p className="dashboard-value">{me.assignedStudentCount ?? students.length}</p>
+                      <p className="dashboard-sub">Students visible in your teacher dashboard.</p>
+                    </article>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Assigned classes</p>
+                      <p className="dashboard-sub">
+                        {Array.isArray(me.teacherClasses) && me.teacherClasses.length > 0
+                          ? me.teacherClasses.map((c) => c.className).join(', ')
+                          : 'No classes assigned yet.'}
+                      </p>
+                    </article>
+                  </div>
+
+                  <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>Profile settings</h3>
+                  <p className="card-desc" style={{ marginBottom: '0.75rem' }}>Update your information here. School Admin will see the latest details.</p>
+
+                  {profileMessage && (
+                    <p
+                      className={profileMessage.type === 'error' ? 'empty-state empty-state--error' : 'card-desc'}
+                      style={profileMessage.type === 'success' ? { color: '#166534', marginBottom: '0.75rem' } : undefined}
+                    >
+                      {profileMessage.text}
+                    </p>
+                  )}
+
+                  <form onSubmit={saveProfileSettings}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                      <label>
+                        <span className="dashboard-label">First name</span>
+                        <input className="form-input" name="firstName" value={profileForm.firstName} onChange={handleProfileFieldChange} required />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Middle name</span>
+                        <input className="form-input" name="middleName" value={profileForm.middleName} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Last name</span>
+                        <input className="form-input" name="lastName" value={profileForm.lastName} onChange={handleProfileFieldChange} required />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Phone</span>
+                        <input className="form-input" name="phone" value={profileForm.phone} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">WhatsApp</span>
+                        <input className="form-input" name="whatsAppNumber" value={profileForm.whatsAppNumber} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Staff ID</span>
+                        <input className="form-input" name="staffId" value={profileForm.staffId} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Subject specialization</span>
+                        <input className="form-input" name="subjectSpecialization" value={profileForm.subjectSpecialization} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Date of birth</span>
+                        <input className="form-input" type="date" name="dateOfBirth" value={profileForm.dateOfBirth} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Gender</span>
+                        <input className="form-input" name="gender" value={profileForm.gender} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Nationality</span>
+                        <input className="form-input" name="nationality" value={profileForm.nationality} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">State of origin</span>
+                        <input className="form-input" name="stateOfOrigin" value={profileForm.stateOfOrigin} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">LGA</span>
+                        <input className="form-input" name="lga" value={profileForm.lga} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Religion</span>
+                        <input className="form-input" name="religion" value={profileForm.religion} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">TRCN number</span>
+                        <input className="form-input" name="trcnNumber" value={profileForm.trcnNumber} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">NIN</span>
+                        <input className="form-input" name="nin" value={profileForm.nin} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">National ID type</span>
+                        <input className="form-input" name="nationalIdType" value={profileForm.nationalIdType} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">National ID number</span>
+                        <input className="form-input" name="nationalIdNumber" value={profileForm.nationalIdNumber} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Highest qualification</span>
+                        <input className="form-input" name="highestQualification" value={profileForm.highestQualification} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Field of study</span>
+                        <input className="form-input" name="fieldOfStudy" value={profileForm.fieldOfStudy} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Years of experience</span>
+                        <input className="form-input" type="number" min="0" name="yearsOfExperience" value={profileForm.yearsOfExperience} onChange={handleProfileFieldChange} />
+                      </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
+                      <label>
+                        <span className="dashboard-label">Residential address</span>
+                        <textarea className="form-input" name="residentialAddress" rows="2" value={profileForm.residentialAddress} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Previous schools</span>
+                        <textarea className="form-input" name="previousSchools" rows="2" value={profileForm.previousSchools} onChange={handleProfileFieldChange} />
+                      </label>
+                      <label>
+                        <span className="dashboard-label">Professional bodies</span>
+                        <textarea className="form-input" name="professionalBodies" rows="2" value={profileForm.professionalBodies} onChange={handleProfileFieldChange} />
+                      </label>
+                    </div>
+
+                    <div className="form-actions" style={{ marginTop: '0.85rem', alignItems: 'center' }}>
+                      <button type="submit" className="btn-excel btn-generate" disabled={savingProfile}>
+                        {savingProfile ? 'Saving…' : 'Save profile settings'}
+                      </button>
+                      <span className="card-desc">School-managed items like account status, salary, and official role remain read-only.</span>
+                    </div>
+                  </form>
                 </section>
               )}
             </>

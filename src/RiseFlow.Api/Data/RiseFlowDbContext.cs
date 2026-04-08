@@ -137,6 +137,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Nationality).HasMaxLength(128);
             e.Property(x => x.StateOfOrigin).HasMaxLength(128);
             e.Property(x => x.LGA).HasMaxLength(128);
+            e.Property(x => x.Religion).HasMaxLength(64);
             e.Property(x => x.NIN).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.NationalIdType).HasMaxLength(32);
             e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
