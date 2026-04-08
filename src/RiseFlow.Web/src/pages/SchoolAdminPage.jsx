@@ -255,7 +255,7 @@ export default function SchoolAdminPage() {
               <h3>Import Students</h3>
               <p>Upload your student list to go live faster.</p>
             </Link>
-            <Link to="/teacher/signup" className="action-card">
+            <Link to={onboardingSummary?.schoolId ? `/teacher/signup?school=${encodeURIComponent(onboardingSummary.schoolId)}` : '/teacher'} className="action-card">
               <h3>Add Teachers</h3>
               <p>Create teacher accounts and assign classes.</p>
             </Link>

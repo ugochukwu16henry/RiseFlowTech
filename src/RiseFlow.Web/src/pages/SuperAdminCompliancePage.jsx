@@ -18,7 +18,7 @@ export default function SuperAdminCompliancePage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiFetch('/api/superadmin/compliance-settings')
+    apiFetch('/api/superadmin/compliance-settings', { skipTenantHeader: true })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
@@ -46,6 +46,7 @@ export default function SuperAdminCompliancePage() {
     try {
       const res = await apiFetch('/api/superadmin/compliance-settings', {
         method: 'PUT',
+        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });

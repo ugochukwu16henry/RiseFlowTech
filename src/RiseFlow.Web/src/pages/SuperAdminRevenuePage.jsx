@@ -18,7 +18,7 @@ export default function SuperAdminRevenuePage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch('/api/superadmin/revenue')
+    apiFetch('/api/superadmin/revenue', { skipTenantHeader: true })
       .then((res) => {
         if (cancelled) return null;
         if (!res.ok) throw new Error('Could not load revenue');

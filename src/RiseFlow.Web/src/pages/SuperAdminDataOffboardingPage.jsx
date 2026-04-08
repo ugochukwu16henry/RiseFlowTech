@@ -18,7 +18,7 @@ export default function SuperAdminDataOffboardingPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiFetch('/api/superadmin/schools')
+    apiFetch('/api/superadmin/schools', { skipTenantHeader: true })
       .then((res) => {
         if (cancelled) return null;
         if (!res.ok) throw new Error('Could not load schools');
@@ -48,6 +48,7 @@ export default function SuperAdminDataOffboardingPage() {
     try {
       const res = await apiFetch(`/api/superadmin/schools/${schoolId}/offboard`, {
         method: 'POST',
+        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, exportRecipientEmail: email || null }),
       });

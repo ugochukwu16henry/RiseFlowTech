@@ -29,8 +29,8 @@ public class TeachersController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(List<Teacher>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<Teacher>>> List(CancellationToken ct)
+    [ProducesResponseType(typeof(List<TeacherProfileDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<TeacherProfileDto>>> List(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -43,13 +43,13 @@ public class TeachersController : ControllerBase
             .OrderBy(t => t.LastName)
             .ThenBy(t => t.FirstName)
             .ToListAsync(ct);
-        return Ok(list);
+        return Ok(list.Select(MapTeacherProfile).ToList());
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TeacherProfileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<Teacher>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<TeacherProfileDto>> GetById(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -61,7 +61,7 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
-        return Ok(teacher);
+        return Ok(MapTeacherProfile(teacher));
     }
 
     [HttpPost]
@@ -168,6 +168,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
@@ -267,8 +268,8 @@ public class TeachersController : ControllerBase
     /// <summary>Current teacher profile (by email + school). Teacher only.</summary>
     [HttpGet("me")]
     [Authorize(Roles = Constants.Roles.Teacher)]
-    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
-    public async Task<ActionResult<Teacher>> Me(CancellationToken ct)
+    [ProducesResponseType(typeof(TeacherProfileDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TeacherProfileDto>> Me(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -281,7 +282,7 @@ public class TeachersController : ControllerBase
             .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
         if (teacher == null)
             return Ok(null);
-        return Ok(teacher);
+        return Ok(MapTeacherProfile(teacher));
     }
 
     /// <summary>Students in classes assigned to the current teacher. Teacher only. Returns empty list until admin assigns classes/subjects.</summary>
@@ -342,6 +343,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpPost("{teacherId:guid}/classes/{classId:guid}")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> AssignToClass(Guid teacherId, Guid classId, [FromBody] AssignTeacherToClassRequest? request, CancellationToken ct)
@@ -364,6 +366,7 @@ public class TeachersController : ControllerBase
     }
 
     [HttpDelete("{teacherId:guid}/classes/{classId:guid}")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> UnassignFromClass(Guid teacherId, Guid classId, CancellationToken ct)
     {
@@ -379,6 +382,40 @@ public class TeachersController : ControllerBase
             await _db.SaveChangesAsync(ct);
         }
         return NoContent();
+    }
+
+    private static TeacherProfileDto MapTeacherProfile(Teacher teacher)
+    {
+        var assignedClasses = teacher.TeacherClasses
+            .OrderBy(tc => tc.Class?.Grade?.LevelOrder ?? int.MaxValue)
+            .ThenBy(tc => tc.Class?.Name)
+            .Select(tc => new TeacherAssignedClassDto(
+                tc.ClassId,
+                tc.Class?.Name ?? "—",
+                tc.Class?.AcademicYear,
+                tc.RoleInClass))
+            .ToList();
+
+        return new TeacherProfileDto(
+            teacher.Id,
+            teacher.SchoolId,
+            teacher.FirstName,
+            teacher.LastName,
+            teacher.MiddleName,
+            teacher.Email,
+            teacher.Phone,
+            teacher.WhatsAppNumber,
+            teacher.StaffId,
+            teacher.SubjectSpecialization,
+            teacher.HighestQualification,
+            teacher.FieldOfStudy,
+            teacher.RoleTitle,
+            teacher.Department,
+            teacher.ProfilePhotoFileName,
+            teacher.IsActive,
+            teacher.CreatedAtUtc,
+            teacher.UpdatedAtUtc,
+            assignedClasses);
     }
 
     /// <summary>Get teacher passport-size profile photo. Allowed for same-school users (SchoolAdmin/Teacher/Parent).</summary>

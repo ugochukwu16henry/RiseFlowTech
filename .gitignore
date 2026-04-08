@@ -26,6 +26,11 @@ artifacts/platform-build/
 *.log
 logs
 
+# Local dev databases / sibling repos
+src/RiseFlow.Api/*.db
+src/RiseFlow.Api/*.db-*
+Socialmadie_v1.0/
+
 # Web
 src/RiseFlow.Web/dist
 src/RiseFlow.Web/dist-ssr

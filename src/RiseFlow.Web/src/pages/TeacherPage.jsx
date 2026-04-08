@@ -23,8 +23,14 @@ export default function TeacherPage() {
     setLoading(true);
     setError(null);
     Promise.all([
-      apiFetch('/api/teachers/me').then((r) => (r.ok ? r.json() : null)),
-      apiFetch('/api/teachers/my-students').then((r) => (r.ok ? r.json() : [])),
+      apiFetch('/api/teachers/me').then(async (r) => {
+        if (r.status === 204) return null;
+        return r.ok ? r.json() : null;
+      }),
+      apiFetch('/api/teachers/my-students').then(async (r) => {
+        if (r.status === 204) return [];
+        return r.ok ? r.json() : [];
+      }),
     ])
       .then(([profile, list]) => {
         if (cancelled) return;

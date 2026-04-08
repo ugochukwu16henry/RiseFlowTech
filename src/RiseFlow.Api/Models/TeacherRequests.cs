@@ -98,3 +98,26 @@ public record TeacherSignupRequest(
     string? ProfessionalBodies);
 
 public record TeacherSignupResult(bool Success, string Message);
+
+public record TeacherAssignedClassDto(Guid ClassId, string ClassName, string? AcademicYear, string? RoleInClass);
+
+public record TeacherProfileDto(
+    Guid Id,
+    Guid SchoolId,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string? Email,
+    string? Phone,
+    string? WhatsAppNumber,
+    string? StaffId,
+    string? SubjectSpecialization,
+    string? HighestQualification,
+    string? FieldOfStudy,
+    string? RoleTitle,
+    string? Department,
+    string? ProfilePhotoFileName,
+    bool IsActive,
+    DateTime CreatedAtUtc,
+    DateTime? UpdatedAtUtc,
+    IReadOnlyList<TeacherAssignedClassDto> TeacherClasses);
