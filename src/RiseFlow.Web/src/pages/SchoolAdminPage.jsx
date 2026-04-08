@@ -315,6 +315,31 @@ export default function SchoolAdminPage() {
           </div>
         </div>
       )}
+
+      <section aria-labelledby="school-admin-actions-heading" style={{ marginTop: '1.5rem' }}>
+        <h3 id="school-admin-actions-heading" className="section-title">Quick setup actions</h3>
+        <p className="card-desc">Create classes, assign teachers, and share invite links directly from the dashboard.</p>
+        <div className="success-actions" style={{ marginTop: '0.75rem' }}>
+          <Link to="/school/classes" className="action-card">
+            <h3>Create grades &amp; classes</h3>
+            <p>Set up Nursery, Primary, JSS, SS and the class arms your school uses.</p>
+          </Link>
+          <Link to="/school/classes#teacher-assignments" className="action-card">
+            <h3>Assign classes to teachers</h3>
+            <p>Link each teacher to a class so results and student lists show correctly.</p>
+          </Link>
+          <Link to="/school/access-codes" className="action-card">
+            <h3>Open sharing links</h3>
+            <p>Copy the teacher invite link and manage parent access codes in one place.</p>
+          </Link>
+        </div>
+
+        <div style={{ marginTop: '1rem' }}>
+          <h3 className="section-title">Teacher signup link</h3>
+          <p className="card-desc">Send this link to your teachers so they can join your school account.</p>
+          <TeacherSignupLink schoolIdFromApi={dashboard?.schoolId} />
+        </div>
+      </section>
         </>
       )}
 
@@ -451,9 +476,14 @@ export default function SchoolAdminPage() {
         <>
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Grades &amp; classes</h2>
       <p className="card-desc">Create your school&apos;s programme levels (Nursery, Primary 1–6, JSS, SS1–SS3, etc.) and classes for each level.</p>
-      <Link to="/school/classes" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
-        Open grades &amp; classes setup
-      </Link>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem' }}>
+        <Link to="/school/classes" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
+          Open grades &amp; classes setup
+        </Link>
+        <Link to="/school/classes#teacher-assignments" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
+          Assign teachers to classes
+        </Link>
+      </div>
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>School files &amp; documents</h2>
       <p className="card-desc">
