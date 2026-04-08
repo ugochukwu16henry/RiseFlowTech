@@ -220,6 +220,11 @@ using (var scope = app.Services.CreateScope())
             await context.Database.EnsureCreatedAsync();
         }
 
+        if (context.Database.IsSqlite())
+        {
+            await EnsureSqliteDevelopmentSchemaAsync(context, logger);
+        }
+
         await IdentitySeeder.SeedAdminUserAsync(services);
     }
     catch (Exception ex)
@@ -251,3 +256,59 @@ app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();
+
+static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, ILogger logger)
+{
+    try
+    {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Teachers\" ADD COLUMN \"Religion\" TEXT NULL;");
+        }
+        catch (Exception ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
+        {
+            // Column already exists in this local DB.
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "TeacherProfileFieldSettings" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherProfileFieldSettings" PRIMARY KEY,
+                "SchoolId" TEXT NOT NULL,
+                "FieldKey" TEXT NOT NULL,
+                "DisplayName" TEXT NOT NULL,
+                "IsCustom" INTEGER NOT NULL,
+                "IsVisibleToTeacher" INTEGER NOT NULL,
+                "IsEditableByTeacher" INTEGER NOT NULL,
+                "IsAdminOnly" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                CONSTRAINT "FK_TeacherProfileFieldSettings_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "TeacherCustomFieldValues" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherCustomFieldValues" PRIMARY KEY,
+                "TeacherId" TEXT NOT NULL,
+                "SchoolId" TEXT NOT NULL,
+                "FieldKey" TEXT NOT NULL,
+                "Value" TEXT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                CONSTRAINT "FK_TeacherCustomFieldValues_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_TeacherCustomFieldValues_Teachers_TeacherId" FOREIGN KEY ("TeacherId") REFERENCES "Teachers" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherProfileFieldSettings_SchoolId_FieldKey\" ON \"TeacherProfileFieldSettings\" (\"SchoolId\", \"FieldKey\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_TeacherId_FieldKey\" ON \"TeacherCustomFieldValues\" (\"TeacherId\", \"FieldKey\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_SchoolId\" ON \"TeacherCustomFieldValues\" (\"SchoolId\");");
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Could not patch the local SQLite schema for teacher profile governance.");
+    }
+}
