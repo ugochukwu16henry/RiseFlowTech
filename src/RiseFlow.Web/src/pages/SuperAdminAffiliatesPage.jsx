@@ -225,6 +225,21 @@ export default function SuperAdminAffiliatesPage() {
         Review affiliate requests, invite new partners, manage payouts, and publish YouTube training content for affiliate onboarding.
       </p>
 
+      <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <Link to="/super-admin/affiliates" className={view === 'manager' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}>
+          Overview
+        </Link>
+        <Link to="/super-admin/affiliate-requests" className={view === 'requests' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}>
+          Requests
+        </Link>
+        <Link to="/super-admin/affiliate-payouts" className={view === 'payouts' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}>
+          Payouts
+        </Link>
+        <Link to="/super-admin/affiliate-training" className={view === 'training' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}>
+          Training
+        </Link>
+      </div>
+
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
       {actionMessage && (
@@ -260,8 +275,8 @@ export default function SuperAdminAffiliatesPage() {
 
           {affiliates.length === 0 ? (
             <p className="empty-state">
-              No approved affiliates yet.
-              {requests.length > 0 ? ' New applications are waiting below.' : ''}
+              No approved affiliates yet. The affiliate APIs are live and connected to the database, but there are currently no saved affiliate records to show.
+              {requests.length > 0 ? ' New applications are waiting below.' : ' Once a request or invite is created, it will appear here immediately.'}
             </p>
           ) : (
             <div className="data-table-wrap">

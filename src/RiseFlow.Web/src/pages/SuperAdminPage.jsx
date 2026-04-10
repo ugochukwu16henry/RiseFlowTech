@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -76,8 +77,23 @@ export default function SuperAdminPage() {
     <PageLayout title="Super Admin — Control Room" role="super">
       <p className="control-room-intro">
         As the RiseFlow SuperAdmin, this dashboard is your mission control. It gives you a bird&apos;s‑eye view of every school,
-        their students, and the revenue flowing through activations and subscriptions. Use the sidebar for schools, revenue, compliance, and offboarding.
+        their students, and the revenue flowing through activations and subscriptions. Use the sidebar for schools, revenue, affiliates, compliance, and offboarding.
       </p>
+
+      <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <Link to="/super-admin/affiliates" className="btn-primary-action">
+          Open affiliate manager
+        </Link>
+        <Link to="/super-admin/affiliate-requests" className="btn-primary-action btn-primary-action--ghost">
+          View requests
+        </Link>
+        <Link to="/super-admin/affiliate-payouts" className="btn-primary-action btn-primary-action--ghost">
+          View payouts
+        </Link>
+        <Link to="/super-admin/affiliate-training" className="btn-primary-action btn-primary-action--ghost">
+          Training videos
+        </Link>
+      </div>
 
       {/* 1. The Pulse (top KPI cards) */}
       <section aria-label="Business pulse KPIs">
