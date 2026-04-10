@@ -62,22 +62,26 @@ export default function SchoolAdminPage() {
   const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.all([
-      apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
-      apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
-      apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
-      apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
-      apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
-    ])
-      .then(([dash, tList, sList, pList, bList]) => {
-        setDashboard(dash || null);
-        setTeachers(Array.isArray(tList) ? tList : []);
-        setStudents(Array.isArray(sList) ? sList : []);
-        setParents(Array.isArray(pList) ? pList : []);
-        setBilling(Array.isArray(bList) ? bList : []);
-      })
-      .catch((err) => setError(err.message || 'Failed to load data'))
-      .finally(() => setLoading(false));
+    apiFetch('/api/billing/ensure-current', { method: 'POST' })
+      .catch(() => null)
+      .finally(() => {
+        Promise.all([
+          apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
+          apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
+          apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
+          apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
+          apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
+        ])
+          .then(([dash, tList, sList, pList, bList]) => {
+            setDashboard(dash || null);
+            setTeachers(Array.isArray(tList) ? tList : []);
+            setStudents(Array.isArray(sList) ? sList : []);
+            setParents(Array.isArray(pList) ? pList : []);
+            setBilling(Array.isArray(bList) ? bList : []);
+          })
+          .catch((err) => setError(err.message || 'Failed to load data'))
+          .finally(() => setLoading(false));
+      });
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);

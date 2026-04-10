@@ -43,7 +43,7 @@ public class PaymentService
 
         var email = record.School.Email ?? $"billing+{record.SchoolId:N}@riseflow.com";
         var reference = $"RF-{record.SchoolId:N}-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        var callbackUrl = GetSetting("Paystack:CallbackUrl", "PAYSTACK_CALLBACK_URL") ?? "https://riseflow.com/payment-success";
+        var callbackUrl = ResolveCallbackUrl();
 
         var requestData = new
         {
@@ -66,10 +66,59 @@ public class PaymentService
         if (!payload.Status || payload.Data == null || string.IsNullOrWhiteSpace(payload.Data.AuthorizationUrl))
             throw new InvalidOperationException($"Paystack returned an error: {payload.Message}");
 
-        record.PaymentReference = reference;
+        record.PaymentReference = payload.Data.Reference;
         await _db.SaveChangesAsync(ct);
 
-        return (payload.Data.AuthorizationUrl, reference);
+        return (payload.Data.AuthorizationUrl, payload.Data.Reference);
+    }
+
+    public PaymentGatewayStatus GetGatewayStatus()
+    {
+        var secretKey = GetSetting("Paystack:SecretKey", "PAYSTACK_SECRET_KEY");
+        var callbackUrl = ResolveCallbackUrl();
+        var webhookSecret = GetSetting("Paystack:WebhookSecret", "PAYSTACK_WEBHOOK_SECRET");
+        var isConfigured = !string.IsNullOrWhiteSpace(secretKey);
+        var message = isConfigured
+            ? (!string.IsNullOrWhiteSpace(webhookSecret)
+                ? "Paystack is configured and ready to accept payments."
+                : "Paystack can initialize payments now. Add a webhook secret for production-grade verification.")
+            : "Paystack is not fully configured yet. Set PAYSTACK_SECRET_KEY (or Paystack:SecretKey) to enable live checkout.";
+
+        return new PaymentGatewayStatus("Paystack", isConfigured, callbackUrl, !string.IsNullOrWhiteSpace(webhookSecret), message);
+    }
+
+    public async Task<bool> VerifyPaystackPaymentAsync(string reference, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+            throw new InvalidOperationException("Payment reference is required.");
+
+        var secretKey = GetSetting("Paystack:SecretKey", "PAYSTACK_SECRET_KEY");
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new InvalidOperationException("Paystack secret key is not configured. Set Paystack:SecretKey or PAYSTACK_SECRET_KEY.");
+
+        var client = _httpClientFactory.CreateClient("Paystack");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+
+        using var response = await client.GetAsync($"transaction/verify/{Uri.EscapeDataString(reference)}", ct);
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<PaystackVerifyResponse>(cancellationToken: ct)
+                      ?? throw new InvalidOperationException("Could not parse Paystack verification response.");
+
+        if (!payload.Status || payload.Data == null)
+            throw new InvalidOperationException($"Paystack verification failed: {payload.Message}");
+
+        var record = await _db.BillingRecords.FirstOrDefaultAsync(b => b.PaymentReference == reference, ct)
+                     ?? throw new InvalidOperationException("Billing record for this Paystack reference was not found.");
+
+        if (string.Equals(payload.Data.Status, "success", StringComparison.OrdinalIgnoreCase))
+        {
+            record.AmountPaid = record.AmountDue;
+            record.PaidAtUtc ??= DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -104,6 +153,19 @@ public class PaymentService
         record.AmountPaid = record.AmountDue;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+    }
+
+    private string ResolveCallbackUrl()
+    {
+        var configured = GetSetting("Paystack:CallbackUrl", "PAYSTACK_CALLBACK_URL");
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        var publicWebBase = GetSetting("RiseFlow:WebAppBaseUrl", "RISEFLOW_WEB_APP_BASE_URL", "PUBLIC_WEB_BASE_URL");
+        if (!string.IsNullOrWhiteSpace(publicWebBase))
+            return $"{publicWebBase.TrimEnd('/')}/school/billing?payment=paystack";
+
+        return "http://localhost:5173/school/billing?payment=paystack";
     }
 
     private string? GetSetting(params string[] keys)
@@ -156,4 +218,21 @@ public class PaystackWebhookData
     public int Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
 }
+
+public class PaystackVerifyResponse
+{
+    public bool Status { get; set; }
+    public string? Message { get; set; }
+    public PaystackVerifyData? Data { get; set; }
+}
+
+public class PaystackVerifyData
+{
+    public string Reference { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public int Amount { get; set; }
+    public string Currency { get; set; } = string.Empty;
+}
+
+public record PaymentGatewayStatus(string GatewayName, bool IsConfigured, string CallbackUrl, bool HasWebhookSecret, string Message);
 

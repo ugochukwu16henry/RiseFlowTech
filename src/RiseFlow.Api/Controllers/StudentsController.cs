@@ -262,7 +262,7 @@ public class StudentsController : ControllerBase
             var hasActiveSubscription = await _billing.IsSubscriptionActiveAsync(schoolId, ct);
             if (!hasActiveSubscription)
             {
-                return BadRequest($"Free tier limit ({CountryBillingConfig.FreeTierStudentCount} students) reached. Please upgrade to add more students.");
+                return BadRequest($"Free tier limit ({CountryBillingConfig.FreeTierStudentCount} students) reached. Go to Billing & Fees to pay the activation and monthly subscription with Paystack before adding more students.");
             }
         }
         Class? schoolClass = null;
