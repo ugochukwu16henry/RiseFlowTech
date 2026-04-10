@@ -29,3 +29,6 @@ logs
 # Web
 src/RiseFlow.Web/dist
 src/RiseFlow.Web/dist-ssr
+
+.vercel
+.env*.local
