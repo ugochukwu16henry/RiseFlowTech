@@ -10,6 +10,7 @@ const ROLE_ROUTE = {
   Parent: '/parent',
   Student: '/student',
   SuperAdmin: '/super-admin',
+  Affiliate: '/affiliate',
 };
 
 export default function LoginPage() {
@@ -92,7 +93,7 @@ export default function LoginPage() {
           <div className="login-logo-dot" style={{ display: 'none' }} aria-hidden="true" />
           <div className="login-header-text">
             <h1>Sign in to RiseFlow</h1>
-            <p>School Admins, Teachers, Parents, Students and Super Admins sign in here.</p>
+            <p>School Admins, Teachers, Parents, Students, Affiliates and Super Admins sign in here.</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="login-form">

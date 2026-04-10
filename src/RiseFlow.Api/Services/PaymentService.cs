@@ -16,12 +16,14 @@ public class PaymentService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
     private readonly RiseFlowDbContext _db;
+    private readonly AffiliateService _affiliateService;
 
-    public PaymentService(IHttpClientFactory httpClientFactory, IConfiguration config, RiseFlowDbContext db)
+    public PaymentService(IHttpClientFactory httpClientFactory, IConfiguration config, RiseFlowDbContext db, AffiliateService affiliateService)
     {
         _httpClientFactory = httpClientFactory;
         _config = config;
         _db = db;
+        _affiliateService = affiliateService;
     }
 
     /// <summary>
@@ -115,6 +117,7 @@ public class PaymentService
             record.AmountPaid = record.AmountDue;
             record.PaidAtUtc ??= DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
+            await _affiliateService.MarkBillingRecordPaidAsync(record.Id, ct);
             return true;
         }
 
@@ -153,6 +156,7 @@ public class PaymentService
         record.AmountPaid = record.AmountDue;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+        await _affiliateService.MarkBillingRecordPaidAsync(record.Id, ct);
     }
 
     private string ResolveCallbackUrl()

@@ -18,14 +18,16 @@ public class BillingController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly PaymentService _payments;
     private readonly BillingReceiptPdfService _receipts;
+    private readonly AffiliateService _affiliateService;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts, AffiliateService affiliateService)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
         _payments = payments;
         _receipts = receipts;
+        _affiliateService = affiliateService;
     }
 
     private static BillingRecordDto ToDto(BillingRecord b) => new(
@@ -137,6 +139,7 @@ public class BillingController : ControllerBase
         record.AmountPaid = request.AmountPaid;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+        await _affiliateService.MarkBillingRecordPaidAsync(record.Id, ct);
         return Ok(record);
     }
 

@@ -147,6 +147,7 @@ builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddScoped<BillingReceiptPdfService>();
 builder.Services.AddScoped<SchoolDashboardService>();
 builder.Services.AddScoped<StudentAdmissionNumberService>();
+builder.Services.AddScoped<AffiliateService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddSingleton<GradingReferencePdfService>();
@@ -290,6 +291,24 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
             // Column already exists in this local DB.
         }
 
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
+        }
+        catch (Exception ex) when (IsDuplicateColumn(ex))
+        {
+            // Column already exists in this local DB.
+        }
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateReferralCodeUsed\" TEXT NULL;");
+        }
+        catch (Exception ex) when (IsDuplicateColumn(ex))
+        {
+            // Column already exists in this local DB.
+        }
+
         await context.Database.ExecuteSqlRawAsync(
             """
             CREATE TABLE IF NOT EXISTS "StudentProfileVisibilitySettings" (
@@ -347,6 +366,129 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
                 "CreatedAtUtc" TEXT NOT NULL,
                 "UpdatedAtUtc" TEXT NULL,
                 CONSTRAINT "FK_TeacherProfileFieldSettings_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "Affiliates" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_Affiliates" PRIMARY KEY,
+                "UserId" TEXT NOT NULL,
+                "UniqueCode" TEXT NOT NULL,
+                "HeadshotPath" TEXT NULL,
+                "PhoneNumber" TEXT NULL,
+                "CountryCode" TEXT NULL,
+                "BankName" TEXT NULL,
+                "AccountNumber" TEXT NULL,
+                "AccountName" TEXT NULL,
+                "PaystackRecipientCode" TEXT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "ApprovedAtUtc" TEXT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                CONSTRAINT "FK_Affiliates_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliateLeadRequests" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateLeadRequests" PRIMARY KEY,
+                "FullName" TEXT NOT NULL,
+                "Email" TEXT NOT NULL,
+                "PhoneNumber" TEXT NULL,
+                "CountryCode" TEXT NULL,
+                "Note" TEXT NULL,
+                "Status" TEXT NOT NULL,
+                "InviteSentAtUtc" TEXT NULL,
+                "CreatedAtUtc" TEXT NOT NULL
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliateInvites" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateInvites" PRIMARY KEY,
+                "AffiliateLeadRequestId" TEXT NOT NULL,
+                "Email" TEXT NOT NULL,
+                "InviteToken" TEXT NOT NULL,
+                "ExpiresAtUtc" TEXT NOT NULL,
+                "UsedAtUtc" TEXT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                CONSTRAINT "FK_AffiliateInvites_AffiliateLeadRequests_AffiliateLeadRequestId" FOREIGN KEY ("AffiliateLeadRequestId") REFERENCES "AffiliateLeadRequests" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliateTrainingVideos" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateTrainingVideos" PRIMARY KEY,
+                "Title" TEXT NOT NULL,
+                "Topic" TEXT NULL,
+                "Description" TEXT NULL,
+                "YoutubeUrl" TEXT NOT NULL,
+                "IsPublished" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliatePayouts" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliatePayouts" PRIMARY KEY,
+                "AffiliateId" TEXT NOT NULL,
+                "Amount" TEXT NOT NULL,
+                "CurrencyCode" TEXT NOT NULL,
+                "PayoutType" TEXT NOT NULL,
+                "PaystackTransferReference" TEXT NULL,
+                "Status" TEXT NOT NULL,
+                "PeriodStartUtc" TEXT NOT NULL,
+                "PeriodEndUtc" TEXT NOT NULL,
+                "PaidAtUtc" TEXT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                "FailureReason" TEXT NULL,
+                CONSTRAINT "FK_AffiliatePayouts_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliateCommissionLedgers" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateCommissionLedgers" PRIMARY KEY,
+                "AffiliateId" TEXT NOT NULL,
+                "SchoolId" TEXT NOT NULL,
+                "BillingRecordId" TEXT NULL,
+                "AffiliatePayoutId" TEXT NULL,
+                "StudentCount" INTEGER NOT NULL,
+                "BillableStudentCount" INTEGER NOT NULL,
+                "ActivationCommissionAmount" TEXT NOT NULL,
+                "MonthlyCommissionAmount" TEXT NOT NULL,
+                "TotalCommissionAmount" TEXT NOT NULL,
+                "CommissionType" TEXT NOT NULL,
+                "Status" TEXT NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                CONSTRAINT "FK_AffiliateCommissionLedgers_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_AffiliateCommissionLedgers_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE RESTRICT,
+                CONSTRAINT "FK_AffiliateCommissionLedgers_BillingRecords_BillingRecordId" FOREIGN KEY ("BillingRecordId") REFERENCES "BillingRecords" ("Id") ON DELETE SET NULL,
+                CONSTRAINT "FK_AffiliateCommissionLedgers_AffiliatePayouts_AffiliatePayoutId" FOREIGN KEY ("AffiliatePayoutId") REFERENCES "AffiliatePayouts" ("Id") ON DELETE SET NULL
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "AffiliateNotifications" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateNotifications" PRIMARY KEY,
+                "AffiliateId" TEXT NOT NULL,
+                "Title" TEXT NOT NULL,
+                "Message" TEXT NOT NULL,
+                "Type" TEXT NOT NULL,
+                "IsRead" INTEGER NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "ReadAtUtc" TEXT NULL,
+                CONSTRAINT "FK_AffiliateNotifications_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE
             );
             """);
 

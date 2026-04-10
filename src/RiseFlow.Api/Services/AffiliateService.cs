@@ -681,6 +681,17 @@ public class AffiliateService
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct);
 
+        var schoolIds = schools.Select(x => x.Id).ToList();
+        var studentCounts = schoolIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await _db.Students
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(x => schoolIds.Contains(x.SchoolId) && x.IsActive)
+                .GroupBy(x => x.SchoolId)
+                .Select(g => new { SchoolId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+
         var commissionRows = await _db.AffiliateCommissionLedgers
             .AsNoTracking()
             .Where(x => x.AffiliateId == affiliateId)
@@ -696,12 +707,13 @@ public class AffiliateService
 
         return schools.Select(school =>
         {
-            var billableStudents = Math.Max(0, school.Students.Count(st => st.IsActive) - CountryBillingConfig.FreeTierStudentCount);
+            var totalStudents = studentCounts.GetValueOrDefault(school.Id, 0);
+            var billableStudents = Math.Max(0, totalStudents - CountryBillingConfig.FreeTierStudentCount);
             var rows = commissionRows.Where(x => x.SchoolId == school.Id).ToList();
             return new AffiliateSchoolSummaryDto(
                 school.Id,
                 school.Name,
-                school.Students.Count(st => st.IsActive),
+                totalStudents,
                 billableStudents,
                 school.CreatedAtUtc,
                 paidBillingMap.GetValueOrDefault(school.Id),

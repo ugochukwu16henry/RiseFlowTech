@@ -17,6 +17,10 @@ const NAV_BY_ROLE = {
     { to: '/super-admin', label: 'Control room', end: true },
     { to: '/super-admin/schools', label: 'Schools' },
     { to: '/super-admin/revenue', label: 'Revenue' },
+    { to: '/super-admin/affiliates', label: 'Affiliate manager' },
+    { to: '/super-admin/affiliate-requests', label: 'Affiliate requests' },
+    { to: '/super-admin/affiliate-payouts', label: 'Payouts panel' },
+    { to: '/super-admin/affiliate-training', label: 'Training center' },
     { to: '/super-admin/compliance', label: 'System settings' },
     { to: '/super-admin/data-offboarding', label: 'Data offboarding' },
   ],
@@ -24,6 +28,12 @@ const NAV_BY_ROLE = {
   parent: [
     { to: '/parent', label: 'Family', end: true },
     { to: '/parent/claim', label: 'Claim child' },
+  ],
+  affiliate: [
+    { to: '/affiliate', label: 'My dashboard', end: true },
+    { to: '/affiliate/schools', label: 'Referred schools' },
+    { to: '/affiliate/payouts', label: 'Payout settings' },
+    { to: '/affiliate/training', label: 'Training academy' },
   ],
   student: [{ to: '/student', label: 'Dashboard', end: true }],
   legal: [
