@@ -200,7 +200,15 @@ using (var scope = app.Services.CreateScope())
 
         try
         {
-            await context.Database.MigrateAsync();
+            if (context.Database.IsSqlite())
+            {
+                await context.Database.EnsureCreatedAsync();
+                await EnsureSqliteDevelopmentSchemaAsync(context, logger);
+            }
+            else
+            {
+                await context.Database.MigrateAsync();
+            }
         }
         catch (InvalidOperationException ex) when (
             context.Database.IsSqlite()
@@ -208,6 +216,7 @@ using (var scope = app.Services.CreateScope())
         {
             logger.LogWarning(ex, "SQLite startup migration hit pending model changes; creating the local development database from the current model instead.");
             await context.Database.EnsureCreatedAsync();
+            await EnsureSqliteDevelopmentSchemaAsync(context, logger);
         }
 
         await IdentitySeeder.SeedAdminUserAsync(services);
@@ -236,3 +245,165 @@ app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();
+
+static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, ILogger logger)
+{
+    if (!context.Database.IsSqlite())
+        return;
+
+    var connection = context.Database.GetDbConnection();
+    var shouldClose = connection.State != System.Data.ConnectionState.Open;
+    if (shouldClose)
+        await connection.OpenAsync();
+
+    try
+    {
+        async Task<HashSet<string>> GetColumnsAsync(string tableName)
+        {
+            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info(\"{tableName}\")";
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (!reader.IsDBNull(1))
+                    columns.Add(reader.GetString(1));
+            }
+            return columns;
+        }
+
+        var schoolColumns = await GetColumnsAsync("Schools");
+        if (!schoolColumns.Contains("AffiliateId"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
+        if (!schoolColumns.Contains("AffiliateReferralCodeUsed"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateReferralCodeUsed\" TEXT NULL;");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"Affiliates\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_Affiliates\" PRIMARY KEY,
+    \"UserId\" TEXT NOT NULL,
+    \"UniqueCode\" TEXT NOT NULL,
+    \"HeadshotPath\" TEXT NULL,
+    \"PhoneNumber\" TEXT NULL,
+    \"CountryCode\" TEXT NULL,
+    \"BankName\" TEXT NULL,
+    \"AccountNumber\" TEXT NULL,
+    \"AccountName\" TEXT NULL,
+    \"PaystackRecipientCode\" TEXT NULL,
+    \"IsActive\" INTEGER NOT NULL DEFAULT 1,
+    \"ApprovedAtUtc\" TEXT NULL,
+    \"CreatedAtUtc\" TEXT NOT NULL,
+    \"UpdatedAtUtc\" TEXT NULL
+);
+        CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Affiliates_UniqueCode\" ON \"Affiliates\" (\"UniqueCode\");
+CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Affiliates_UserId\" ON \"Affiliates\" (\"UserId\");
+");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliateLeadRequests\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliateLeadRequests\" PRIMARY KEY,
+    \"FullName\" TEXT NOT NULL,
+    \"Email\" TEXT NOT NULL,
+    \"PhoneNumber\" TEXT NULL,
+    \"CountryCode\" TEXT NULL,
+    \"Note\" TEXT NULL,
+    \"Status\" TEXT NOT NULL,
+    \"InviteSentAtUtc\" TEXT NULL,
+    \"CreatedAtUtc\" TEXT NOT NULL
+);
+        CREATE INDEX IF NOT EXISTS \"IX_AffiliateLeadRequests_Email\" ON \"AffiliateLeadRequests\" (\"Email\");
+");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliateInvites\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliateInvites\" PRIMARY KEY,
+    \"AffiliateLeadRequestId\" TEXT NOT NULL,
+    \"Email\" TEXT NOT NULL,
+    \"InviteToken\" TEXT NOT NULL,
+    \"ExpiresAtUtc\" TEXT NOT NULL,
+    \"UsedAtUtc\" TEXT NULL,
+    \"CreatedAtUtc\" TEXT NOT NULL
+);
+        CREATE INDEX IF NOT EXISTS \"IX_AffiliateInvites_AffiliateLeadRequestId\" ON \"AffiliateInvites\" (\"AffiliateLeadRequestId\");
+CREATE UNIQUE INDEX IF NOT EXISTS \"IX_AffiliateInvites_InviteToken\" ON \"AffiliateInvites\" (\"InviteToken\");
+");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliateTrainingVideos\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliateTrainingVideos\" PRIMARY KEY,
+    \"Title\" TEXT NOT NULL,
+    \"Topic\" TEXT NULL,
+    \"Description\" TEXT NULL,
+    \"YoutubeUrl\" TEXT NOT NULL,
+    \"IsPublished\" INTEGER NOT NULL DEFAULT 1,
+    \"SortOrder\" INTEGER NOT NULL DEFAULT 0,
+    \"CreatedAtUtc\" TEXT NOT NULL,
+    \"UpdatedAtUtc\" TEXT NULL
+);
+        ");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliatePayouts\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliatePayouts\" PRIMARY KEY,
+    \"AffiliateId\" TEXT NOT NULL,
+    \"Amount\" TEXT NOT NULL,
+    \"CurrencyCode\" TEXT NOT NULL,
+    \"PayoutType\" TEXT NOT NULL,
+    \"PaystackTransferReference\" TEXT NULL,
+    \"Status\" TEXT NOT NULL,
+    \"PeriodStartUtc\" TEXT NOT NULL,
+    \"PeriodEndUtc\" TEXT NOT NULL,
+    \"PaidAtUtc\" TEXT NULL,
+    \"CreatedAtUtc\" TEXT NOT NULL,
+    \"UpdatedAtUtc\" TEXT NULL,
+    \"FailureReason\" TEXT NULL
+);
+        CREATE INDEX IF NOT EXISTS \"IX_AffiliatePayouts_AffiliateId\" ON \"AffiliatePayouts\" (\"AffiliateId\");
+");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliateCommissionLedgers\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliateCommissionLedgers\" PRIMARY KEY,
+    \"AffiliateId\" TEXT NOT NULL,
+    \"SchoolId\" TEXT NOT NULL,
+    \"BillingRecordId\" TEXT NULL,
+    \"AffiliatePayoutId\" TEXT NULL,
+    \"StudentCount\" INTEGER NOT NULL DEFAULT 0,
+    \"BillableStudentCount\" INTEGER NOT NULL DEFAULT 0,
+    \"ActivationCommissionAmount\" TEXT NOT NULL DEFAULT 0,
+    \"MonthlyCommissionAmount\" TEXT NOT NULL DEFAULT 0,
+    \"TotalCommissionAmount\" TEXT NOT NULL DEFAULT 0,
+    \"CommissionType\" TEXT NOT NULL,
+    \"Status\" TEXT NOT NULL,
+    \"CreatedAtUtc\" TEXT NOT NULL
+);
+        CREATE INDEX IF NOT EXISTS \"IX_AffiliateCommissionLedgers_AffiliateId\" ON \"AffiliateCommissionLedgers\" (\"AffiliateId\");
+CREATE INDEX IF NOT EXISTS \"IX_AffiliateCommissionLedgers_SchoolId\" ON \"AffiliateCommissionLedgers\" (\"SchoolId\");
+CREATE INDEX IF NOT EXISTS \"IX_AffiliateCommissionLedgers_BillingRecordId\" ON \"AffiliateCommissionLedgers\" (\"BillingRecordId\");
+CREATE INDEX IF NOT EXISTS \"IX_AffiliateCommissionLedgers_AffiliatePayoutId\" ON \"AffiliateCommissionLedgers\" (\"AffiliatePayoutId\");
+");
+
+        await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS \"AffiliateNotifications\" (
+    \"Id\" TEXT NOT NULL CONSTRAINT \"PK_AffiliateNotifications\" PRIMARY KEY,
+    \"AffiliateId\" TEXT NOT NULL,
+    \"Title\" TEXT NOT NULL,
+    \"Message\" TEXT NOT NULL,
+    \"Type\" TEXT NOT NULL,
+    \"IsRead\" INTEGER NOT NULL DEFAULT 0,
+    \"CreatedAtUtc\" TEXT NOT NULL,
+    \"ReadAtUtc\" TEXT NULL
+);
+        CREATE INDEX IF NOT EXISTS \"IX_AffiliateNotifications_AffiliateId\" ON \"AffiliateNotifications\" (\"AffiliateId\");
+");
+
+        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Schools_AffiliateId\" ON \"Schools\" (\"AffiliateId\");");
+
+        logger.LogInformation("SQLite development schema verified for Super Admin and affiliate features.");
+    }
+    finally
+    {
+        if (shouldClose)
+            await connection.CloseAsync();
+    }
+}
