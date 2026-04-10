@@ -16,6 +16,7 @@ const NAV_BY_ROLE = {
     { to: '/super-admin', label: 'Control room', end: true },
     { to: '/super-admin/schools', label: 'Schools' },
     { to: '/super-admin/revenue', label: 'Revenue' },
+    { to: '/super-admin/affiliates', label: 'Affiliates' },
     { to: '/super-admin/compliance', label: 'System settings' },
     { to: '/super-admin/data-offboarding', label: 'Data offboarding' },
   ],

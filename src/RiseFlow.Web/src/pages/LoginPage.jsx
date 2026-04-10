@@ -9,6 +9,7 @@ const ROLE_ROUTE = {
   Teacher: '/teacher',
   Parent: '/parent',
   Student: '/student',
+  Affiliate: '/affiliate',
   SuperAdmin: '/super-admin',
 };
 
