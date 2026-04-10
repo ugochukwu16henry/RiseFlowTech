@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Extensions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
@@ -22,25 +21,18 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database: local development uses SQLite, while deployed environments should use PostgreSQL for durable storage.
-var configuredProvider = builder.Configuration["Database:Provider"];
-var hasPostgresEnvironment = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_URL"))
-    || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_PUBLIC_URL"));
-var dbProvider = !string.IsNullOrWhiteSpace(configuredProvider)
-    ? configuredProvider
-    : (builder.Environment.IsDevelopment() ? "Sqlite" : "Npgsql");
-
+// Database: Sqlite by default (local file). Set Database:Provider to Npgsql and ConnectionStrings:DefaultConnection for PostgreSQL (same engine family as FullStackHero playground).
+var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
-    if (hasPostgresEnvironment
-        || string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
+    if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
         || string.Equals(dbProvider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
     {
-        var pg = DatabaseConnectionHelper.GetConnectionString(builder.Configuration);
+        var pg = builder.Configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(pg))
         {
             throw new InvalidOperationException(
-                "PostgreSQL is configured but no valid connection string was found. Set DATABASE_URL, DATABASE_PUBLIC_URL, or ConnectionStrings:DefaultConnection.");
+                "Database:Provider requests PostgreSQL but ConnectionStrings:DefaultConnection is missing or empty.");
         }
 
         options.UseNpgsql(pg);
@@ -138,7 +130,6 @@ builder.Services
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<IClaimsTransformation, EnsureSchoolIdClaimTransformation>();
-builder.Services.AddSingleton<FileStorageService>();
 builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddScoped<SchoolOffboardingService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
@@ -146,8 +137,6 @@ builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
 builder.Services.AddScoped<BillingReceiptPdfService>();
 builder.Services.AddScoped<SchoolDashboardService>();
-builder.Services.AddScoped<StudentAdmissionNumberService>();
-builder.Services.AddScoped<AffiliateService>();
 builder.Services.AddSingleton<PitchDeckPdfService>();
 builder.Services.AddSingleton<TeacherQuickStartPdfService>();
 builder.Services.AddSingleton<GradingReferencePdfService>();
@@ -155,8 +144,7 @@ builder.Services.AddSingleton<ParentWelcomeLetterPdfService>();
 builder.Services.AddScoped<StudentBulkUploadService>();
 builder.Services.AddScoped<ExcelService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-builder.Services.AddScoped<PaymentService>();
-builder.Services.AddHttpClient("Paystack", client =>
+builder.Services.AddHttpClient<PaymentService>("Paystack", client =>
 {
     client.BaseAddress = new Uri("https://api.paystack.co/");
 });
@@ -190,7 +178,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-var fileStorage = app.Services.GetRequiredService<FileStorageService>();
 
 app.UseCors();
 app.UseRateLimiter();
@@ -221,11 +208,6 @@ using (var scope = app.Services.CreateScope())
             await context.Database.EnsureCreatedAsync();
         }
 
-        if (context.Database.IsSqlite())
-        {
-            await EnsureSqliteDevelopmentSchemaAsync(context, logger);
-        }
-
         await IdentitySeeder.SeedAdminUserAsync(services);
     }
     catch (Exception ex)
@@ -243,11 +225,6 @@ if (app.Environment.IsDevelopment())
 // In containerized hosting (Railway, etc.) HTTPS is typically terminated at the proxy,
 // so we skip UseHttpsRedirection here to avoid interfering with health checks.
 app.UseStaticFiles();
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(fileStorage.RootPath),
-    RequestPath = ""
-});
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -257,267 +234,3 @@ app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();
-
-static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, ILogger logger)
-{
-    try
-    {
-        static bool IsDuplicateColumn(Exception ex) => ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase);
-
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Teachers\" ADD COLUMN \"Religion\" TEXT NULL;");
-        }
-        catch (Exception ex) when (IsDuplicateColumn(ex))
-        {
-            // Column already exists in this local DB.
-        }
-
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Students\" ADD COLUMN \"PreviousClass\" TEXT NULL;");
-        }
-        catch (Exception ex) when (IsDuplicateColumn(ex))
-        {
-            // Column already exists in this local DB.
-        }
-
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Students\" ADD COLUMN \"ParentProfileLastUpdatedAtUtc\" TEXT NULL;");
-        }
-        catch (Exception ex) when (IsDuplicateColumn(ex))
-        {
-            // Column already exists in this local DB.
-        }
-
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
-        }
-        catch (Exception ex) when (IsDuplicateColumn(ex))
-        {
-            // Column already exists in this local DB.
-        }
-
-        try
-        {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateReferralCodeUsed\" TEXT NULL;");
-        }
-        catch (Exception ex) when (IsDuplicateColumn(ex))
-        {
-            // Column already exists in this local DB.
-        }
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "StudentProfileVisibilitySettings" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_StudentProfileVisibilitySettings" PRIMARY KEY,
-                "SchoolId" TEXT NOT NULL,
-                "ShowDateOfBirthToTeachers" INTEGER NOT NULL,
-                "ShowLocationDetailsToTeachers" INTEGER NOT NULL,
-                "ShowHealthDetailsToTeachers" INTEGER NOT NULL,
-                "ShowParentContactsToTeachers" INTEGER NOT NULL,
-                "ShowAcademicHistoryToTeachers" INTEGER NOT NULL,
-                "ShowPreviousRecordToTeachers" INTEGER NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                CONSTRAINT "FK_StudentProfileVisibilitySettings_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "StudentPortalAccesses" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_StudentPortalAccesses" PRIMARY KEY,
-                "SchoolId" TEXT NOT NULL,
-                "StudentId" TEXT NOT NULL,
-                "UserId" TEXT NOT NULL,
-                "LoginId" TEXT NOT NULL,
-                "IsEnabled" INTEGER NOT NULL,
-                "ShowDateOfBirth" INTEGER NOT NULL,
-                "ShowLocationDetails" INTEGER NOT NULL,
-                "ShowHealthDetails" INTEGER NOT NULL,
-                "ShowEmergencyContacts" INTEGER NOT NULL,
-                "ShowParentContactDetails" INTEGER NOT NULL,
-                "ShowPreviousSchoolDetails" INTEGER NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                "CredentialsSharedAtUtc" TEXT NULL,
-                "LastPasswordResetAtUtc" TEXT NULL,
-                CONSTRAINT "FK_StudentPortalAccesses_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE,
-                CONSTRAINT "FK_StudentPortalAccesses_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE,
-                CONSTRAINT "FK_StudentPortalAccesses_Students_StudentId" FOREIGN KEY ("StudentId") REFERENCES "Students" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "TeacherProfileFieldSettings" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherProfileFieldSettings" PRIMARY KEY,
-                "SchoolId" TEXT NOT NULL,
-                "FieldKey" TEXT NOT NULL,
-                "DisplayName" TEXT NOT NULL,
-                "IsCustom" INTEGER NOT NULL,
-                "IsVisibleToTeacher" INTEGER NOT NULL,
-                "IsEditableByTeacher" INTEGER NOT NULL,
-                "IsAdminOnly" INTEGER NOT NULL,
-                "SortOrder" INTEGER NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                CONSTRAINT "FK_TeacherProfileFieldSettings_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "Affiliates" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_Affiliates" PRIMARY KEY,
-                "UserId" TEXT NOT NULL,
-                "UniqueCode" TEXT NOT NULL,
-                "HeadshotPath" TEXT NULL,
-                "PhoneNumber" TEXT NULL,
-                "CountryCode" TEXT NULL,
-                "BankName" TEXT NULL,
-                "AccountNumber" TEXT NULL,
-                "AccountName" TEXT NULL,
-                "PaystackRecipientCode" TEXT NULL,
-                "IsActive" INTEGER NOT NULL,
-                "ApprovedAtUtc" TEXT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                CONSTRAINT "FK_Affiliates_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliateLeadRequests" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateLeadRequests" PRIMARY KEY,
-                "FullName" TEXT NOT NULL,
-                "Email" TEXT NOT NULL,
-                "PhoneNumber" TEXT NULL,
-                "CountryCode" TEXT NULL,
-                "Note" TEXT NULL,
-                "Status" TEXT NOT NULL,
-                "InviteSentAtUtc" TEXT NULL,
-                "CreatedAtUtc" TEXT NOT NULL
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliateInvites" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateInvites" PRIMARY KEY,
-                "AffiliateLeadRequestId" TEXT NOT NULL,
-                "Email" TEXT NOT NULL,
-                "InviteToken" TEXT NOT NULL,
-                "ExpiresAtUtc" TEXT NOT NULL,
-                "UsedAtUtc" TEXT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                CONSTRAINT "FK_AffiliateInvites_AffiliateLeadRequests_AffiliateLeadRequestId" FOREIGN KEY ("AffiliateLeadRequestId") REFERENCES "AffiliateLeadRequests" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliateTrainingVideos" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateTrainingVideos" PRIMARY KEY,
-                "Title" TEXT NOT NULL,
-                "Topic" TEXT NULL,
-                "Description" TEXT NULL,
-                "YoutubeUrl" TEXT NOT NULL,
-                "IsPublished" INTEGER NOT NULL,
-                "SortOrder" INTEGER NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliatePayouts" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliatePayouts" PRIMARY KEY,
-                "AffiliateId" TEXT NOT NULL,
-                "Amount" TEXT NOT NULL,
-                "CurrencyCode" TEXT NOT NULL,
-                "PayoutType" TEXT NOT NULL,
-                "PaystackTransferReference" TEXT NULL,
-                "Status" TEXT NOT NULL,
-                "PeriodStartUtc" TEXT NOT NULL,
-                "PeriodEndUtc" TEXT NOT NULL,
-                "PaidAtUtc" TEXT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                "FailureReason" TEXT NULL,
-                CONSTRAINT "FK_AffiliatePayouts_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliateCommissionLedgers" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateCommissionLedgers" PRIMARY KEY,
-                "AffiliateId" TEXT NOT NULL,
-                "SchoolId" TEXT NOT NULL,
-                "BillingRecordId" TEXT NULL,
-                "AffiliatePayoutId" TEXT NULL,
-                "StudentCount" INTEGER NOT NULL,
-                "BillableStudentCount" INTEGER NOT NULL,
-                "ActivationCommissionAmount" TEXT NOT NULL,
-                "MonthlyCommissionAmount" TEXT NOT NULL,
-                "TotalCommissionAmount" TEXT NOT NULL,
-                "CommissionType" TEXT NOT NULL,
-                "Status" TEXT NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                CONSTRAINT "FK_AffiliateCommissionLedgers_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE,
-                CONSTRAINT "FK_AffiliateCommissionLedgers_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE RESTRICT,
-                CONSTRAINT "FK_AffiliateCommissionLedgers_BillingRecords_BillingRecordId" FOREIGN KEY ("BillingRecordId") REFERENCES "BillingRecords" ("Id") ON DELETE SET NULL,
-                CONSTRAINT "FK_AffiliateCommissionLedgers_AffiliatePayouts_AffiliatePayoutId" FOREIGN KEY ("AffiliatePayoutId") REFERENCES "AffiliatePayouts" ("Id") ON DELETE SET NULL
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "AffiliateNotifications" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateNotifications" PRIMARY KEY,
-                "AffiliateId" TEXT NOT NULL,
-                "Title" TEXT NOT NULL,
-                "Message" TEXT NOT NULL,
-                "Type" TEXT NOT NULL,
-                "IsRead" INTEGER NOT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "ReadAtUtc" TEXT NULL,
-                CONSTRAINT "FK_AffiliateNotifications_Affiliates_AffiliateId" FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync(
-            """
-            CREATE TABLE IF NOT EXISTS "TeacherCustomFieldValues" (
-                "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherCustomFieldValues" PRIMARY KEY,
-                "TeacherId" TEXT NOT NULL,
-                "SchoolId" TEXT NOT NULL,
-                "FieldKey" TEXT NOT NULL,
-                "Value" TEXT NULL,
-                "CreatedAtUtc" TEXT NOT NULL,
-                "UpdatedAtUtc" TEXT NULL,
-                CONSTRAINT "FK_TeacherCustomFieldValues_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE,
-                CONSTRAINT "FK_TeacherCustomFieldValues_Teachers_TeacherId" FOREIGN KEY ("TeacherId") REFERENCES "Teachers" ("Id") ON DELETE CASCADE
-            );
-            """);
-
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentProfileVisibilitySettings_SchoolId\" ON \"StudentProfileVisibilitySettings\" (\"SchoolId\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_SchoolId_LoginId\" ON \"StudentPortalAccesses\" (\"SchoolId\", \"LoginId\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_StudentId\" ON \"StudentPortalAccesses\" (\"StudentId\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_UserId\" ON \"StudentPortalAccesses\" (\"UserId\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_SchoolId\" ON \"StudentPortalAccesses\" (\"SchoolId\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherProfileFieldSettings_SchoolId_FieldKey\" ON \"TeacherProfileFieldSettings\" (\"SchoolId\", \"FieldKey\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_TeacherId_FieldKey\" ON \"TeacherCustomFieldValues\" (\"TeacherId\", \"FieldKey\");");
-        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_SchoolId\" ON \"TeacherCustomFieldValues\" (\"SchoolId\");");
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Could not patch the local SQLite schema for development-only governance tables.");
-    }
-}

@@ -17,13 +17,11 @@ public class BillingService
 {
     private readonly RiseFlowDbContext _db;
     private readonly IExchangeRateService _exchangeRates;
-    private readonly AffiliateService _affiliateService;
 
-    public BillingService(RiseFlowDbContext db, IExchangeRateService exchangeRates, AffiliateService affiliateService)
+    public BillingService(RiseFlowDbContext db, IExchangeRateService exchangeRates)
     {
         _db = db;
         _exchangeRates = exchangeRates;
-        _affiliateService = affiliateService;
     }
 
     /// <summary>
@@ -110,7 +108,6 @@ public class BillingService
         };
         _db.BillingRecords.Add(record);
         await _db.SaveChangesAsync(ct);
-        await _affiliateService.EnsureCommissionForBillingRecordAsync(record, previousBillable, ct);
         return record;
     }
 

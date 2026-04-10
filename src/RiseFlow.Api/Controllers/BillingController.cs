@@ -18,34 +18,15 @@ public class BillingController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly PaymentService _payments;
     private readonly BillingReceiptPdfService _receipts;
-    private readonly AffiliateService _affiliateService;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts, AffiliateService affiliateService)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
         _payments = payments;
         _receipts = receipts;
-        _affiliateService = affiliateService;
     }
-
-    private static BillingRecordDto ToDto(BillingRecord b) => new(
-        b.Id,
-        b.SchoolId,
-        b.School.Name,
-        b.PeriodLabel,
-        b.PeriodStart,
-        b.PeriodEnd,
-        b.StudentCount,
-        b.StudentCount > CountryBillingConfig.FreeTierStudentCount ? b.StudentCount - CountryBillingConfig.FreeTierStudentCount : 0,
-        b.AmountDue,
-        b.MonthlyAmountDue,
-        b.ActivationAmountDue,
-        b.AmountPaid,
-        b.CurrencyCode,
-        b.PaidAtUtc,
-        b.PaymentReference);
 
     /// <summary>SuperAdmin: generate billing for a period for all schools or one school.</summary>
     [HttpPost("generate")]
@@ -84,47 +65,10 @@ public class BillingController : ControllerBase
             query = query.Where(b => b.SchoolId == _tenant.CurrentSchoolId.Value);
         else
             return Forbid();
-        var records = await query.OrderByDescending(b => b.PeriodStart).ToListAsync(ct);
-        var list = records.Select(ToDto).ToList();
+        var list = await query.OrderByDescending(b => b.PeriodStart).Select(b => new BillingRecordDto(
+            b.Id, b.SchoolId, b.School.Name, b.PeriodLabel, b.PeriodStart, b.PeriodEnd,
+            b.StudentCount, b.AmountDue, b.AmountPaid, b.CurrencyCode, b.PaidAtUtc)).ToListAsync(ct);
         return Ok(list);
-    }
-
-    /// <summary>SchoolAdmin: ensure the current month's billing record exists so pricing and payment can be shown immediately.</summary>
-    [HttpPost("ensure-current")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
-    [ProducesResponseType(typeof(BillingRecordDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<BillingRecordDto>> EnsureCurrentBilling(CancellationToken ct)
-    {
-        if (!_tenant.CurrentSchoolId.HasValue)
-            return Forbid();
-
-        var schoolId = _tenant.CurrentSchoolId.Value;
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var periodStart = new DateOnly(today.Year, today.Month, 1);
-        var periodEnd = periodStart.AddMonths(1).AddDays(-1);
-        var periodLabel = $"{periodStart:yyyy-MM}";
-
-        var record = await _db.BillingRecords
-            .Include(b => b.School)
-            .FirstOrDefaultAsync(b => b.SchoolId == schoolId && b.PeriodLabel == periodLabel, ct);
-
-        if (record == null)
-        {
-            await _billing.CreateBillingRecordAsync(schoolId, periodLabel, periodStart, periodEnd, ct);
-            record = await _db.BillingRecords
-                .Include(b => b.School)
-                .FirstAsync(b => b.SchoolId == schoolId && b.PeriodLabel == periodLabel, ct);
-        }
-
-        return Ok(ToDto(record));
-    }
-
-    /// <summary>Return whether the Paystack gateway is configured and ready for checkout.</summary>
-    [HttpGet("gateway-status")]
-    [ProducesResponseType(typeof(PaymentGatewayStatus), StatusCodes.Status200OK)]
-    public ActionResult<PaymentGatewayStatus> GetGatewayStatus()
-    {
-        return Ok(_payments.GetGatewayStatus());
     }
 
     /// <summary>SuperAdmin: record payment for a billing record.</summary>
@@ -139,7 +83,6 @@ public class BillingController : ControllerBase
         record.AmountPaid = request.AmountPaid;
         record.PaidAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
-        await _affiliateService.MarkBillingRecordPaidAsync(record.Id, ct);
         return Ok(record);
     }
 
@@ -166,46 +109,8 @@ public class BillingController : ControllerBase
             return Forbid();
         if (record.AmountDue <= 0)
             return BadRequest("No amount due for this billing record.");
-
-        try
-        {
-            var (authorizationUrl, reference) = await _payments.InitializePaystackPaymentAsync(record.Id, ct);
-            return Ok(new InitiatePaymentResult("Paystack", authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    /// <summary>Verify a Paystack payment reference after redirect and update the billing record immediately if successful.</summary>
-    [HttpGet("verify-payment")]
-    [ProducesResponseType(typeof(VerifyPaymentResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<VerifyPaymentResult>> VerifyPayment([FromQuery] string reference, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(reference))
-            return BadRequest("Payment reference is required.");
-
-        var record = await _db.BillingRecords.FirstOrDefaultAsync(b => b.PaymentReference == reference, ct);
-        if (record == null)
-            return NotFound("Payment reference not found.");
-        if (_tenant.CurrentSchoolId.HasValue && record.SchoolId != _tenant.CurrentSchoolId.Value && !User.IsInRole(Roles.SuperAdmin))
-            return Forbid();
-
-        try
-        {
-            var verified = await _payments.VerifyPaystackPaymentAsync(reference, ct);
-            var message = verified
-                ? "Payment verified successfully. Your billing record has been updated."
-                : "Payment is still pending Paystack confirmation.";
-            return Ok(new VerifyPaymentResult(verified, reference, message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        var (authorizationUrl, reference) = await _payments.InitializePaystackPaymentAsync(record.Id, ct);
+        return Ok(new InitiatePaymentResult("Paystack", authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
     }
 
     /// <summary>
@@ -241,11 +146,10 @@ public class BillingController : ControllerBase
 
 public record InitiatePaymentRequest(Guid BillingRecordId);
 public record InitiatePaymentResult(string GatewayName, string AuthorizationUrl, string Reference, decimal AmountDue, string CurrencyCode);
-public record VerifyPaymentResult(bool Verified, string Reference, string Message);
 
 public record ConvertAmountRequest(decimal Amount, string? FromCurrencyCode);
 public record ConvertedAmountsDto(decimal OriginalAmount, string OriginalCurrency, decimal UsdAmount, IReadOnlyDictionary<string, decimal> AmountsByCurrency);
 
 public record GenerateBillingRequest(DateOnly PeriodStart, DateOnly PeriodEnd, string? PeriodLabel, Guid? SchoolId);
 public record RecordPaymentRequest(decimal AmountPaid);
-public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, int BillableStudents, decimal AmountDue, decimal MonthlyAmountDue, decimal ActivationAmountDue, decimal? AmountPaid, string CurrencyCode, DateTime? PaidAtUtc, string? PaymentReference);
+public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, decimal AmountDue, decimal? AmountPaid, string CurrencyCode, DateTime? PaidAtUtc);

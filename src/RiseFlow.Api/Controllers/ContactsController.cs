@@ -61,20 +61,13 @@ public class ContactsController : ControllerBase
 
         if (studentId.HasValue)
         {
-            var subjectAssignments = await _db.Set<TeacherClassSubject>()
+            var tcsList = await _db.Set<TeacherClassSubject>()
                 .AsNoTracking()
                 .Include(tcs => tcs.Teacher)
                 .Include(tcs => tcs.Subject)
                 .Where(tcs => classIds.Contains(tcs.ClassId) && tcs.Teacher.IsActive)
                 .ToListAsync(ct);
-
-            var classAssignments = await _db.TeacherClasses
-                .AsNoTracking()
-                .Include(tc => tc.Teacher)
-                .Where(tc => classIds.Contains(tc.ClassId) && tc.Teacher.IsActive)
-                .ToListAsync(ct);
-
-            var combined = subjectAssignments
+            var list = tcsList
                 .Select(tcs => new TeacherContactDto(
                     tcs.TeacherId,
                     (tcs.Teacher.FirstName + " " + tcs.Teacher.LastName + (tcs.Teacher.MiddleName != null ? " " + tcs.Teacher.MiddleName : "")).Trim(),
@@ -82,20 +75,8 @@ public class ContactsController : ControllerBase
                     tcs.Teacher.Email,
                     tcs.Teacher.Phone,
                     tcs.Teacher.WhatsAppNumber ?? tcs.Teacher.Phone))
-                .Concat(classAssignments.Select(tc => new TeacherContactDto(
-                    tc.TeacherId,
-                    (tc.Teacher.FirstName + " " + tc.Teacher.LastName + (tc.Teacher.MiddleName != null ? " " + tc.Teacher.MiddleName : "")).Trim(),
-                    tc.RoleInClass ?? "Class Teacher",
-                    tc.Teacher.Email,
-                    tc.Teacher.Phone,
-                    tc.Teacher.WhatsAppNumber ?? tc.Teacher.Phone)))
-                .GroupBy(x => new { x.TeacherId, x.Subject, x.Email, x.Phone, x.WhatsAppNumber })
-                .Select(g => g.First())
-                .OrderBy(x => x.FullName)
-                .ThenBy(x => x.Subject)
                 .ToList();
-
-            return Ok(combined);
+            return Ok(list);
         }
 
         var teacherIds = await _db.TeacherClasses

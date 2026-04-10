@@ -23,7 +23,6 @@ public class Teacher : ITenantEntity
     public string? Nationality { get; set; }
     public string? StateOfOrigin { get; set; }
     public string? LGA { get; set; }
-    public string? Religion { get; set; }
     public string? NIN { get; set; }
     public string? NationalIdType { get; set; }
     public string? NationalIdNumber { get; set; }
@@ -61,6 +60,5 @@ public class Teacher : ITenantEntity
     public ICollection<TeacherClass> TeacherClasses { get; set; } = new List<TeacherClass>();
     public ICollection<TeacherSubject> TeacherSubjects { get; set; } = new List<TeacherSubject>();
     public ICollection<TeacherClassSubject> TeacherClassSubjects { get; set; } = new List<TeacherClassSubject>();
-    public ICollection<TeacherCustomFieldValue> CustomFieldValues { get; set; } = new List<TeacherCustomFieldValue>();
     public ICollection<StudentResult> EnteredResults { get; set; } = new List<StudentResult>();
 }

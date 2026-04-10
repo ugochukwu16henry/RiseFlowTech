@@ -43,17 +43,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
     public DbSet<FileAsset> FileAssets => Set<FileAsset>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
-    public DbSet<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings => Set<StudentProfileVisibilitySetting>();
-    public DbSet<StudentPortalAccess> StudentPortalAccesses => Set<StudentPortalAccess>();
-    public DbSet<TeacherProfileFieldSetting> TeacherProfileFieldSettings => Set<TeacherProfileFieldSetting>();
-    public DbSet<TeacherCustomFieldValue> TeacherCustomFieldValues => Set<TeacherCustomFieldValue>();
-    public DbSet<Affiliate> Affiliates => Set<Affiliate>();
-    public DbSet<AffiliateLeadRequest> AffiliateLeadRequests => Set<AffiliateLeadRequest>();
-    public DbSet<AffiliateInvite> AffiliateInvites => Set<AffiliateInvite>();
-    public DbSet<AffiliateTrainingVideo> AffiliateTrainingVideos => Set<AffiliateTrainingVideo>();
-    public DbSet<AffiliatePayout> AffiliatePayouts => Set<AffiliatePayout>();
-    public DbSet<AffiliateCommissionLedger> AffiliateCommissionLedgers => Set<AffiliateCommissionLedger>();
-    public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -80,11 +69,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);
-            e.Property(x => x.AffiliateReferralCodeUsed).HasMaxLength(64);
-            e.HasOne(x => x.Affiliate)
-                .WithMany(a => a.ReferredSchools)
-                .HasForeignKey(x => x.AffiliateId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Grade
@@ -122,7 +106,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.AdmissionNumber).HasMaxLength(64);
             e.Property(x => x.PreviousSchool).HasMaxLength(256);
-            e.Property(x => x.PreviousClass).HasMaxLength(128);
             e.Property(x => x.BloodGroup).HasMaxLength(16);
             e.Property(x => x.Genotype).HasMaxLength(16);
             e.Property(x => x.Allergies).HasMaxLength(512);
@@ -152,7 +135,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Nationality).HasMaxLength(128);
             e.Property(x => x.StateOfOrigin).HasMaxLength(128);
             e.Property(x => x.LGA).HasMaxLength(128);
-            e.Property(x => x.Religion).HasMaxLength(64);
             e.Property(x => x.NIN).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.NationalIdType).HasMaxLength(32);
             e.Property(x => x.NationalIdNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
@@ -277,65 +259,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.Item).WithMany(i => i.StudentAssessments).HasForeignKey(x => x.AssessmentItemId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        builder.Entity<StudentProfileVisibilitySetting>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.HasIndex(x => x.SchoolId).IsUnique();
-            e.HasOne(x => x.School)
-                .WithMany(s => s.StudentProfileVisibilitySettings)
-                .HasForeignKey(x => x.SchoolId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<StudentPortalAccess>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.LoginId).IsRequired().HasMaxLength(128);
-            e.HasIndex(x => x.StudentId).IsUnique();
-            e.HasIndex(x => x.UserId).IsUnique();
-            e.HasIndex(x => new { x.SchoolId, x.LoginId }).IsUnique();
-            e.HasOne(x => x.School)
-                .WithMany(s => s.StudentPortalAccesses)
-                .HasForeignKey(x => x.SchoolId)
-                .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Student)
-                .WithOne(s => s.PortalAccess)
-                .HasForeignKey<StudentPortalAccess>(x => x.StudentId)
-                .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.User)
-                .WithMany()
-                .HasForeignKey(x => x.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<TeacherProfileFieldSetting>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.FieldKey).IsRequired().HasMaxLength(128);
-            e.Property(x => x.DisplayName).IsRequired().HasMaxLength(128);
-            e.HasIndex(x => new { x.SchoolId, x.FieldKey }).IsUnique();
-            e.HasOne(x => x.School)
-                .WithMany(s => s.TeacherProfileFieldSettings)
-                .HasForeignKey(x => x.SchoolId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<TeacherCustomFieldValue>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.FieldKey).IsRequired().HasMaxLength(128);
-            e.Property(x => x.Value).HasMaxLength(2048);
-            e.HasIndex(x => new { x.TeacherId, x.FieldKey }).IsUnique();
-            e.HasOne(x => x.School)
-                .WithMany(s => s.TeacherCustomFieldValues)
-                .HasForeignKey(x => x.SchoolId)
-                .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.Teacher)
-                .WithMany(t => t.CustomFieldValues)
-                .HasForeignKey(x => x.TeacherId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
         // FileAsset (uploaded files/photos stored on disk; metadata in SQLite)
         builder.Entity<FileAsset>(e =>
         {
@@ -383,108 +306,6 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
             e.Property(x => x.PaymentReference).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.BillingRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        builder.Entity<Affiliate>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.UniqueCode).IsRequired().HasMaxLength(64);
-            e.Property(x => x.HeadshotPath).HasMaxLength(512);
-            e.Property(x => x.PhoneNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
-            e.Property(x => x.CountryCode).HasMaxLength(8);
-            e.Property(x => x.BankName).HasMaxLength(128);
-            e.Property(x => x.AccountNumber).HasMaxLength(32);
-            e.Property(x => x.AccountName).HasMaxLength(128);
-            e.Property(x => x.PaystackRecipientCode).HasMaxLength(128);
-            e.HasIndex(x => x.UniqueCode).IsUnique();
-            e.HasIndex(x => x.UserId).IsUnique();
-            e.HasOne(x => x.User)
-                .WithMany()
-                .HasForeignKey(x => x.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<AffiliateLeadRequest>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.FullName).IsRequired().HasMaxLength(128);
-            e.Property(x => x.Email).IsRequired().HasMaxLength(256);
-            e.Property(x => x.PhoneNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
-            e.Property(x => x.CountryCode).HasMaxLength(8);
-            e.Property(x => x.Note).HasMaxLength(1024);
-            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
-            e.HasIndex(x => x.Email);
-        });
-
-        builder.Entity<AffiliateInvite>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Email).IsRequired().HasMaxLength(256);
-            e.Property(x => x.InviteToken).IsRequired().HasMaxLength(128);
-            e.HasIndex(x => x.InviteToken).IsUnique();
-            e.HasOne(x => x.AffiliateLeadRequest)
-                .WithMany(x => x.Invites)
-                .HasForeignKey(x => x.AffiliateLeadRequestId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<AffiliateTrainingVideo>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Title).IsRequired().HasMaxLength(160);
-            e.Property(x => x.Topic).HasMaxLength(128);
-            e.Property(x => x.Description).HasMaxLength(2048);
-            e.Property(x => x.YoutubeUrl).IsRequired().HasMaxLength(512);
-        });
-
-        builder.Entity<AffiliatePayout>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(8);
-            e.Property(x => x.PayoutType).IsRequired().HasMaxLength(32);
-            e.Property(x => x.PaystackTransferReference).HasMaxLength(128);
-            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
-            e.Property(x => x.FailureReason).HasMaxLength(1024);
-            e.HasOne(x => x.Affiliate)
-                .WithMany(x => x.Payouts)
-                .HasForeignKey(x => x.AffiliateId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<AffiliateCommissionLedger>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.CommissionType).IsRequired().HasMaxLength(64);
-            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
-            e.HasIndex(x => x.BillingRecordId).IsUnique();
-            e.HasOne(x => x.Affiliate)
-                .WithMany(x => x.CommissionLedgers)
-                .HasForeignKey(x => x.AffiliateId)
-                .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(x => x.School)
-                .WithMany()
-                .HasForeignKey(x => x.SchoolId)
-                .OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.BillingRecord)
-                .WithMany()
-                .HasForeignKey(x => x.BillingRecordId)
-                .OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(x => x.AffiliatePayout)
-                .WithMany(x => x.CommissionLedgers)
-                .HasForeignKey(x => x.AffiliatePayoutId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        builder.Entity<AffiliateNotification>(e =>
-        {
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Title).IsRequired().HasMaxLength(160);
-            e.Property(x => x.Message).IsRequired().HasMaxLength(2048);
-            e.Property(x => x.Type).IsRequired().HasMaxLength(32);
-            e.HasOne(x => x.Affiliate)
-                .WithMany(x => x.Notifications)
-                .HasForeignKey(x => x.AffiliateId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // TranscriptVerification

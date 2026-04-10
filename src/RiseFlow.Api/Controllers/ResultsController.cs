@@ -66,29 +66,24 @@ public class ResultsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(StudentResultViewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(StudentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<StudentResultViewDto>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<StudentResult>> GetById(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var result = await _db.StudentResults
             .AsNoTracking()
-            .Include(r => r.Student).ThenInclude(s => s!.Class)
+            .Include(r => r.Student)
             .Include(r => r.Subject)
             .Include(r => r.Term)
+            .Include(r => r.EnteredByTeacher)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
         if (User.IsInRole(Roles.Parent) && !await CanParentAccessStudentAsync(result.StudentId, ct))
             return Forbid();
-        if (User.IsInRole(Roles.Student))
-        {
-            var studentIdClaim = User.FindFirst("StudentId")?.Value;
-            if (!Guid.TryParse(studentIdClaim, out var currentStudentId) || currentStudentId != result.StudentId)
-                return Forbid();
-        }
-        return Ok(MapResult(result));
+        return Ok(result);
     }
 
     [HttpPut("{id:guid}")]
@@ -155,61 +150,50 @@ public class ResultsController : ControllerBase
 
     /// <summary>List results: by student and optional term (teachers/schooladmin), or for parent's children only.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(List<StudentResultViewDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<StudentResultViewDto>>> List([FromQuery] Guid? studentId, [FromQuery] Guid? termId, CancellationToken ct)
+    [ProducesResponseType(typeof(List<StudentResult>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentResult>>> List([FromQuery] Guid? studentId, [FromQuery] Guid? termId, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         IQueryable<StudentResult> query = _db.StudentResults
-            .AsNoTracking()
-            .Include(r => r.Student).ThenInclude(s => s!.Class)
+            .Include(r => r.Student)
             .Include(r => r.Subject)
             .Include(r => r.Term);
         if (User.IsInRole(Roles.Parent))
         {
             var allowedStudentIds = await GetParentLinkedStudentIdsAsync(ct);
             if (allowedStudentIds.Count == 0)
-                return Ok(new List<StudentResultViewDto>());
+                return Ok(new List<StudentResult>());
             query = query.Where(r => allowedStudentIds.Contains(r.StudentId));
         }
-        else if (User.IsInRole(Roles.Student))
-        {
-            var studentIdClaim = User.FindFirst("StudentId")?.Value;
-            if (!Guid.TryParse(studentIdClaim, out var currentStudentId))
-                return Ok(new List<StudentResultViewDto>());
-            query = query.Where(r => r.StudentId == currentStudentId);
-        }
         else if (studentId.HasValue)
-        {
             query = query.Where(r => r.StudentId == studentId.Value);
-        }
         if (termId.HasValue)
             query = query.Where(r => r.TermId == termId.Value);
         var list = await query.OrderBy(r => r.Term!.StartDate).ThenBy(r => r.Subject!.Name).ToListAsync(ct);
-        return Ok(list.Select(MapResult).ToList());
+        return Ok(list);
     }
 
     /// <summary>Parent-only: results for all my children, optionally filtered by term.</summary>
     [HttpGet("my-children")]
     [Authorize(Roles = Roles.Parent)]
-    [ProducesResponseType(typeof(List<StudentResultViewDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<StudentResultViewDto>>> MyChildrenResults([FromQuery] Guid? termId, CancellationToken ct)
+    [ProducesResponseType(typeof(List<StudentResult>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentResult>>> MyChildrenResults([FromQuery] Guid? termId, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var allowedStudentIds = await GetParentLinkedStudentIdsAsync(ct);
         if (allowedStudentIds.Count == 0)
-            return Ok(new List<StudentResultViewDto>());
+            return Ok(new List<StudentResult>());
         var query = _db.StudentResults
-            .AsNoTracking()
-            .Include(r => r.Student).ThenInclude(s => s!.Class)
+            .Include(r => r.Student)
             .Include(r => r.Subject)
             .Include(r => r.Term)
             .Where(r => allowedStudentIds.Contains(r.StudentId));
         if (termId.HasValue)
             query = query.Where(r => r.TermId == termId.Value);
         var list = await query.OrderBy(r => r.Student!.LastName).ThenBy(r => r.Subject!.Name).ToListAsync(ct);
-        return Ok(list.Select(MapResult).ToList());
+        return Ok(list);
     }
 
     /// <summary>Class rankings for a term: total score and position in class. Teachers/SchoolAdmin. Requires termId; classId optional (filter by class).</summary>
@@ -256,28 +240,6 @@ public class ResultsController : ControllerBase
         return Ok(rankings);
     }
 
-    private static StudentResultViewDto MapResult(StudentResult result)
-    {
-        var studentName = result.Student == null
-            ? "—"
-            : $"{result.Student.FirstName} {result.Student.MiddleName} {result.Student.LastName}".Replace("  ", " ").Trim();
-
-        return new StudentResultViewDto(
-            result.Id,
-            result.StudentId,
-            studentName,
-            result.Student?.Class?.Name,
-            result.Subject == null ? null : new ResultLookupDto(result.SubjectId, result.Subject.Name),
-            result.Term == null ? null : new ResultLookupDto(result.TermId, result.Term.Name),
-            result.AssessmentType,
-            result.Score,
-            result.MaxScore,
-            result.GradeLetter,
-            result.Comment,
-            result.CreatedAtUtc,
-            result.UpdatedAtUtc);
-    }
-
     private async Task<Guid?> ResolveCurrentTeacherIdAsync(CancellationToken ct)
     {
         var email = _tenant.CurrentUserEmail;
@@ -313,18 +275,3 @@ public class ResultsController : ControllerBase
 }
 
 public record ClassRankingDto(Guid StudentId, string StudentName, decimal TotalScore, decimal MaxTotal, decimal Percentage, int PositionInClass);
-public record ResultLookupDto(Guid Id, string Name);
-public record StudentResultViewDto(
-    Guid Id,
-    Guid StudentId,
-    string StudentName,
-    string? ClassName,
-    ResultLookupDto? Subject,
-    ResultLookupDto? Term,
-    string AssessmentType,
-    decimal Score,
-    decimal MaxScore,
-    string? GradeLetter,
-    string? Comment,
-    DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc);

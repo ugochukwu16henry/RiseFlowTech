@@ -30,7 +30,6 @@ public class Student : ITenantEntity
     public Guid? ClassId { get; set; }
     public Guid? GradeId { get; set; }
     public string? PreviousSchool { get; set; }
-    public string? PreviousClass { get; set; }
 
     // ——— Health ———
     public string? BloodGroup { get; set; }
@@ -48,12 +47,10 @@ public class Student : ITenantEntity
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
-    public DateTime? ParentProfileLastUpdatedAtUtc { get; set; }
 
     public School School { get; set; } = null!;
     public Class? Class { get; set; }
     public Grade? Grade { get; set; }
-    public StudentPortalAccess? PortalAccess { get; set; }
     public ICollection<StudentParent> StudentParents { get; set; } = new List<StudentParent>();
     public ICollection<StudentResult> Results { get; set; } = new List<StudentResult>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();

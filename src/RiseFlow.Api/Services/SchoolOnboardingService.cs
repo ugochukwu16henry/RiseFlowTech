@@ -16,16 +16,12 @@ public class SchoolOnboardingService
     private readonly RiseFlowDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
-    private readonly FileStorageService _fileStorage;
-    private readonly AffiliateService _affiliateService;
 
-    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, FileStorageService fileStorage, AffiliateService affiliateService)
+    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
     {
         _db = db;
         _userManager = userManager;
         _env = env;
-        _fileStorage = fileStorage;
-        _affiliateService = affiliateService;
     }
 
     public async Task<SchoolOnboardingResult> OnboardSchoolAsync(OnboardSchoolRequest request, CancellationToken ct = default)
@@ -33,8 +29,6 @@ public class SchoolOnboardingService
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         try
         {
-            var affiliate = await _affiliateService.FindByReferralCodeAsync(request.ReferralCode, ct);
-
             var school = new School
             {
                 Id = Guid.NewGuid(),
@@ -47,8 +41,6 @@ public class SchoolOnboardingService
                 CacNumber = request.CacNumber,
                 CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
                 CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
-                AffiliateId = affiliate?.Id,
-                AffiliateReferralCodeUsed = affiliate?.UniqueCode,
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow,
                 TermsAndDpaAgreedAt = request.AgreedToTermsAndDpa ? DateTime.UtcNow : (DateTime?)null
@@ -135,7 +127,8 @@ public class SchoolOnboardingService
         if (!allowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return null;
 
-        var dir = Path.Combine(_fileStorage.RootPath, folderName);
+        var root = _env.WebRootPath ?? _env.ContentRootPath;
+        var dir = Path.Combine(root, folderName);
         Directory.CreateDirectory(dir);
 
         var fileName = $"{schoolId:N}{ext}";
@@ -171,7 +164,6 @@ public record OnboardSchoolRequest(
     string? AdminEmail,
     string? AdminPassword,
     string? AdminFullName,
-    string? ReferralCode = null,
     /// <summary>Required when creating an admin account. Must be true to comply with ToS and Data Processing Agreement.</summary>
     bool AgreedToTermsAndDpa = false);
 

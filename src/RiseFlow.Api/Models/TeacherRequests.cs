@@ -14,7 +14,6 @@ public record CreateTeacherRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
-    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -49,7 +48,6 @@ public record UpdateTeacherRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
-    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -69,35 +67,7 @@ public record UpdateTeacherRequest(
     string? AllowancesNote,
     string? PromotionHistory,
     string? Recognitions,
-    bool IsActive,
-    IReadOnlyList<TeacherProfileFieldSettingUpdateDto>? FieldSettings,
-    IReadOnlyList<TeacherCustomFieldInputDto>? CustomFields);
-
-public record UpdateMyTeacherProfileRequest(
-    string FirstName,
-    string LastName,
-    string? MiddleName,
-    string? Phone,
-    string? WhatsAppNumber,
-    string? StaffId,
-    string? SubjectSpecialization,
-    DateOnly? DateOfBirth,
-    string? Gender,
-    string? Nationality,
-    string? StateOfOrigin,
-    string? LGA,
-    string? Religion,
-    string? NIN,
-    string? NationalIdType,
-    string? NationalIdNumber,
-    string? TrcnNumber,
-    string? ResidentialAddress,
-    string? HighestQualification,
-    string? FieldOfStudy,
-    int? YearsOfExperience,
-    string? PreviousSchools,
-    string? ProfessionalBodies,
-    IReadOnlyList<TeacherCustomFieldInputDto>? CustomFields);
+    bool IsActive);
 
 public record AssignTeacherToClassRequest(string? RoleInClass);
 
@@ -116,7 +86,6 @@ public record TeacherSignupRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
-    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -129,87 +98,3 @@ public record TeacherSignupRequest(
     string? ProfessionalBodies);
 
 public record TeacherSignupResult(bool Success, string Message);
-
-public record TeacherProfileFieldSettingDto(
-    string FieldKey,
-    string DisplayName,
-    bool IsCustom,
-    bool IsVisibleToTeacher,
-    bool IsEditableByTeacher,
-    bool IsAdminOnly,
-    int SortOrder);
-
-public record TeacherProfileFieldSettingUpdateDto(
-    string FieldKey,
-    string DisplayName,
-    bool IsCustom,
-    bool IsVisibleToTeacher,
-    bool IsEditableByTeacher,
-    bool IsAdminOnly,
-    int SortOrder);
-
-public record TeacherCustomFieldDto(
-    string FieldKey,
-    string DisplayName,
-    string? Value,
-    bool IsVisibleToTeacher,
-    bool IsEditableByTeacher,
-    bool IsAdminOnly,
-    int SortOrder);
-
-public record TeacherCustomFieldInputDto(
-    string FieldKey,
-    string? DisplayName,
-    string? Value,
-    bool IsVisibleToTeacher = true,
-    bool IsEditableByTeacher = true,
-    bool IsAdminOnly = false,
-    int SortOrder = 0);
-
-public record TeacherAssignedClassDto(Guid ClassId, string ClassName, string? AcademicYear, string? RoleInClass);
-
-public record TeacherProfileDto(
-    Guid Id,
-    Guid SchoolId,
-    string FirstName,
-    string LastName,
-    string? MiddleName,
-    string? Email,
-    string? Phone,
-    string? WhatsAppNumber,
-    string? StaffId,
-    string? SubjectSpecialization,
-    DateOnly? DateOfBirth,
-    string? Gender,
-    string? Nationality,
-    string? StateOfOrigin,
-    string? LGA,
-    string? Religion,
-    string? NIN,
-    string? NationalIdType,
-    string? NationalIdNumber,
-    string? TrcnNumber,
-    string? ResidentialAddress,
-    string? HighestQualification,
-    string? FieldOfStudy,
-    int? YearsOfExperience,
-    string? PreviousSchools,
-    string? ProfessionalBodies,
-    DateOnly? DateEmployed,
-    string? EmploymentType,
-    string? RoleTitle,
-    string? Department,
-    decimal? BaseSalaryAmount,
-    string? BaseSalaryCurrency,
-    string? AllowancesNote,
-    string? PromotionHistory,
-    string? Recognitions,
-    string? ProfilePhotoFileName,
-    bool IsActive,
-    int AssignedClassCount,
-    int AssignedStudentCount,
-    DateTime CreatedAtUtc,
-    DateTime? UpdatedAtUtc,
-    IReadOnlyList<TeacherAssignedClassDto> TeacherClasses,
-    IReadOnlyList<TeacherProfileFieldSettingDto> FieldSettings,
-    IReadOnlyList<TeacherCustomFieldDto> CustomFields);
