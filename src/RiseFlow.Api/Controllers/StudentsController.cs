@@ -311,7 +311,7 @@ public class StudentsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, student);
     }
 
-    /// <summary>Download Excel template for bulk student upload. Aligned with African ministry requirements (NIN, Class, Parent, etc.).</summary>
+    /// <summary>Download a simple Excel template for bulk student upload. Only core onboarding fields are requested; admission numbers are generated automatically.</summary>
     [HttpGet("bulk-upload-template")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
@@ -324,40 +324,29 @@ public class StudentsController : ControllerBase
         ws.Cell(1, 3).Value = "MiddleName";
         ws.Cell(1, 4).Value = "Gender";
         ws.Cell(1, 5).Value = "DateOfBirth";
-        ws.Cell(1, 6).Value = "NIN";
-        ws.Cell(1, 7).Value = "NationalIdType";
-        ws.Cell(1, 8).Value = "NationalIdNumber";
-        ws.Cell(1, 9).Value = "Class";
-        ws.Cell(1, 10).Value = "AdmissionNumber";
-        ws.Cell(1, 11).Value = "StateOfOrigin";
-        ws.Cell(1, 12).Value = "LGA";
-        ws.Cell(1, 13).Value = "Nationality";
-        ws.Cell(1, 14).Value = "ParentName";
-        ws.Cell(1, 15).Value = "ParentPhone";
-        ws.Cell(1, 16).Value = "BloodGroup";
-        ws.Cell(1, 17).Value = "Genotype";
-        ws.Cell(1, 18).Value = "EmergencyContactName";
-        ws.Cell(1, 19).Value = "EmergencyContactPhone";
         ws.Row(1).Style.Font.Bold = true;
+
         ws.Cell(2, 1).Value = "John";
         ws.Cell(2, 2).Value = "Doe";
+        ws.Cell(2, 3).Value = "Michael";
         ws.Cell(2, 4).Value = "Male";
         ws.Cell(2, 5).Value = "2015-09-01";
-        ws.Cell(2, 9).Value = string.Empty;
-        ws.Cell(2, 14).Value = "Jane Doe";
-        ws.Cell(2, 15).Value = "+2348012345678";
-        var countrySheet = workbook.Worksheets.Add("Country_Columns");
-        countrySheet.Cell(1, 1).Value = "Country";
-        countrySheet.Cell(1, 2).Value = "Required / Recommended columns";
-        countrySheet.Row(1).Style.Font.Bold = true;
-        countrySheet.Cell(2, 1).Value = "Nigeria";
-        countrySheet.Cell(2, 2).Value = "NIN (National ID), StateOfOrigin, LGA required for ministry alignment.";
-        countrySheet.Cell(3, 1).Value = "Ghana";
-        countrySheet.Cell(3, 2).Value = "NationalIdType=GHANA_CARD, NationalIdNumber.";
-        countrySheet.Cell(4, 1).Value = "Kenya";
-        countrySheet.Cell(4, 2).Value = "NationalIdType=KENYA_ID, NationalIdNumber.";
-        countrySheet.Cell(5, 1).Value = "All";
-        countrySheet.Cell(5, 2).Value = "FirstName and LastName are required. Class is optional—use an existing class name if you have already created classes in RiseFlow, or leave it blank and assign later. ParentName and ParentPhone are recommended for guardian setup.";
+
+        var notesSheet = workbook.Worksheets.Add("Notes");
+        notesSheet.Cell(1, 1).Value = "Field";
+        notesSheet.Cell(1, 2).Value = "Guidance";
+        notesSheet.Row(1).Style.Font.Bold = true;
+        notesSheet.Cell(2, 1).Value = "FirstName";
+        notesSheet.Cell(2, 2).Value = "Required";
+        notesSheet.Cell(3, 1).Value = "LastName";
+        notesSheet.Cell(3, 2).Value = "Required";
+        notesSheet.Cell(4, 1).Value = "MiddleName / Gender / DateOfBirth";
+        notesSheet.Cell(4, 2).Value = "Optional during import";
+        notesSheet.Cell(5, 1).Value = "AdmissionNumber";
+        notesSheet.Cell(5, 2).Value = "Not needed in the sheet. RiseFlow generates it automatically during import.";
+        notesSheet.Cell(6, 1).Value = "Other student details";
+        notesSheet.Cell(6, 2).Value = "Can be updated later by the School Admin or parents.";
+
         using var stream = new MemoryStream();
         workbook.SaveAs(stream, false);
         stream.Position = 0;

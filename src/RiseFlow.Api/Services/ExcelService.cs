@@ -7,15 +7,16 @@ using RiseFlow.Api.Entities;
 namespace RiseFlow.Api.Services;
 
 /// <summary>
-/// Excel import for students: template aligned with African ministry requirements (NIN, NationalIdType, Class, Parent, etc.).
-/// Supports preview, validation (highlight missing name/NIN per country), and "First 50 Free" billing message.
+/// Excel import for students using a simple onboarding template.
+/// FirstName and LastName are required; other details can be supplied later by School Admin or parents.
 /// </summary>
 public class ExcelService
 {
     private readonly RiseFlowDbContext _db;
     private readonly StudentAdmissionNumberService _admissionNumbers;
 
-    // Column indices for template: FirstName, LastName, MiddleName, Gender, DateOfBirth, NIN, NationalIdType, NationalIdNumber, Class, AdmissionNumber, StateOfOrigin, LGA, Nationality, ParentName, ParentPhone, BloodGroup, Genotype, EmergencyContactName, EmergencyContactPhone
+    // Core template columns: FirstName, LastName, MiddleName, Gender, DateOfBirth.
+    // Legacy optional columns after column 5 are still accepted when present for backward compatibility.
     private const int ColFirstName = 1, ColLastName = 2, ColMiddleName = 3, ColGender = 4, ColDateOfBirth = 5;
     private const int ColNIN = 6, ColNationalIdType = 7, ColNationalIdNumber = 8, ColClass = 9, ColAdmissionNumber = 10;
     private const int ColStateOfOrigin = 11, ColLGA = 12, ColNationality = 13, ColParentName = 14, ColParentPhone = 15;

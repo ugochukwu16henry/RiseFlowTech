@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
@@ -12,14 +12,6 @@ export default function ExcelImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [dragOver, setDragOver] = useState(false);
-  const [classCount, setClassCount] = useState(null);
-
-  useEffect(() => {
-    apiFetch('/api/schools/classes')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list) => setClassCount(Array.isArray(list) ? list.length : 0))
-      .catch(() => setClassCount(0));
-  }, []);
 
   const loadPreview = useCallback(async (fileObj) => {
     if (!fileObj || !fileObj.name?.toLowerCase().endsWith('.xlsx')) {
@@ -123,7 +115,7 @@ export default function ExcelImportPage() {
       <div className="excel-import">
         <section className="excel-section">
           <h2 className="section-title">1. Download template</h2>
-          <p className="card-desc">Use the template aligned with African ministry requirements (NIN, Class, Parent, etc.). Admission numbers are auto-generated for any row where the column is left blank.</p>
+          <p className="card-desc">Use the simple student onboarding template. Only <strong>FirstName</strong> and <strong>LastName</strong> are required. Admission numbers are generated automatically, and other details can be updated later by the School Admin or parents.</p>
           <a
             href={`${getApiBase()}/api/students/bulk-upload-template`}
             target="_blank"
@@ -136,11 +128,7 @@ export default function ExcelImportPage() {
 
         <section className="excel-section">
           <h2 className="section-title">2. Upload & preview</h2>
-          {classCount === 0 && (
-            <p className="excel-error">
-              No classes found yet. Students can still be imported, but any class names in the sheet will be ignored until matching classes are created in RiseFlow.
-            </p>
-          )}
+          <p className="excel-hint">Required fields: <strong>FirstName</strong>, <strong>LastName</strong>. Optional fields: <strong>MiddleName</strong>, <strong>Gender</strong>, <strong>DateOfBirth</strong>.</p>
           <div
             className={`excel-dropzone ${dragOver ? 'excel-dropzone--active' : ''}`}
             onDrop={handleDrop}
@@ -185,12 +173,9 @@ export default function ExcelImportPage() {
                       <th>Row</th>
                       <th>FirstName</th>
                       <th>LastName</th>
+                      <th>MiddleName</th>
                       <th>Gender</th>
                       <th>DateOfBirth</th>
-                      <th>NIN</th>
-                      <th>Class</th>
-                      <th>ParentName</th>
-                      <th>ParentPhone</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -199,18 +184,15 @@ export default function ExcelImportPage() {
                         <td>{row.rowIndex}</td>
                         <td>{row.firstName}</td>
                         <td>{row.lastName}</td>
+                        <td>{row.middleName ?? '—'}</td>
                         <td>{row.gender ?? '—'}</td>
                         <td>{row.dateOfBirth ?? '—'}</td>
-                        <td>{row.nIN ?? '—'}</td>
-                        <td>{row.className ?? '—'}</td>
-                        <td>{row.parentName ?? '—'}</td>
-                        <td>{row.parentPhone ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="card-desc">Total rows in file: {preview.totalRows}. Any blank admission numbers will be generated automatically during import.</p>
+              <p className="card-desc">Total rows in file: {preview.totalRows}. Admission numbers will be generated automatically during import, and other student details can be updated later.</p>
 
               {hasValidationErrors && (
                 <div className="excel-issues-panel">
