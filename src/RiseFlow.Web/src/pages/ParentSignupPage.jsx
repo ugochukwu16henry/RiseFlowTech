@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
-import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+import { getApiBase } from '../api';
 import './RolePages.css';
 import './ClaimChildPage.css';
 
@@ -36,9 +36,9 @@ export default function ParentSignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await apiFetch('/api/parents/signup', {
+      const res = await fetch(`${getApiBase()}/api/parents/signup`, {
         method: 'POST',
-        skipTenantHeader: true,
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schoolId,
@@ -55,22 +55,6 @@ export default function ParentSignupPage() {
         setError(data?.message || data?.title || text || 'Signup failed. Try again.');
         return;
       }
-
-      const loginRes = await apiFetch('/api/auth/login', {
-        method: 'POST',
-        skipTenantHeader: true,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
-      });
-      const loginData = await loginRes.json().catch(() => null);
-      if (loginRes.ok && loginData?.success) {
-        try {
-          if (loginData.schoolId) localStorage.setItem(STORAGE_TENANT_KEY, loginData.schoolId);
-        } catch {
-          // ignore storage issues
-        }
-      }
-
       navigate('/parent/claim?signedUp=1', { replace: true });
     } catch (e) {
       setError(e.message || 'Network error.');
@@ -119,11 +103,11 @@ export default function ParentSignupPage() {
             id="signup-password"
             type="password"
             autoComplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder="At least 6 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="claim-input signup-input"
-            minLength={8}
+            minLength={6}
             required
           />
 

@@ -28,10 +28,6 @@ import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
 import PrivacyPage from './pages/PrivacyPage.jsx'
-import AffiliateProgramPage from './pages/AffiliateProgramPage.jsx'
-import AffiliateSignupPage from './pages/AffiliateSignupPage.jsx'
-import AffiliatePage from './pages/AffiliatePage.jsx'
-import SuperAdminAffiliatesPage from './pages/SuperAdminAffiliatesPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -43,20 +39,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/affiliate-program" element={<AffiliateProgramPage />} />
-        <Route path="/affiliate/signup" element={<AffiliateSignupPage />} />
-        <Route path="/affiliate" element={<AffiliatePage />} />
-        <Route path="/affiliate/schools" element={<AffiliatePage />} />
-        <Route path="/affiliate/payouts" element={<AffiliatePage />} />
-        <Route path="/affiliate/training" element={<AffiliatePage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
         <Route path="/super-admin/dashboard" element={<SuperAdminPage />} />
         <Route path="/super-admin/schools" element={<SuperAdminSchoolsPage />} />
         <Route path="/super-admin/revenue" element={<SuperAdminRevenuePage />} />
-        <Route path="/super-admin/affiliates" element={<SuperAdminAffiliatesPage />} />
-        <Route path="/super-admin/affiliate-requests" element={<SuperAdminAffiliatesPage />} />
-        <Route path="/super-admin/affiliate-payouts" element={<SuperAdminAffiliatesPage />} />
-        <Route path="/super-admin/affiliate-training" element={<SuperAdminAffiliatesPage />} />
         <Route path="/super-admin/compliance" element={<SuperAdminCompliancePage />} />
         <Route path="/super-admin/data-offboarding" element={<SuperAdminDataOffboardingPage />} />
         <Route path="/parent" element={<ParentPage />} />

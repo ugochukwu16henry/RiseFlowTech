@@ -19,12 +19,8 @@ const QUICK_GRADE_TEMPLATES = [
 export default function SchoolClassesPage() {
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedClassByTeacher, setSelectedClassByTeacher] = useState({});
-  const [roleByTeacher, setRoleByTeacher] = useState({});
-  const [assignmentBusyKey, setAssignmentBusyKey] = useState(null);
   const [gradeName, setGradeName] = useState('');
   const [gradeLevelOrder, setGradeLevelOrder] = useState('');
   const [savingGrade, setSavingGrade] = useState(false);
@@ -37,23 +33,19 @@ export default function SchoolClassesPage() {
     setLoading(true);
     setError(null);
     try {
-      const [gRes, cRes, tRes] = await Promise.all([
+      const [gRes, cRes] = await Promise.all([
         apiFetch('/api/schools/grades'),
         apiFetch('/api/schools/classes'),
-        apiFetch('/api/teachers'),
       ]);
-      if (gRes.status === 401 || gRes.status === 403 || cRes.status === 401 || cRes.status === 403 || tRes.status === 401 || tRes.status === 403) {
+      if (gRes.status === 401 || gRes.status === 403 || cRes.status === 401 || cRes.status === 403) {
         throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
       }
       if (!gRes.ok) throw new Error(await gRes.text().catch(() => 'Could not load grades.'));
       if (!cRes.ok) throw new Error(await cRes.text().catch(() => 'Could not load classes.'));
-      if (!tRes.ok) throw new Error(await tRes.text().catch(() => 'Could not load teachers.'));
       const gData = await gRes.json();
       const cData = await cRes.json();
-      const tData = await tRes.json();
       setGrades(Array.isArray(gData) ? gData : []);
       setClasses(Array.isArray(cData) ? cData : []);
-      setTeachers(Array.isArray(tData) ? tData : []);
     } catch (e) {
       setError(e.message || 'Failed to load.');
     } finally {
@@ -147,51 +139,6 @@ export default function SchoolClassesPage() {
       setError(err.message || 'Failed to add class.');
     } finally {
       setSavingClass(false);
-    }
-  };
-
-  const assignTeacherToClass = async (teacherId) => {
-    const classId = selectedClassByTeacher[teacherId];
-    if (!classId) {
-      setError('Select a class before assigning a teacher.');
-      return;
-    }
-    const busyKey = `assign:${teacherId}:${classId}`;
-    setAssignmentBusyKey(busyKey);
-    setError(null);
-    try {
-      const res = await apiFetch(`/api/teachers/${teacherId}/classes/${classId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleInClass: roleByTeacher[teacherId]?.trim() || null }),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || 'Could not assign teacher to class.');
-      setSelectedClassByTeacher((prev) => ({ ...prev, [teacherId]: '' }));
-      setRoleByTeacher((prev) => ({ ...prev, [teacherId]: '' }));
-      await load();
-    } catch (err) {
-      setError(err.message || 'Failed to assign teacher to class.');
-    } finally {
-      setAssignmentBusyKey(null);
-    }
-  };
-
-  const unassignTeacherFromClass = async (teacherId, classId) => {
-    const busyKey = `remove:${teacherId}:${classId}`;
-    setAssignmentBusyKey(busyKey);
-    setError(null);
-    try {
-      const res = await apiFetch(`/api/teachers/${teacherId}/classes/${classId}`, {
-        method: 'DELETE',
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || 'Could not remove teacher from class.');
-      await load();
-    } catch (err) {
-      setError(err.message || 'Failed to remove teacher from class.');
-    } finally {
-      setAssignmentBusyKey(null);
     }
   };
 
@@ -339,101 +286,6 @@ export default function SchoolClassesPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-      </section>
-
-      <section id="teacher-assignments" className="school-classes-section" aria-labelledby="teacher-assignments-heading">
-        <h2 id="teacher-assignments-heading" className="section-title">3. Assign teachers to classes</h2>
-        <p className="card-desc">Choose a class for each teacher so their dashboard, students, and result upload tools appear correctly.</p>
-
-        {teachers.length === 0 ? (
-          <p className="empty-state">
-            No teachers yet. Share your teacher signup link from the School Admin dashboard, then return here to assign them to classes.
-          </p>
-        ) : classes.length === 0 ? (
-          <p className="empty-state">Create at least one class above before assigning teachers.</p>
-        ) : (
-          <div className="teacher-assignment-list">
-            {teachers.map((teacher) => {
-              const teacherName = [teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(' ') || teacher.email || 'Teacher';
-              const assignedClasses = Array.isArray(teacher.teacherClasses) ? teacher.teacherClasses : [];
-              const selectedClassId = selectedClassByTeacher[teacher.id] || '';
-              const roleValue = roleByTeacher[teacher.id] || '';
-              const availableClasses = classes.filter((schoolClass) => !assignedClasses.some((assigned) => assigned.classId === schoolClass.id));
-
-              return (
-                <article key={teacher.id} className="teacher-assignment-card">
-                  <div className="teacher-assignment-header">
-                    <div>
-                      <h3>{teacherName}</h3>
-                      <p className="card-desc">
-                        {teacher.email || 'No email'}
-                        {teacher.subjectSpecialization ? ` · ${teacher.subjectSpecialization}` : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="assignment-chip-list">
-                    {assignedClasses.length === 0 ? (
-                      <span className="assignment-chip assignment-chip--empty">No class assigned yet</span>
-                    ) : (
-                      assignedClasses.map((assigned) => {
-                        const removeKey = `remove:${teacher.id}:${assigned.classId}`;
-                        return (
-                          <span key={`${teacher.id}-${assigned.classId}`} className="assignment-chip">
-                            <span>
-                              {assigned.className}
-                              {assigned.roleInClass ? ` · ${assigned.roleInClass}` : ''}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => unassignTeacherFromClass(teacher.id, assigned.classId)}
-                              disabled={assignmentBusyKey === removeKey}
-                              aria-label={`Remove ${teacherName} from ${assigned.className}`}
-                            >
-                              {assignmentBusyKey === removeKey ? '…' : '×'}
-                            </button>
-                          </span>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  <div className="teacher-assignment-form">
-                    <select
-                      className="form-input"
-                      value={selectedClassId}
-                      onChange={(e) => setSelectedClassByTeacher((prev) => ({ ...prev, [teacher.id]: e.target.value }))}
-                    >
-                      <option value="">— Select class —</option>
-                      {availableClasses.map((schoolClass) => (
-                        <option key={schoolClass.id} value={schoolClass.id}>
-                          {schoolClass.name} {schoolClass.gradeName ? `(${schoolClass.gradeName})` : ''}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      className="form-input"
-                      value={roleValue}
-                      onChange={(e) => setRoleByTeacher((prev) => ({ ...prev, [teacher.id]: e.target.value }))}
-                      placeholder="Role in class (optional)"
-                      maxLength={64}
-                    />
-
-                    <button
-                      type="button"
-                      className="btn-excel btn-download"
-                      disabled={!selectedClassId || assignmentBusyKey === `assign:${teacher.id}:${selectedClassId}`}
-                      onClick={() => assignTeacherToClass(teacher.id)}
-                    >
-                      {assignmentBusyKey === `assign:${teacher.id}:${selectedClassId}` ? 'Assigning…' : 'Assign class'}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
           </div>
         )}
       </section>

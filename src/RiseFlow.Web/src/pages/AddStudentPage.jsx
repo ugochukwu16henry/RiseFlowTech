@@ -91,7 +91,7 @@ export default function AddStudentPage() {
         setError(data?.message || data?.title || 'Failed to add student.');
         return;
       }
-      setCreatedStudent({ id: data.id, firstName: data.firstName, lastName: data.lastName, admissionNumber: data.admissionNumber });
+      setCreatedStudent({ id: data.id, firstName: data.firstName, lastName: data.lastName });
       setSuccess(true);
       setPhotoUploaded(false);
       setForm({ firstName: '', lastName: '', middleName: '', admissionNumber: '', classId: '', gender: '', dateOfBirth: '', emergencyContactName: '', emergencyContactPhone: '' });
@@ -122,9 +122,6 @@ export default function AddStudentPage() {
       <PageLayout title="Student added" role="school" backTo="/school">
         <div className="add-student-success">
           <p className="add-student-success-msg">Student registered successfully. They will appear in your student list and you can generate a parent access code for them from Access Codes.</p>
-          {createdStudent?.admissionNumber && (
-            <p className="card-desc">Admission number: <strong>{createdStudent.admissionNumber}</strong></p>
-          )}
           {createdStudent && (
             <div className="add-student-photo-upload">
               <p className="form-label">Passport-size photo (optional)</p>
@@ -179,8 +176,7 @@ export default function AddStudentPage() {
           </div>
           <div className="form-row">
             <label htmlFor="admissionNumber" className="form-label">Admission number</label>
-            <input id="admissionNumber" name="admissionNumber" type="text" value={form.admissionNumber} onChange={handleChange} className="form-input" placeholder="Optional — auto-generated if left blank" />
-            <span className="form-hint">If you leave this empty, RiseFlow will generate a unique admission number automatically.</span>
+            <input id="admissionNumber" name="admissionNumber" type="text" value={form.admissionNumber} onChange={handleChange} className="form-input" placeholder="Optional" />
           </div>
           <div className="form-row">
             <label htmlFor="classId" className="form-label">Class</label>

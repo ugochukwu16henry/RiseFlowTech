@@ -2,7 +2,6 @@ using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 
 namespace RiseFlow.Api.Services;
@@ -15,12 +14,10 @@ namespace RiseFlow.Api.Services;
 public sealed class EnsureSchoolIdClaimTransformation : IClaimsTransformation
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RiseFlowDbContext _db;
 
-    public EnsureSchoolIdClaimTransformation(UserManager<ApplicationUser> userManager, RiseFlowDbContext db)
+    public EnsureSchoolIdClaimTransformation(UserManager<ApplicationUser> userManager)
     {
         _userManager = userManager;
-        _db = db;
     }
 
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
@@ -36,19 +33,9 @@ public sealed class EnsureSchoolIdClaimTransformation : IClaimsTransformation
         if (user == null)
             return principal;
 
-        var desiredSchoolId = user.SchoolId?.ToString();
-        var desiredStudentId = await _db.StudentPortalAccesses
-            .AsNoTracking()
-            .Where(x => x.UserId == user.Id && x.IsEnabled)
-            .Select(x => (Guid?)x.StudentId)
-            .FirstOrDefaultAsync()
-            .ConfigureAwait(false);
-
-        var currentSchoolId = principal.FindFirst("SchoolId")?.Value;
-        var currentStudentId = principal.FindFirst("StudentId")?.Value;
-        var desiredStudentIdValue = desiredStudentId?.ToString();
-
-        if (desiredSchoolId == currentSchoolId && desiredStudentIdValue == currentStudentId)
+        var desired = user.SchoolId?.ToString();
+        var current = principal.FindFirst("SchoolId")?.Value;
+        if (desired == current)
             return principal;
 
         var clone = principal.Clone();
@@ -57,13 +44,9 @@ public sealed class EnsureSchoolIdClaimTransformation : IClaimsTransformation
 
         foreach (var c in identity.FindAll("SchoolId").ToList())
             identity.RemoveClaim(c);
-        foreach (var c in identity.FindAll("StudentId").ToList())
-            identity.RemoveClaim(c);
 
-        if (desiredSchoolId != null)
-            identity.AddClaim(new Claim("SchoolId", desiredSchoolId));
-        if (desiredStudentIdValue != null)
-            identity.AddClaim(new Claim("StudentId", desiredStudentIdValue));
+        if (desired != null)
+            identity.AddClaim(new Claim("SchoolId", desired));
 
         return clone;
     }

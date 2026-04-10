@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
-import TeacherPhoto from '../components/TeacherPhoto';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
 import './RolePages.css';
 
@@ -12,19 +11,7 @@ function formatMoney(amount, currencyCode) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'NGN', maximumFractionDigits: 0 }).format(n);
 }
 
-function getSchoolAdminViewFromHash(hash) {
-  switch ((hash || '').replace(/^#/, '').toLowerCase()) {
-    case 'people':
-      return 'people';
-    case 'operations':
-      return 'operations';
-    default:
-      return 'overview';
-  }
-}
-
 export default function SchoolAdminPage() {
-  const location = useLocation();
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
@@ -34,11 +21,10 @@ export default function SchoolAdminPage() {
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
-  const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
-  const [activeView, setActiveView] = useState(() => getSchoolAdminViewFromHash(typeof window !== 'undefined' ? window.location.hash : ''));
+  const [activeView, setActiveView] = useState('overview');
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
@@ -62,44 +48,25 @@ export default function SchoolAdminPage() {
   const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
-    apiFetch('/api/billing/ensure-current', { method: 'POST' })
-      .catch(() => null)
-      .finally(() => {
-        Promise.all([
-          apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
-          apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
-          apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
-          apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
-          apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
-        ])
-          .then(([dash, tList, sList, pList, bList]) => {
-            setDashboard(dash || null);
-            setTeachers(Array.isArray(tList) ? tList : []);
-            setStudents(Array.isArray(sList) ? sList : []);
-            setParents(Array.isArray(pList) ? pList : []);
-            setBilling(Array.isArray(bList) ? bList : []);
-          })
-          .catch((err) => setError(err.message || 'Failed to load data'))
-          .finally(() => setLoading(false));
-      });
+    Promise.all([
+      apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
+      apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
+      apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
+      apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
+      apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
+    ])
+      .then(([dash, tList, sList, pList, bList]) => {
+        setDashboard(dash || null);
+        setTeachers(Array.isArray(tList) ? tList : []);
+        setStudents(Array.isArray(sList) ? sList : []);
+        setParents(Array.isArray(pList) ? pList : []);
+        setBilling(Array.isArray(bList) ? bList : []);
+      })
+      .catch((err) => setError(err.message || 'Failed to load data'))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  useEffect(() => {
-    if (teachers.length === 0) {
-      setSelectedTeacherId(null);
-      return;
-    }
-
-    if (selectedTeacherId && !teachers.some((teacher) => teacher.id === selectedTeacherId)) {
-      setSelectedTeacherId(null);
-    }
-  }, [teachers, selectedTeacherId]);
-
-  useEffect(() => {
-    setActiveView(getSchoolAdminViewFromHash(location.hash));
-  }, [location.hash]);
 
   // Keep X-Tenant-Id in sync with the signed-in school (fixes teacher/parent share links if localStorage was cleared).
   useEffect(() => {
@@ -219,30 +186,21 @@ export default function SchoolAdminPage() {
       // ignore
     }
   };
-  const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
-
-  const switchView = (view) => {
-    setActiveView(view);
-    if (typeof window !== 'undefined') {
-      const nextHash = view === 'overview' ? '#overview' : `#${view}`;
-      window.history.replaceState(null, '', `${window.location.pathname}${nextHash}`);
-    }
-  };
 
   return (
     <PageLayout title="School Admin" role="school">
       <div className="school-admin-shell">
         <aside className="school-admin-nav">
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => switchView('overview')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
             Overview
           </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => switchView('people')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => setActiveView('people')}>
             People
           </button>
           <Link to="/school/classes" className="school-admin-nav-btn school-admin-nav-link">
             Grades &amp; classes
           </Link>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => switchView('operations')}>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
             Operations
           </button>
         </aside>
@@ -297,7 +255,7 @@ export default function SchoolAdminPage() {
               <h3>Import Students</h3>
               <p>Upload your student list to go live faster.</p>
             </Link>
-            <Link to={onboardingSummary?.schoolId ? `/teacher/signup?school=${encodeURIComponent(onboardingSummary.schoolId)}` : '/teacher'} className="action-card">
+            <Link to="/teacher/signup" className="action-card">
               <h3>Add Teachers</h3>
               <p>Create teacher accounts and assign classes.</p>
             </Link>
@@ -357,31 +315,6 @@ export default function SchoolAdminPage() {
           </div>
         </div>
       )}
-
-      <section aria-labelledby="school-admin-actions-heading" style={{ marginTop: '1.5rem' }}>
-        <h3 id="school-admin-actions-heading" className="section-title">Quick setup actions</h3>
-        <p className="card-desc">Create classes, assign teachers, and share invite links directly from the dashboard.</p>
-        <div className="success-actions" style={{ marginTop: '0.75rem' }}>
-          <Link to="/school/classes" className="action-card">
-            <h3>Create grades &amp; classes</h3>
-            <p>Set up Nursery, Primary, JSS, SS and the class arms your school uses.</p>
-          </Link>
-          <Link to="/school/classes#teacher-assignments" className="action-card">
-            <h3>Assign classes to teachers</h3>
-            <p>Link each teacher to a class so results and student lists show correctly.</p>
-          </Link>
-          <Link to="/school/access-codes" className="action-card">
-            <h3>Open sharing links</h3>
-            <p>Copy the teacher invite link and manage parent access codes in one place.</p>
-          </Link>
-        </div>
-
-        <div style={{ marginTop: '1rem' }}>
-          <h3 className="section-title">Teacher signup link</h3>
-          <p className="card-desc">Send this link to your teachers so they can join your school account.</p>
-          <TeacherSignupLink schoolIdFromApi={dashboard?.schoolId} />
-        </div>
-      </section>
         </>
       )}
 
@@ -391,59 +324,26 @@ export default function SchoolAdminPage() {
       {teachers.length === 0 ? (
         <p className="empty-state">No teachers yet.</p>
       ) : (
-        <>
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Role</th>
-                  <th>Classes</th>
-                  <th>Students</th>
-                  <th></th>
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teachers.map((t) => (
+                <tr key={t.id}>
+                  <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
+                  <td>{t.email || '—'}</td>
+                  <td>{t.phone || '—'}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {teachers.map((t) => (
-                  <tr key={t.id} style={selectedTeacherId === t.id ? { background: 'rgba(59, 130, 246, 0.08)' } : undefined}>
-                    <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
-                    <td>{t.email || '—'}</td>
-                    <td>{t.phone || '—'}</td>
-                    <td>{t.roleTitle || 'Teacher'}</td>
-                    <td>{t.assignedClassCount ?? t.teacherClasses?.length ?? 0}</td>
-                    <td>{t.assignedStudentCount ?? 0}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-primary-action btn-primary-action--ghost"
-                        onClick={() => setSelectedTeacherId((prev) => (prev === t.id ? null : t.id))}
-                        aria-expanded={selectedTeacherId === t.id}
-                      >
-                        {selectedTeacherId === t.id ? 'Hide details' : 'View details'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {selectedTeacher ? (
-            <TeacherDetailsPanel
-              teacher={selectedTeacher}
-              onClose={() => setSelectedTeacherId(null)}
-              onTeacherUpdated={(updatedTeacher) => {
-                setTeachers((prev) => prev.map((item) => (item.id === updatedTeacher.id ? updatedTeacher : item)));
-              }}
-            />
-          ) : (
-            <p className="card-desc" style={{ marginTop: '0.75rem' }}>
-              Teacher details stay hidden until you click <strong>View details</strong>.
-            </p>
-          )}
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Parents</h2>
@@ -551,14 +451,9 @@ export default function SchoolAdminPage() {
         <>
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Grades &amp; classes</h2>
       <p className="card-desc">Create your school&apos;s programme levels (Nursery, Primary 1–6, JSS, SS1–SS3, etc.) and classes for each level.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem' }}>
-        <Link to="/school/classes" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
-          Open grades &amp; classes setup
-        </Link>
-        <Link to="/school/classes#teacher-assignments" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
-          Assign teachers to classes
-        </Link>
-      </div>
+      <Link to="/school/classes" className="btn-excel btn-download" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+        Open grades &amp; classes setup
+      </Link>
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>School files &amp; documents</h2>
       <p className="card-desc">
@@ -671,440 +566,5 @@ function ParentSignupLink({ schoolIdFromApi }) {
       </button>
     </div>
   );
-}
-
-const MANAGED_TEACHER_FIELDS = [
-  { fieldKey: 'baseSalaryAmount', displayName: 'Base salary' },
-  { fieldKey: 'allowancesNote', displayName: 'Allowances' },
-  { fieldKey: 'recognitions', displayName: 'Recognitions' },
-];
-
-function buildTeacherAdminFormState(teacher) {
-  const fieldSettings = Array.isArray(teacher?.fieldSettings)
-    ? teacher.fieldSettings.map((field) => ({ ...field }))
-    : [];
-
-  MANAGED_TEACHER_FIELDS.forEach((field, index) => {
-    if (!fieldSettings.some((item) => item.fieldKey === field.fieldKey)) {
-      fieldSettings.push({
-        fieldKey: field.fieldKey,
-        displayName: field.displayName,
-        isCustom: false,
-        isVisibleToTeacher: false,
-        isEditableByTeacher: false,
-        isAdminOnly: true,
-        sortOrder: index,
-      });
-    }
-  });
-
-  return {
-    baseSalaryAmount: teacher?.baseSalaryAmount ?? '',
-    baseSalaryCurrency: teacher?.baseSalaryCurrency || 'NGN',
-    allowancesNote: teacher?.allowancesNote || '',
-    recognitions: teacher?.recognitions || '',
-    fieldSettings,
-    customFields: Array.isArray(teacher?.customFields) ? teacher.customFields.map((field) => ({ ...field })) : [],
-    newCustomFieldName: '',
-  };
-}
-
-function TeacherDetailsPanel({ teacher, onTeacherUpdated, onClose }) {
-  const fullName = [teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(' ') || 'Teacher';
-  const [adminForm, setAdminForm] = useState(() => buildTeacherAdminFormState(teacher));
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsMessage, setSettingsMessage] = useState(null);
-
-  useEffect(() => {
-    setAdminForm(buildTeacherAdminFormState(teacher));
-    setSettingsMessage(null);
-  }, [teacher]);
-
-  const updateFieldSetting = (fieldKey, changes, fallbackDisplayName) => {
-    setAdminForm((prev) => {
-      const existing = prev.fieldSettings.find((field) => field.fieldKey === fieldKey);
-      const nextField = {
-        fieldKey,
-        displayName: fallbackDisplayName || existing?.displayName || fieldKey,
-        isCustom: existing?.isCustom ?? fieldKey.startsWith('custom-'),
-        isVisibleToTeacher: existing?.isVisibleToTeacher ?? true,
-        isEditableByTeacher: existing?.isEditableByTeacher ?? (!fieldKey.startsWith('baseSalary') && !fieldKey.startsWith('allowances') && !fieldKey.startsWith('recognitions')),
-        isAdminOnly: existing?.isAdminOnly ?? false,
-        sortOrder: existing?.sortOrder ?? prev.fieldSettings.length,
-        ...changes,
-      };
-
-      return {
-        ...prev,
-        fieldSettings: existing
-          ? prev.fieldSettings.map((field) => (field.fieldKey === fieldKey ? nextField : field))
-          : [...prev.fieldSettings, nextField],
-      };
-    });
-    setSettingsMessage(null);
-  };
-
-  const updateCustomField = (fieldKey, changes) => {
-    setAdminForm((prev) => ({
-      ...prev,
-      customFields: prev.customFields.map((field) => (
-        field.fieldKey === fieldKey ? { ...field, ...changes } : field
-      )),
-    }));
-    setSettingsMessage(null);
-  };
-
-  const handleAddCustomField = () => {
-    const displayName = adminForm.newCustomFieldName.trim();
-    if (!displayName) return;
-
-    const baseKey = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'custom-field';
-    let fieldKey = `custom-${baseKey}`;
-    let suffix = 2;
-    const usedKeys = new Set(adminForm.customFields.map((field) => field.fieldKey));
-    while (usedKeys.has(fieldKey)) {
-      fieldKey = `custom-${baseKey}-${suffix}`;
-      suffix += 1;
-    }
-
-    const sortOrder = adminForm.customFields.length + 10;
-    const newField = {
-      fieldKey,
-      displayName,
-      value: '',
-      isVisibleToTeacher: true,
-      isEditableByTeacher: true,
-      isAdminOnly: false,
-      sortOrder,
-    };
-
-    setAdminForm((prev) => ({
-      ...prev,
-      customFields: [...prev.customFields, newField],
-      fieldSettings: [
-        ...prev.fieldSettings,
-        {
-          fieldKey,
-          displayName,
-          isCustom: true,
-          isVisibleToTeacher: true,
-          isEditableByTeacher: true,
-          isAdminOnly: false,
-          sortOrder,
-        },
-      ],
-      newCustomFieldName: '',
-    }));
-    setSettingsMessage(null);
-  };
-
-  const handleSaveAdminControls = async () => {
-    setSavingSettings(true);
-    setSettingsMessage(null);
-
-    try {
-      const payload = {
-        firstName: teacher.firstName || '',
-        lastName: teacher.lastName || '',
-        middleName: teacher.middleName || null,
-        email: teacher.email || null,
-        phone: teacher.phone || null,
-        whatsAppNumber: teacher.whatsAppNumber || null,
-        staffId: teacher.staffId || null,
-        subjectSpecialization: teacher.subjectSpecialization || null,
-        dateOfBirth: teacher.dateOfBirth || null,
-        gender: teacher.gender || null,
-        nationality: teacher.nationality || null,
-        stateOfOrigin: teacher.stateOfOrigin || null,
-        lga: teacher.lga || null,
-        religion: teacher.religion || null,
-        nin: teacher.nin || null,
-        nationalIdType: teacher.nationalIdType || null,
-        nationalIdNumber: teacher.nationalIdNumber || null,
-        trcnNumber: teacher.trcnNumber || null,
-        residentialAddress: teacher.residentialAddress || null,
-        highestQualification: teacher.highestQualification || null,
-        fieldOfStudy: teacher.fieldOfStudy || null,
-        yearsOfExperience: teacher.yearsOfExperience ?? null,
-        previousSchools: teacher.previousSchools || null,
-        professionalBodies: teacher.professionalBodies || null,
-        dateEmployed: teacher.dateEmployed || null,
-        employmentType: teacher.employmentType || null,
-        roleTitle: teacher.roleTitle || null,
-        department: teacher.department || null,
-        baseSalaryAmount: adminForm.baseSalaryAmount === '' ? null : Number(adminForm.baseSalaryAmount),
-        baseSalaryCurrency: adminForm.baseSalaryCurrency || 'NGN',
-        allowancesNote: adminForm.allowancesNote.trim() || null,
-        promotionHistory: teacher.promotionHistory || null,
-        recognitions: adminForm.recognitions.trim() || null,
-        isActive: teacher.isActive ?? true,
-        fieldSettings: adminForm.fieldSettings.map((field) => ({
-          fieldKey: field.fieldKey,
-          displayName: field.displayName,
-          isCustom: !!field.isCustom,
-          isVisibleToTeacher: !!field.isVisibleToTeacher,
-          isEditableByTeacher: !!field.isEditableByTeacher,
-          isAdminOnly: !!field.isAdminOnly,
-          sortOrder: field.sortOrder || 0,
-        })),
-        customFields: adminForm.customFields.map((field) => ({
-          fieldKey: field.fieldKey,
-          displayName: field.displayName,
-          value: field.value || null,
-          isVisibleToTeacher: !!field.isVisibleToTeacher,
-          isEditableByTeacher: !!field.isEditableByTeacher,
-          isAdminOnly: !!field.isAdminOnly,
-          sortOrder: field.sortOrder || 0,
-        })),
-      };
-
-      const response = await apiFetch(`/api/teachers/${teacher.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text().catch(() => 'Could not save teacher settings.'));
-      }
-
-      const updatedTeacher = await response.json();
-      onTeacherUpdated?.(updatedTeacher);
-      setAdminForm(buildTeacherAdminFormState(updatedTeacher));
-      setSettingsMessage({ type: 'success', text: 'Teacher access rules updated.' });
-    } catch (error) {
-      setSettingsMessage({ type: 'error', text: error.message || 'Could not save teacher settings.' });
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  const infoItems = [
-    ['Email', teacher.email],
-    ['Phone', teacher.phone],
-    ['WhatsApp', teacher.whatsAppNumber],
-    ['Staff ID', teacher.staffId],
-    ['Subject specialization', teacher.subjectSpecialization],
-    ['Highest qualification', teacher.highestQualification],
-    ['Field of study', teacher.fieldOfStudy],
-    ['Years of experience', teacher.yearsOfExperience != null ? `${teacher.yearsOfExperience} year(s)` : '—'],
-    ['Date of birth', formatTeacherDate(teacher.dateOfBirth)],
-    ['Gender', teacher.gender],
-    ['Nationality', teacher.nationality],
-    ['State of origin', teacher.stateOfOrigin],
-    ['LGA', teacher.lga],
-    ['Religion', teacher.religion],
-    ['Residential address', teacher.residentialAddress],
-    ['NIN', teacher.nin],
-    ['National ID type', teacher.nationalIdType],
-    ['National ID number', teacher.nationalIdNumber],
-    ['TRCN number', teacher.trcnNumber],
-    ['Employment type', teacher.employmentType],
-    ['Date employed', formatTeacherDate(teacher.dateEmployed)],
-    ['Base salary', teacher.baseSalaryAmount != null ? formatMoney(teacher.baseSalaryAmount, teacher.baseSalaryCurrency || 'NGN') : '—'],
-    ['Allowances', teacher.allowancesNote],
-    ['Promotion history', teacher.promotionHistory],
-    ['Recognitions', teacher.recognitions],
-    ['Created', formatTeacherDate(teacher.createdAtUtc)],
-    ['Last updated', formatTeacherDate(teacher.updatedAtUtc)],
-  ];
-
-  return (
-    <section className="progress-section" aria-label="Teacher details" style={{ marginTop: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <TeacherPhoto teacherId={teacher.id} fullName={fullName} size={56} />
-          <div>
-            <h3 className="card-title" style={{ margin: 0 }}>{fullName}</h3>
-            <p className="card-desc">Role: {teacher.roleTitle || 'Teacher'} • Department: {teacher.department || '—'} • Status: {teacher.isActive ? 'Active' : 'Inactive'}</p>
-            <p className="card-desc">Classes handled: {teacher.assignedClassCount ?? teacher.teacherClasses?.length ?? 0} • Students handled: {teacher.assignedStudentCount ?? 0}</p>
-          </div>
-        </div>
-        {onClose && (
-          <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={onClose}>
-            Hide details
-          </button>
-        )}
-      </div>
-
-      {Array.isArray(teacher.teacherClasses) && teacher.teacherClasses.length > 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <p className="dashboard-label">Assigned classes</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.35rem' }}>
-            {teacher.teacherClasses.map((assignedClass) => (
-              <span
-                key={`${teacher.id}-${assignedClass.classId}-${assignedClass.roleInClass || 'teacher'}`}
-                style={{ padding: '0.3rem 0.6rem', borderRadius: '999px', background: '#eef2ff', color: '#3730a3', fontSize: '0.85rem' }}
-              >
-                {assignedClass.className}
-                {assignedClass.roleInClass ? ` • ${assignedClass.roleInClass}` : ''}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="dashboard-card" style={{ marginBottom: '1rem' }}>
-        <h4 className="card-title" style={{ marginBottom: '0.35rem' }}>Admin-managed teacher profile controls</h4>
-        <p className="card-desc" style={{ marginBottom: '0.85rem' }}>Choose what this teacher can see, keep salary details admin-only, and add custom profile fields.</p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-          <label>
-            <span className="dashboard-label">Base salary</span>
-            <input
-              type="number"
-              min="0"
-              className="form-input"
-              value={adminForm.baseSalaryAmount}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, baseSalaryAmount: e.target.value }))}
-            />
-          </label>
-          <label>
-            <span className="dashboard-label">Currency</span>
-            <input
-              className="form-input"
-              value={adminForm.baseSalaryCurrency}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, baseSalaryCurrency: e.target.value.toUpperCase() }))}
-              maxLength={6}
-            />
-          </label>
-          <label style={{ gridColumn: '1 / -1' }}>
-            <span className="dashboard-label">Allowances</span>
-            <textarea
-              className="form-input"
-              rows={2}
-              value={adminForm.allowancesNote}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, allowancesNote: e.target.value }))}
-            />
-          </label>
-          <label style={{ gridColumn: '1 / -1' }}>
-            <span className="dashboard-label">Recognitions</span>
-            <textarea
-              className="form-input"
-              rows={2}
-              value={adminForm.recognitions}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, recognitions: e.target.value }))}
-            />
-          </label>
-        </div>
-
-        <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
-          {MANAGED_TEACHER_FIELDS.map((field) => {
-            const fieldSetting = adminForm.fieldSettings.find((item) => item.fieldKey === field.fieldKey) || {};
-            return (
-              <div key={field.fieldKey} style={{ border: '1px solid var(--color-neutral-border)', borderRadius: '12px', padding: '0.75rem' }}>
-                <p className="dashboard-label" style={{ marginBottom: '0.35rem' }}>{field.displayName}</p>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!fieldSetting.isVisibleToTeacher}
-                    onChange={(e) => updateFieldSetting(field.fieldKey, {
-                      displayName: field.displayName,
-                      isVisibleToTeacher: e.target.checked,
-                      isEditableByTeacher: false,
-                      isAdminOnly: true,
-                      isCustom: false,
-                    }, field.displayName)}
-                  />
-                  <span className="card-desc">Show to teacher</span>
-                </label>
-                <p className="card-desc">This item stays admin-only for editing.</p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: '1rem' }}>
-          <h5 className="card-title" style={{ marginBottom: '0.35rem' }}>Custom fields</h5>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            <input
-              className="form-input"
-              style={{ flex: '1 1 220px' }}
-              placeholder="e.g. House duty, Mentor group"
-              value={adminForm.newCustomFieldName}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, newCustomFieldName: e.target.value }))}
-            />
-            <button type="button" className="btn-excel btn-download" onClick={handleAddCustomField}>
-              Add field
-            </button>
-          </div>
-
-          {adminForm.customFields.length === 0 ? (
-            <p className="card-desc">No custom fields added yet.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              {adminForm.customFields.map((field) => (
-                <div key={field.fieldKey} style={{ border: '1px solid var(--color-neutral-border)', borderRadius: '12px', padding: '0.75rem' }}>
-                  <label style={{ display: 'grid', gap: '0.35rem' }}>
-                    <span className="dashboard-label">{field.displayName}</span>
-                    <input
-                      className="form-input"
-                      value={field.value || ''}
-                      onChange={(e) => updateCustomField(field.fieldKey, { value: e.target.value })}
-                    />
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.85rem', marginTop: '0.65rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!field.isVisibleToTeacher}
-                        onChange={(e) => {
-                          updateCustomField(field.fieldKey, { isVisibleToTeacher: e.target.checked });
-                          updateFieldSetting(field.fieldKey, { isVisibleToTeacher: e.target.checked }, field.displayName);
-                        }}
-                      />
-                      <span className="card-desc">Visible to teacher</span>
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!field.isEditableByTeacher}
-                        onChange={(e) => {
-                          updateCustomField(field.fieldKey, { isEditableByTeacher: e.target.checked, isAdminOnly: !e.target.checked });
-                          updateFieldSetting(field.fieldKey, { isEditableByTeacher: e.target.checked, isAdminOnly: !e.target.checked, isCustom: true }, field.displayName);
-                        }}
-                      />
-                      <span className="card-desc">Teacher can edit</span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="form-actions" style={{ marginTop: '1rem', alignItems: 'center' }}>
-          <button type="button" className="btn-excel btn-generate" onClick={handleSaveAdminControls} disabled={savingSettings}>
-            {savingSettings ? 'Saving…' : 'Save teacher access rules'}
-          </button>
-          <span className="card-desc">Teachers only see fields you allow and can edit only unlocked items.</span>
-        </div>
-
-        {settingsMessage && (
-          <p className={`access-codes-result ${settingsMessage.type === 'error' ? 'access-codes-result--error' : 'access-codes-result--success'}`} style={{ marginTop: '0.75rem' }}>
-            {settingsMessage.text}
-          </p>
-        )}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-        {infoItems.map(([label, value]) => (
-          <div key={label} className="dashboard-card" style={{ padding: '0.85rem 1rem' }}>
-            <p className="dashboard-label">{label}</p>
-            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>{value || '—'}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function formatTeacherDate(value) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleDateString();
-  } catch {
-    return String(value);
-  }
 }
 

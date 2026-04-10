@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
 
@@ -14,13 +13,11 @@ public class AuthController : ControllerBase
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RiseFlowDbContext _db;
 
-    public AuthController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager, RiseFlowDbContext db)
+    public AuthController(SignInManager<ApplicationUser> signInManager, UserManager<ApplicationUser> userManager)
     {
         _signInManager = signInManager;
         _userManager = userManager;
-        _db = db;
     }
 
     [HttpPost("login")]
@@ -32,11 +29,9 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            return Unauthorized(new LoginResponse(false, "Email or login ID and password are required.", null, null));
+            return Unauthorized(new LoginResponse(false, "Email and password are required.", null, null));
 
-        var loginId = request.Email.Trim();
-        var user = await _userManager.FindByEmailAsync(loginId)
-            ?? await _userManager.FindByNameAsync(loginId);
+        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
         if (user == null || !user.IsActive)
             return Unauthorized(new LoginResponse(false, "Invalid credentials.", null, null));
 
@@ -45,19 +40,6 @@ public class AuthController : ControllerBase
             return Unauthorized(new LoginResponse(false, "Invalid credentials.", null, null));
 
         var roles = await _userManager.GetRolesAsync(user);
-        if (roles.Contains(Roles.Student))
-        {
-            var portalAccess = await _db.StudentPortalAccesses
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.UserId == user.Id);
-
-            if (portalAccess == null || !portalAccess.IsEnabled)
-            {
-                await _signInManager.SignOutAsync();
-                return Unauthorized(new LoginResponse(false, "Your student portal is not active yet. Ask your parent to open and share it from the Parent dashboard.", null, user.SchoolId));
-            }
-        }
-
         var primaryRole = roles.FirstOrDefault();
         return Ok(new LoginResponse(true, "Signed in.", primaryRole, user.SchoolId));
     }

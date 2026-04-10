@@ -98,7 +98,7 @@ export default function ClaimChildPage() {
                 : result.message}
             </p>
             <p className="card-desc">
-              You can now see {result.studentName}&apos;s results, teacher contacts, and student sign-in details from your Parent dashboard.
+              You can now see {result.studentName}&apos;s results and teacher contacts on your Parent dashboard.
             </p>
           </div>
         )}

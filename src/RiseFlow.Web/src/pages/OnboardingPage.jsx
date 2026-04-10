@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import './OnboardingPage.css';
@@ -7,8 +7,6 @@ import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const referralCode = searchParams.get('ref') || '';
   const [form, setForm] = useState({
     schoolName: '',
     email: '',
@@ -76,7 +74,6 @@ export default function OnboardingPage() {
       fd.append('AdminEmail', form.email.trim());
       fd.append('AdminPassword', form.adminPassword);
       fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
-      if (referralCode) fd.append('ReferralCode', referralCode);
       fd.append('CountryCode', 'NG');
       fd.append('CurrencyCode', 'NGN');
       fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
@@ -105,7 +102,6 @@ export default function OnboardingPage() {
       // Auto sign-in owner and take them directly to School Admin dashboard.
       const loginRes = await apiFetch('/api/auth/login', {
         method: 'POST',
-        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: form.email.trim(),
@@ -204,7 +200,7 @@ export default function OnboardingPage() {
               <h3>Import Students</h3>
               <p>Upload your student list to go live faster.</p>
             </Link>
-            <Link to={createdSchool.schoolId ? `/teacher/signup?school=${encodeURIComponent(createdSchool.schoolId)}` : '/teacher'} className="action-card">
+            <Link to="/teacher/signup" className="action-card">
               <h3>Add Teachers</h3>
               <p>Create teacher accounts and assign classes.</p>
             </Link>
@@ -235,11 +231,6 @@ export default function OnboardingPage() {
         <Link to="/" className="onboarding-back">← Back to RiseFlow</Link>
         <h1 className="onboarding-title">Welcome to RiseFlow</h1>
         <p className="onboarding-intro">Let’s get your school digitalized in 2 minutes.</p>
-        {referralCode && (
-          <p className="onboarding-intro" style={{ marginTop: '0.35rem' }}>
-            You are signing up with affiliate code <strong>{referralCode}</strong>.
-          </p>
-        )}
 
         <div className="progress-strip" aria-label="Onboarding progress">
           <div className={`progress-dot ${progressIndex >= 1 ? 'is-active' : ''}`} />

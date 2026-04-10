@@ -104,26 +104,9 @@
 }
 
 .excel-error { color: #b45309; font-size: 0.9375rem; margin-top: 0.5rem; }
-.excel-warning { color: #92400e; font-size: 0.9375rem; margin-top: 0.5rem; }
 .excel-duplicate-note { color: #b45309; font-size: 0.875rem; }
-.excel-warning-note { color: #92400e; font-size: 0.875rem; }
 .text-red { color: #b91c1c; }
 .excel-hint { font-size: 0.875rem; color: var(--color-neutral-text-secondary); margin-top: 0.5rem; }
-.excel-issues-panel {
-  margin-top: 0.75rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #fed7aa;
-  border-radius: 10px;
-  background: #fff7ed;
-}
-.excel-issue-list {
-  margin: 0.5rem 0 0;
-  padding-left: 1.25rem;
-  color: var(--color-neutral-text);
-}
-.excel-issue-list li + li {
-  margin-top: 0.25rem;
-}
 
 .row-error { background: #fef2f2 !important; }
 .data-table-wrap { margin-top: 0.75rem; }

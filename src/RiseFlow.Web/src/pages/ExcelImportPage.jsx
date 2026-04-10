@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
@@ -12,6 +12,14 @@ export default function ExcelImportPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [classCount, setClassCount] = useState(null);
+
+  useEffect(() => {
+    apiFetch('/api/schools/classes')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setClassCount(Array.isArray(list) ? list.length : 0))
+      .catch(() => setClassCount(0));
+  }, []);
 
   const loadPreview = useCallback(async (fileObj) => {
     if (!fileObj || !fileObj.name?.toLowerCase().endsWith('.xlsx')) {
@@ -105,17 +113,15 @@ export default function ExcelImportPage() {
     URL.revokeObjectURL(a.href);
   };
 
-  const blockingErrorCount = preview?.validationErrors?.length ?? 0;
-  const hasValidationErrors = blockingErrorCount > 0;
+  const hasValidationErrors = preview?.validationErrors?.length > 0;
   const duplicateWarningCount = preview?.duplicateWarnings?.length ?? 0;
-  const warningCount = preview?.warnings?.length ?? 0;
 
   return (
     <PageLayout title="Import students (Excel)" role="school">
       <div className="excel-import">
         <section className="excel-section">
           <h2 className="section-title">1. Download template</h2>
-          <p className="card-desc">Use the simple student onboarding template. Only <strong>FirstName</strong> and <strong>LastName</strong> are required. Admission numbers are generated automatically, and other details can be updated later by the School Admin or parents.</p>
+          <p className="card-desc">Use the template aligned with African ministry requirements (NIN, Class, Parent, etc.).</p>
           <a
             href={`${getApiBase()}/api/students/bulk-upload-template`}
             target="_blank"
@@ -128,7 +134,11 @@ export default function ExcelImportPage() {
 
         <section className="excel-section">
           <h2 className="section-title">2. Upload & preview</h2>
-          <p className="excel-hint">Required fields: <strong>FirstName</strong>, <strong>LastName</strong>. Optional fields: <strong>MiddleName</strong>, <strong>Gender</strong>, <strong>DateOfBirth</strong>.</p>
+          {classCount === 0 && (
+            <p className="excel-error">
+              No classes found yet. You can still import students (leave the Class column blank). If your file lists class names, create matching classes first or those rows will show validation errors.
+            </p>
+          )}
           <div
             className={`excel-dropzone ${dragOver ? 'excel-dropzone--active' : ''}`}
             onDrop={handleDrop}
@@ -162,9 +172,6 @@ export default function ExcelImportPage() {
                 {duplicateWarningCount > 0 && (
                   <span className="excel-duplicate-note"> {duplicateWarningCount} row(s) are duplicates (already in school or repeated in file) and will be skipped on import.</span>
                 )}
-                {warningCount > 0 && (
-                  <span className="excel-warning-note"> {warningCount} row(s) reference classes that do not exist yet and will be imported without a class assignment.</span>
-                )}
               </p>
               <div className="data-table-wrap">
                 <table className="data-table">
@@ -173,9 +180,12 @@ export default function ExcelImportPage() {
                       <th>Row</th>
                       <th>FirstName</th>
                       <th>LastName</th>
-                      <th>MiddleName</th>
                       <th>Gender</th>
                       <th>DateOfBirth</th>
+                      <th>NIN</th>
+                      <th>Class</th>
+                      <th>ParentName</th>
+                      <th>ParentPhone</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -184,44 +194,18 @@ export default function ExcelImportPage() {
                         <td>{row.rowIndex}</td>
                         <td>{row.firstName}</td>
                         <td>{row.lastName}</td>
-                        <td>{row.middleName ?? '—'}</td>
                         <td>{row.gender ?? '—'}</td>
                         <td>{row.dateOfBirth ?? '—'}</td>
+                        <td>{row.nIN ?? '—'}</td>
+                        <td>{row.className ?? '—'}</td>
+                        <td>{row.parentName ?? '—'}</td>
+                        <td>{row.parentPhone ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="card-desc">Total rows in file: {preview.totalRows}. Admission numbers will be generated automatically during import, and other student details can be updated later.</p>
-
-              {hasValidationErrors && (
-                <div className="excel-issues-panel">
-                  <p className="excel-error"><strong>Blocking issues to fix before import:</strong></p>
-                  <ul className="excel-issue-list">
-                    {preview.validationErrors.slice(0, 8).map((issue, index) => (
-                      <li key={`${issue.rowIndex}-${index}`}>Row {issue.rowIndex}: {issue.error}</li>
-                    ))}
-                  </ul>
-                  {blockingErrorCount > 8 && (
-                    <p className="excel-hint">Showing the first 8 issues of {blockingErrorCount} total.</p>
-                  )}
-                </div>
-              )}
-
-              {warningCount > 0 && (
-                <div className="excel-issues-panel">
-                  <p className="excel-warning"><strong>Import warnings:</strong> students will still upload, but these rows could not be matched to an existing class.</p>
-                  <ul className="excel-issue-list">
-                    {preview.warnings.slice(0, 8).map((issue, index) => (
-                      <li key={`warning-${issue.rowIndex}-${index}`}>Row {issue.rowIndex}: {issue.error}</li>
-                    ))}
-                  </ul>
-                  {warningCount > 8 && (
-                    <p className="excel-hint">Showing the first 8 warnings of {warningCount} total.</p>
-                  )}
-                </div>
-              )}
-
+              <p className="card-desc">Total rows in file: {preview.totalRows}</p>
               <button
                 type="button"
                 className="btn-excel btn-import"
@@ -231,7 +215,7 @@ export default function ExcelImportPage() {
                 {importing ? 'Importing…' : 'Confirm and import'}
               </button>
               {hasValidationErrors && (
-                <p className="excel-hint">Fix the blocking validation errors above and upload again.</p>
+                <p className="excel-hint">Fix validation errors (e.g. missing FirstName/LastName or unknown Class) in your file and upload again.</p>
               )}
             </>
           )}

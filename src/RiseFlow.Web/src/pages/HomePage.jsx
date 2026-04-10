@@ -100,9 +100,6 @@ export default function HomePage() {
               <a href="#compare" className="hover:text-indigo-600 dark:hover:text-indigo-400">
                 Compare
               </a>
-              <Link to="/affiliate-program" className="hover:text-indigo-600 dark:hover:text-indigo-400">
-                Affiliate program
-              </Link>
             </nav>
             <button
               type="button"
@@ -261,36 +258,6 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section className="progress-section">
-          <div className="home-section-header">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Become a RiseFlow affiliate partner
-            </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              If you can introduce schools to RiseFlow, you can earn for life on every billable student above the free 50-student tier.
-            </p>
-          </div>
-          <div className="summary-cards">
-            <div className="summary-card">
-              <span className="summary-value">₦60</span>
-              <span className="summary-label">One-time per new billable student</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">₦20</span>
-              <span className="summary-label">Monthly recurring share</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">Invite only</span>
-              <span className="summary-label">Request approval from Super Admin</span>
-            </div>
-          </div>
-          <div className="dashboard-actions">
-            <Link to="/affiliate-program" className="home-link-button home-link-primary">
-              Request an affiliate link
-            </Link>
           </div>
         </section>
 

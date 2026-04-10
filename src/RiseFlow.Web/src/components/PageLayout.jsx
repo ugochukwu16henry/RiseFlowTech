@@ -1,26 +1,21 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { apiFetch, clearAuthStorage, getApiBase, STORAGE_TENANT_KEY } from '../api';
+import { useNavigate, NavLink, Link } from 'react-router-dom';
+import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
 
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
   school: [
-    { to: '/school#overview', label: 'Dashboard', end: true },
-    { to: '/school/classes', label: 'Classes' },
-    { to: '/school/access-codes', label: 'Share & codes' },
+    { to: '/school', label: 'Dashboard', end: true },
     { to: '/school/students', label: 'People' },
-    { to: '/school/import', label: 'Import' },
     { to: '/school/billing', label: 'Billing' },
     { to: '/school/reports', label: 'Reports' },
+    { to: '/school/import', label: 'Import' },
+    { to: '/school/access-codes', label: 'Access codes' },
   ],
   super: [
     { to: '/super-admin', label: 'Control room', end: true },
     { to: '/super-admin/schools', label: 'Schools' },
     { to: '/super-admin/revenue', label: 'Revenue' },
-    { to: '/super-admin/affiliates', label: 'Affiliate manager' },
-    { to: '/super-admin/affiliate-requests', label: 'Affiliate requests' },
-    { to: '/super-admin/affiliate-payouts', label: 'Payouts panel' },
-    { to: '/super-admin/affiliate-training', label: 'Training center' },
     { to: '/super-admin/compliance', label: 'System settings' },
     { to: '/super-admin/data-offboarding', label: 'Data offboarding' },
   ],
@@ -29,13 +24,7 @@ const NAV_BY_ROLE = {
     { to: '/parent', label: 'Family', end: true },
     { to: '/parent/claim', label: 'Claim child' },
   ],
-  affiliate: [
-    { to: '/affiliate', label: 'My dashboard', end: true },
-    { to: '/affiliate/schools', label: 'Referred schools' },
-    { to: '/affiliate/payouts', label: 'Payout settings' },
-    { to: '/affiliate/training', label: 'Training academy' },
-  ],
-  student: [{ to: '/student', label: 'Dashboard', end: true }],
+  student: [{ to: '/student', label: 'My results', end: true }],
   legal: [
     { to: '/', label: 'Home' },
     { to: '/login', label: 'Sign in' },
@@ -148,12 +137,16 @@ export default function PageLayout({
 
   async function handleSignOut() {
     try {
-      await apiFetch('/api/auth/logout', { method: 'POST', skipTenantHeader: true });
+      await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // best effort
     }
-    clearAuthStorage();
-    window.location.replace('/login');
+    try {
+      localStorage.removeItem(STORAGE_TENANT_KEY);
+    } catch {
+      // ignore
+    }
+    navigate('/login', { replace: true });
   }
 
   if (variant === 'auth') {

@@ -9,20 +9,6 @@ export const TENANT_HEADER = 'X-Tenant-Id';
 export const STORAGE_TENANT_KEY = 'riseflow-tenant-id';
 export const STORAGE_ONBOARDING_KEY = 'riseflow-onboarding-school';
 
-export function clearAuthStorage() {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    [
-      STORAGE_TENANT_KEY,
-      STORAGE_ONBOARDING_KEY,
-      'riseflow-preview-role',
-      'riseflow-cache-my-children',
-    ].forEach((key) => {
-      localStorage.removeItem(key);
-    });
-  } catch (_) {}
-}
-
 export function getApiBase() {
   return API_BASE;
 }
@@ -41,14 +27,9 @@ export function getApiHeaders() {
 export function apiFetch(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
   const { headers: userHeaders, skipTenantHeader = false, ...rest } = options;
-  const isAuthRequest = typeof path === 'string' && /\/api\/auth\/(login|logout)$/i.test(path);
   const headers = { ...getApiHeaders(), ...userHeaders };
-  if (skipTenantHeader || isAuthRequest) {
+  if (skipTenantHeader) {
     delete headers[TENANT_HEADER];
   }
-  const fetchOptions = { credentials: 'include', ...rest, headers };
-  if (isAuthRequest && !fetchOptions.cache) {
-    fetchOptions.cache = 'no-store';
-  }
-  return fetch(url, fetchOptions);
+  return fetch(url, { credentials: 'include', ...rest, headers });
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import './LoginPage.css';
-import { apiFetch, clearAuthStorage, STORAGE_TENANT_KEY } from '../api';
+import { apiFetch, STORAGE_TENANT_KEY } from '../api';
 
 const ROLE_ROUTE = {
   SchoolAdmin: '/school',
@@ -10,10 +10,10 @@ const ROLE_ROUTE = {
   Parent: '/parent',
   Student: '/student',
   SuperAdmin: '/super-admin',
-  Affiliate: '/affiliate',
 };
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -21,9 +21,8 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError('Enter your email or login ID and password.');
+    if (!email || !password) {
+      setError('Enter your email and password.');
       return;
     }
     setSubmitting(true);
@@ -31,12 +30,11 @@ export default function LoginPage() {
     try {
       const res = await apiFetch('/api/auth/login', {
         method: 'POST',
-        skipTenantHeader: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ email, password }),
       });
       if (res.status === 401) {
-        setError('Incorrect email, login ID or password.');
+        setError('Incorrect email or password.');
         return;
       }
       if (!res.ok) {
@@ -45,19 +43,21 @@ export default function LoginPage() {
       }
       const data = await res.json();
       if (!data?.success) {
-        setError(data?.message || 'Incorrect email, login ID or password.');
+        setError(data?.message || 'Incorrect email or password.');
         return;
       }
-      clearAuthStorage();
       try {
         if (data.schoolId) {
           localStorage.setItem(STORAGE_TENANT_KEY, data.schoolId);
+        } else {
+          // Important: clear stale tenant when signing in as SuperAdmin/global user.
+          localStorage.removeItem(STORAGE_TENANT_KEY);
         }
       } catch {
         // ignore
       }
       const route = data.primaryRole && ROLE_ROUTE[data.primaryRole];
-      window.location.replace(route || '/school');
+      navigate(route || '/school');
     } catch {
       setError('Network error. Check your connection and try again.');
     } finally {
@@ -93,18 +93,18 @@ export default function LoginPage() {
           <div className="login-logo-dot" style={{ display: 'none' }} aria-hidden="true" />
           <div className="login-header-text">
             <h1>Sign in to RiseFlow</h1>
-            <p>School Admins, Teachers, Parents, Students, Affiliates and Super Admins sign in here.</p>
+            <p>School Admins, Teachers, Parents and Super Admins sign in here.</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="login-field">
-            <span>Email or login ID</span>
+            <span>Email</span>
             <input
-              type="text"
-              autoComplete="username"
+              type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@schoolname.com or stu-rf0001"
+              placeholder="you@schoolname.com"
               required
             />
           </label>

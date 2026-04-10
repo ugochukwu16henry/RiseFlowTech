@@ -222,10 +222,6 @@ public class SchoolsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Entities.School>> GetById(Guid id, CancellationToken ct)
     {
-        var isSuperAdmin = User.IsInRole(Roles.SuperAdmin);
-        if (!isSuperAdmin && _tenant.CurrentSchoolId.HasValue && _tenant.CurrentSchoolId.Value != id)
-            return Forbid();
-
         var school = await _onboarding.GetSchoolByIdAsync(id, ct);
         if (school == null)
             return NotFound();

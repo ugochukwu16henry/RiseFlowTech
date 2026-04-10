@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
-import { apiFetch, STORAGE_TENANT_KEY } from '../api';
+import { getApiBase } from '../api';
 import './RolePages.css';
 import './ClaimChildPage.css';
 
@@ -35,14 +35,13 @@ export default function TeacherSignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const trimmedEmail = email.trim();
-      const res = await apiFetch('/api/teachers/signup', {
+      const res = await fetch(`${getApiBase()}/api/teachers/signup`, {
         method: 'POST',
-        skipTenantHeader: true,
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schoolId,
-          email: trimmedEmail,
+          email: email.trim(),
           password,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -73,25 +72,7 @@ export default function TeacherSignupPage() {
         setError(data?.message || data?.title || text || 'Signup failed. Try again or contact your school admin.');
         return;
       }
-
-      const loginRes = await apiFetch('/api/auth/login', {
-        method: 'POST',
-        skipTenantHeader: true,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
-      });
-      const loginData = await loginRes.json().catch(() => null);
-      if (loginRes.ok && loginData?.success) {
-        try {
-          if (loginData.schoolId) localStorage.setItem(STORAGE_TENANT_KEY, loginData.schoolId);
-        } catch {
-          // ignore storage issues
-        }
-        navigate('/teacher', { replace: true });
-        return;
-      }
-
-      navigate('/login', { replace: true });
+      navigate('/teacher', { replace: true });
     } catch (e) {
       setError(e.message || 'Network error.');
     } finally {
