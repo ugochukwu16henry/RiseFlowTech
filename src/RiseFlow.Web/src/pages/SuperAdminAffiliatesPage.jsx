@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
 import './RolePages.css';
@@ -52,6 +52,10 @@ export default function SuperAdminAffiliatesPage() {
     setAffiliates(Array.isArray(data) ? data : []);
   };
 
+  const loadOverview = async () => {
+    await Promise.all([loadAffiliates(), loadRequests()]);
+  };
+
   const loadRequests = async () => {
     const res = await apiFetch('/api/superadmin/affiliate-requests', { skipTenantHeader: true });
     if (!res.ok) throw new Error('Could not load affiliate requests.');
@@ -82,7 +86,7 @@ export default function SuperAdminAffiliatesPage() {
         if (view === 'requests') await loadRequests();
         else if (view === 'payouts') await loadPayouts();
         else if (view === 'training') await loadVideos();
-        else await loadAffiliates();
+        else await loadOverview();
       } catch (e) {
         if (!cancelled) setError(e.message || 'Could not load the affiliate admin view.');
       } finally {
@@ -241,6 +245,10 @@ export default function SuperAdminAffiliatesPage() {
               <span className="summary-label">Referred schools</span>
             </div>
             <div className="summary-card">
+              <span className="summary-value">{requests.length}</span>
+              <span className="summary-label">Pending requests</span>
+            </div>
+            <div className="summary-card">
               <span className="summary-value">{formatMoney(totals.pending)}</span>
               <span className="summary-label">Pending payouts</span>
             </div>
@@ -250,51 +258,96 @@ export default function SuperAdminAffiliatesPage() {
             </div>
           </div>
 
-          <div className="data-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Affiliate</th>
-                  <th>Code</th>
-                  <th>Country</th>
-                  <th>Schools</th>
-                  <th>Billable students</th>
-                  <th>Pending payout</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {affiliates.map((affiliate) => {
-                  const headshotUrl = buildPublicUrl(affiliate.headshotPath);
-                  return (
-                    <tr key={affiliate.affiliateId}>
-                      <td>
-                        <div className="sa-school-cell">
-                          {headshotUrl ? (
-                            <img className="sa-school-table-logo" src={headshotUrl} alt={affiliate.fullName} loading="lazy" />
-                          ) : (
-                            <div className="sa-school-logo-placeholder" aria-hidden="true">
-                              {(affiliate.fullName || 'A').trim().charAt(0).toUpperCase()}
+          {affiliates.length === 0 ? (
+            <p className="empty-state">
+              No approved affiliates yet.
+              {requests.length > 0 ? ' New applications are waiting below.' : ''}
+            </p>
+          ) : (
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Affiliate</th>
+                    <th>Code</th>
+                    <th>Country</th>
+                    <th>Schools</th>
+                    <th>Billable students</th>
+                    <th>Pending payout</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {affiliates.map((affiliate) => {
+                    const headshotUrl = buildPublicUrl(affiliate.headshotPath);
+                    return (
+                      <tr key={affiliate.affiliateId}>
+                        <td>
+                          <div className="sa-school-cell">
+                            {headshotUrl ? (
+                              <img className="sa-school-table-logo" src={headshotUrl} alt={affiliate.fullName} loading="lazy" />
+                            ) : (
+                              <div className="sa-school-logo-placeholder" aria-hidden="true">
+                                {(affiliate.fullName || 'A').trim().charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <strong>{affiliate.fullName}</strong>
+                              <span className="sa-school-secondary">{affiliate.email}</span>
                             </div>
-                          )}
-                          <div>
-                            <strong>{affiliate.fullName}</strong>
-                            <span className="sa-school-secondary">{affiliate.email}</span>
                           </div>
-                        </div>
-                      </td>
-                      <td>{affiliate.uniqueCode}</td>
-                      <td>{affiliate.countryCode || '—'}</td>
-                      <td>{affiliate.referredSchoolCount}</td>
-                      <td>{affiliate.totalBillableStudents}</td>
-                      <td>{formatMoney(affiliate.pendingPayoutAmount)}</td>
-                      <td>{affiliate.isActive ? 'Active' : 'Inactive'}</td>
+                        </td>
+                        <td>{affiliate.uniqueCode}</td>
+                        <td>{affiliate.countryCode || '—'}</td>
+                        <td>{affiliate.referredSchoolCount}</td>
+                        <td>{affiliate.totalBillableStudents}</td>
+                        <td>{formatMoney(affiliate.pendingPayoutAmount)}</td>
+                        <td>{affiliate.isActive ? 'Active' : 'Inactive'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {requests.length > 0 && (
+            <section className="progress-section">
+              <div className="home-section-header">
+                <h3 className="section-title">Pending affiliate requests</h3>
+                <p className="card-desc">New affiliate applications now show here immediately, even before approval.</p>
+              </div>
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Country</th>
+                      <th>Status</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {requests.slice(0, 5).map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.fullName}</td>
+                        <td>{item.email}</td>
+                        <td>{item.phoneNumber || '—'}</td>
+                        <td>{item.countryCode || '—'}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="dashboard-actions">
+                <Link to="/super-admin/affiliate-requests" className="btn-primary-action btn-primary-action--ghost">
+                  Open all requests
+                </Link>
+              </div>
+            </section>
+          )}
         </>
       )}
 
