@@ -22,7 +22,7 @@ export default function LoginPage() {
     e.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError('Enter your email and password.');
+      setError('Enter your email or login ID and password.');
       return;
     }
     setSubmitting(true);
@@ -35,7 +35,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email: trimmedEmail, password }),
       });
       if (res.status === 401) {
-        setError('Incorrect email or password.');
+        setError('Incorrect email, login ID or password.');
         return;
       }
       if (!res.ok) {
@@ -44,7 +44,7 @@ export default function LoginPage() {
       }
       const data = await res.json();
       if (!data?.success) {
-        setError(data?.message || 'Incorrect email or password.');
+        setError(data?.message || 'Incorrect email, login ID or password.');
         return;
       }
       clearAuthStorage();
@@ -92,18 +92,18 @@ export default function LoginPage() {
           <div className="login-logo-dot" style={{ display: 'none' }} aria-hidden="true" />
           <div className="login-header-text">
             <h1>Sign in to RiseFlow</h1>
-            <p>School Admins, Teachers, Parents and Super Admins sign in here.</p>
+            <p>School Admins, Teachers, Parents, Students and Super Admins sign in here.</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="login-field">
-            <span>Email</span>
+            <span>Email or login ID</span>
             <input
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@schoolname.com"
+              placeholder="you@schoolname.com or stu-rf0001"
               required
             />
           </label>

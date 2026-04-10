@@ -53,6 +53,7 @@ public class Student : ITenantEntity
     public School School { get; set; } = null!;
     public Class? Class { get; set; }
     public Grade? Grade { get; set; }
+    public StudentPortalAccess? PortalAccess { get; set; }
     public ICollection<StudentParent> StudentParents { get; set; } = new List<StudentParent>();
     public ICollection<StudentResult> Results { get; set; } = new List<StudentResult>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();

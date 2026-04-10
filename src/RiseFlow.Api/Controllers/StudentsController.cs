@@ -244,6 +244,133 @@ public class StudentsController : ControllerBase
         return Ok(detail);
     }
 
+    [HttpGet("me/dashboard")]
+    [Authorize(Roles = Roles.Student)]
+    [ProducesResponseType(typeof(StudentDashboardDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StudentDashboardDto>> GetMyDashboard(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var studentIdClaim = User.FindFirstValue("StudentId");
+        if (!Guid.TryParse(studentIdClaim, out var currentStudentId))
+            return Unauthorized("Student portal is not ready yet. Ask your parent to share your login details again.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var student = await _db.Students
+            .Include(s => s.Class)
+                .ThenInclude(c => c!.Grade)
+            .Include(s => s.Grade)
+            .Include(s => s.StudentParents)
+                .ThenInclude(sp => sp.Parent)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Subject)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Term)
+            .FirstOrDefaultAsync(s => s.Id == currentStudentId && s.SchoolId == schoolId, ct);
+
+        if (student == null)
+            return NotFound();
+
+        var portalAccess = await _db.StudentPortalAccesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StudentId == student.Id && x.IsEnabled, ct);
+        if (portalAccess == null)
+            return Forbid();
+
+        var school = await _db.Schools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+
+        var parents = student.StudentParents
+            .OrderBy(sp => sp.Parent.LastName)
+            .ThenBy(sp => sp.Parent.FirstName)
+            .Select(sp => new StudentParentSummaryDto(
+                sp.ParentId,
+                sp.Parent.FirstName,
+                sp.Parent.LastName,
+                portalAccess.ShowParentContactDetails ? sp.Parent.Email : null,
+                portalAccess.ShowParentContactDetails ? sp.Parent.Phone : null,
+                sp.RelationshipToStudent,
+                sp.IsPrimaryContact))
+            .ToList();
+
+        var academicHistory = student.Results
+            .OrderByDescending(r => r.Term.StartDate)
+            .ThenBy(r => r.Subject.Name)
+            .Select(r =>
+            {
+                var percentage = r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m;
+                return new StudentAcademicHistoryItem(
+                    r.Id,
+                    $"{r.Term.Name} {r.Term.AcademicYear}",
+                    r.Subject.Name,
+                    r.AssessmentType,
+                    r.Score,
+                    r.MaxScore,
+                    decimal.Round(percentage, 1),
+                    r.GradeLetter);
+            })
+            .ToList();
+
+        var termResults = academicHistory
+            .GroupBy(r => r.Term)
+            .Select(g => new StudentTermSummaryDto(g.Key, decimal.Round(g.Average(x => x.Percentage), 1), g.ToList()))
+            .ToList();
+
+        var currentAverage = academicHistory.Count > 0
+            ? decimal.Round(academicHistory.Average(x => x.Percentage), 1)
+            : 0m;
+
+        var dateOfBirth = portalAccess.ShowDateOfBirth ? student.DateOfBirth : null;
+        var nationality = portalAccess.ShowLocationDetails ? student.Nationality : null;
+        var stateOfOrigin = portalAccess.ShowLocationDetails ? student.StateOfOrigin : null;
+        var lga = portalAccess.ShowLocationDetails ? student.LGA : null;
+        var previousSchool = portalAccess.ShowPreviousSchoolDetails ? student.PreviousSchool : null;
+        var previousClass = portalAccess.ShowPreviousSchoolDetails ? student.PreviousClass : null;
+        var bloodGroup = portalAccess.ShowHealthDetails ? student.BloodGroup : null;
+        var genotype = portalAccess.ShowHealthDetails ? student.Genotype : null;
+        var allergies = portalAccess.ShowHealthDetails ? student.Allergies : null;
+        var emergencyContactName = portalAccess.ShowEmergencyContacts ? student.EmergencyContactName : null;
+        var emergencyContactPhone = portalAccess.ShowEmergencyContacts ? student.EmergencyContactPhone : null;
+
+        var dashboard = new StudentDashboardDto(
+            student.Id,
+            schoolId,
+            school?.Name ?? "My school",
+            school?.LogoFileName,
+            $"{student.FirstName} {student.MiddleName} {student.LastName}".Replace("  ", " ").Trim(),
+            student.AdmissionNumber,
+            student.ProfilePhotoFileName,
+            student.Class == null
+                ? null
+                : new StudentClassSummaryDto(
+                    student.Class.Id,
+                    student.Class.Name,
+                    student.Class.AcademicYear,
+                    student.Class.Grade == null ? null : new StudentGradeSummaryDto(student.Class.Grade.Id, student.Class.Grade.Name, student.Class.Grade.LevelOrder)),
+            student.Grade == null ? null : new StudentGradeSummaryDto(student.Grade.Id, student.Grade.Name, student.Grade.LevelOrder),
+            dateOfBirth,
+            student.Gender,
+            nationality,
+            stateOfOrigin,
+            lga,
+            previousSchool,
+            previousClass,
+            bloodGroup,
+            genotype,
+            allergies,
+            emergencyContactName,
+            emergencyContactPhone,
+            currentAverage,
+            parents,
+            await GetAssignedTeachersAsync(student, ct),
+            await GetClassmatesAsync(student, ct),
+            termResults);
+
+        return Ok(dashboard);
+    }
+
     /// <summary>Register a single student. SchoolAdmin only. Use this to add new students one-by-one; use bulk upload for many at once.</summary>
     [HttpPost]
     [Authorize(Roles = Roles.SchoolAdmin)]
@@ -838,7 +965,29 @@ public class StudentsController : ControllerBase
             return await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
         }
 
+        if (User.IsInRole(Roles.Student))
+            return await CanStudentAccessStudentAsync(student, ct);
+
         return false;
+    }
+
+    private async Task<bool> CanStudentAccessStudentAsync(Student student, CancellationToken ct)
+    {
+        var studentIdClaim = User.FindFirstValue("StudentId");
+        if (!Guid.TryParse(studentIdClaim, out var currentStudentId))
+            return false;
+
+        if (currentStudentId == student.Id)
+            return true;
+
+        var currentStudent = await _db.Students
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == currentStudentId && s.SchoolId == student.SchoolId, ct);
+
+        if (currentStudent?.ClassId == null || student.ClassId == null)
+            return false;
+
+        return currentStudent.ClassId == student.ClassId;
     }
 
     private async Task<bool> CanTeacherAccessStudentAsync(Student student, CancellationToken ct)
@@ -948,6 +1097,25 @@ public class StudentsController : ControllerBase
             .OrderBy(t => t.FullName)
             .ThenBy(t => t.RoleOrSubject)
             .ToList();
+    }
+
+    private async Task<List<StudentClassmateDto>> GetClassmatesAsync(Student student, CancellationToken ct)
+    {
+        if (!student.ClassId.HasValue)
+            return new List<StudentClassmateDto>();
+
+        return await _db.Students
+            .AsNoTracking()
+            .Where(s => s.SchoolId == student.SchoolId && s.ClassId == student.ClassId && s.Id != student.Id && s.IsActive)
+            .OrderBy(s => s.FirstName)
+            .ThenBy(s => s.LastName)
+            .Select(s => new StudentClassmateDto(
+                s.Id,
+                s.FirstName,
+                s.LastName,
+                s.MiddleName,
+                s.ProfilePhotoFileName))
+            .ToListAsync(ct);
     }
 
     private async Task<StudentDetailDto> BuildStudentDetailDtoAsync(Student student, StudentProfileVisibilitySetting settings, CancellationToken ct)
@@ -1194,6 +1362,34 @@ public record StudentDetailDto(
     DateTime? ParentEditLockedUntilUtc,
     string? ParentEditMessage);
 public record StudentAssignedTeacherDto(Guid TeacherId, string FullName, string? RoleOrSubject, string? Email, string? Phone, string? WhatsAppNumber);
+public record StudentClassmateDto(Guid StudentId, string FirstName, string LastName, string? MiddleName, string? ProfilePhotoFileName);
+public record StudentDashboardDto(
+    Guid Id,
+    Guid SchoolId,
+    string SchoolName,
+    string? SchoolLogoFileName,
+    string FullName,
+    string? AdmissionNumber,
+    string? ProfilePhotoFileName,
+    StudentClassSummaryDto? Class,
+    StudentGradeSummaryDto? Grade,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string? Nationality,
+    string? StateOfOrigin,
+    string? LGA,
+    string? PreviousSchool,
+    string? PreviousClass,
+    string? BloodGroup,
+    string? Genotype,
+    string? Allergies,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
+    decimal CurrentAveragePercentage,
+    List<StudentParentSummaryDto> StudentParents,
+    List<StudentAssignedTeacherDto> AssignedTeachers,
+    List<StudentClassmateDto> Classmates,
+    List<StudentTermSummaryDto> TermResults);
 public record StudentTermSummaryDto(string Term, decimal AveragePercentage, List<StudentAcademicHistoryItem> Results);
 public record StudentProfileVisibilitySettingsDto(
     bool ShowDateOfBirthToTeachers,

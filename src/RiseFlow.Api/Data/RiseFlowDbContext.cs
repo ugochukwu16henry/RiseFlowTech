@@ -44,6 +44,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<FileAsset> FileAssets => Set<FileAsset>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings => Set<StudentProfileVisibilitySetting>();
+    public DbSet<StudentPortalAccess> StudentPortalAccesses => Set<StudentPortalAccess>();
     public DbSet<TeacherProfileFieldSetting> TeacherProfileFieldSettings => Set<TeacherProfileFieldSetting>();
     public DbSet<TeacherCustomFieldValue> TeacherCustomFieldValues => Set<TeacherCustomFieldValue>();
 
@@ -271,6 +272,27 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.School)
                 .WithMany(s => s.StudentProfileVisibilitySettings)
                 .HasForeignKey(x => x.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StudentPortalAccess>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.LoginId).IsRequired().HasMaxLength(128);
+            e.HasIndex(x => x.StudentId).IsUnique();
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasIndex(x => new { x.SchoolId, x.LoginId }).IsUnique();
+            e.HasOne(x => x.School)
+                .WithMany(s => s.StudentPortalAccesses)
+                .HasForeignKey(x => x.SchoolId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student)
+                .WithOne(s => s.PortalAccess)
+                .HasForeignKey<StudentPortalAccess>(x => x.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

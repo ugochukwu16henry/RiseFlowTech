@@ -309,6 +309,31 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
 
         await context.Database.ExecuteSqlRawAsync(
             """
+            CREATE TABLE IF NOT EXISTS "StudentPortalAccesses" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_StudentPortalAccesses" PRIMARY KEY,
+                "SchoolId" TEXT NOT NULL,
+                "StudentId" TEXT NOT NULL,
+                "UserId" TEXT NOT NULL,
+                "LoginId" TEXT NOT NULL,
+                "IsEnabled" INTEGER NOT NULL,
+                "ShowDateOfBirth" INTEGER NOT NULL,
+                "ShowLocationDetails" INTEGER NOT NULL,
+                "ShowHealthDetails" INTEGER NOT NULL,
+                "ShowEmergencyContacts" INTEGER NOT NULL,
+                "ShowParentContactDetails" INTEGER NOT NULL,
+                "ShowPreviousSchoolDetails" INTEGER NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                "CredentialsSharedAtUtc" TEXT NULL,
+                "LastPasswordResetAtUtc" TEXT NULL,
+                CONSTRAINT "FK_StudentPortalAccesses_AspNetUsers_UserId" FOREIGN KEY ("UserId") REFERENCES "AspNetUsers" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_StudentPortalAccesses_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_StudentPortalAccesses_Students_StudentId" FOREIGN KEY ("StudentId") REFERENCES "Students" ("Id") ON DELETE CASCADE
+            );
+            """);
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
             CREATE TABLE IF NOT EXISTS "TeacherProfileFieldSettings" (
                 "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherProfileFieldSettings" PRIMARY KEY,
                 "SchoolId" TEXT NOT NULL,
@@ -341,6 +366,10 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
             """);
 
         await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentProfileVisibilitySettings_SchoolId\" ON \"StudentProfileVisibilitySettings\" (\"SchoolId\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_SchoolId_LoginId\" ON \"StudentPortalAccesses\" (\"SchoolId\", \"LoginId\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_StudentId\" ON \"StudentPortalAccesses\" (\"StudentId\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_UserId\" ON \"StudentPortalAccesses\" (\"UserId\");");
+        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_StudentPortalAccesses_SchoolId\" ON \"StudentPortalAccesses\" (\"SchoolId\");");
         await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherProfileFieldSettings_SchoolId_FieldKey\" ON \"TeacherProfileFieldSettings\" (\"SchoolId\", \"FieldKey\");");
         await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_TeacherId_FieldKey\" ON \"TeacherCustomFieldValues\" (\"TeacherId\", \"FieldKey\");");
         await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_SchoolId\" ON \"TeacherCustomFieldValues\" (\"SchoolId\");");

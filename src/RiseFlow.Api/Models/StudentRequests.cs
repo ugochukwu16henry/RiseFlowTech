@@ -75,3 +75,12 @@ public record UpdateStudentProfileVisibilitySettingsRequest(
     bool ShowPreviousRecordToTeachers);
 
 public record ParentStudentCorrectionResult(bool Success, string Message, DateTime? NextEditAvailableAtUtc);
+
+public record UpdateStudentPortalAccessRequest(
+    bool IsEnabled,
+    bool ShowDateOfBirth,
+    bool ShowLocationDetails,
+    bool ShowHealthDetails,
+    bool ShowEmergencyContacts,
+    bool ShowParentContactDetails,
+    bool ShowPreviousSchoolDetails);

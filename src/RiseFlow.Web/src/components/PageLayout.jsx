@@ -25,7 +25,7 @@ const NAV_BY_ROLE = {
     { to: '/parent', label: 'Family', end: true },
     { to: '/parent/claim', label: 'Claim child' },
   ],
-  student: [{ to: '/student', label: 'My results', end: true }],
+  student: [{ to: '/student', label: 'Dashboard', end: true }],
   legal: [
     { to: '/', label: 'Home' },
     { to: '/login', label: 'Sign in' },
