@@ -154,16 +154,28 @@ public class SuperAdminController : ControllerBase
 
         var rows = schools
             .Select(x => new SuperAdminSchoolRowDto(
-                x.Id,
-                x.Name,
-                x.CountryCode,
-                x.CurrencyCode,
-                x.IsActive,
-                studentCounts.GetValueOrDefault(x.Id, 0),
-                teacherCounts.GetValueOrDefault(x.Id, 0),
-                parentCounts.GetValueOrDefault(x.Id, 0),
-                x.CreatedAtUtc,
-                x.Email))
+                Id: x.Id,
+                Name: x.Name,
+                CountryCode: x.CountryCode,
+                CountryName: !string.IsNullOrWhiteSpace(x.CountryCode)
+                    ? CountryNames.GetValueOrDefault(x.CountryCode, x.CountryCode)
+                    : null,
+                CurrencyCode: x.CurrencyCode,
+                IsActive: x.IsActive,
+                StudentCount: studentCounts.GetValueOrDefault(x.Id, 0),
+                TeacherCount: teacherCounts.GetValueOrDefault(x.Id, 0),
+                ParentCount: parentCounts.GetValueOrDefault(x.Id, 0),
+                CreatedAtUtc: x.CreatedAtUtc,
+                OwnerEmail: x.Email,
+                OwnerName: x.PrincipalName,
+                Phone: x.Phone,
+                WhatsAppNumber: x.Phone,
+                Address: x.Address,
+                SchoolEmail: x.Email,
+                PrincipalName: x.PrincipalName,
+                LogoPath: x.LogoFileName,
+                CacNumber: x.CacNumber,
+                RegistrationDocumentPath: null))
             .ToList();
 
         return Ok(rows);
