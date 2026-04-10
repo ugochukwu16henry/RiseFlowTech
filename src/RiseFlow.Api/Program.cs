@@ -21,8 +21,8 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database: Sqlite by default (local file). Set Database:Provider to Npgsql and ConnectionStrings:DefaultConnection for PostgreSQL (same engine family as FullStackHero playground).
-var dbProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
+// Database: PostgreSQL by default. SQLite remains available only when explicitly selected for local fallback/troubleshooting.
+var dbProvider = builder.Configuration["Database:Provider"] ?? "Npgsql";
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
     if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
