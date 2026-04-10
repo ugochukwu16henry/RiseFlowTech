@@ -343,7 +343,7 @@ public class StudentsController : ControllerBase
         ws.Cell(2, 2).Value = "Doe";
         ws.Cell(2, 4).Value = "Male";
         ws.Cell(2, 5).Value = "2015-09-01";
-        ws.Cell(2, 9).Value = "Grade 1A";
+        ws.Cell(2, 9).Value = string.Empty;
         ws.Cell(2, 14).Value = "Jane Doe";
         ws.Cell(2, 15).Value = "+2348012345678";
         var countrySheet = workbook.Worksheets.Add("Country_Columns");
@@ -357,7 +357,7 @@ public class StudentsController : ControllerBase
         countrySheet.Cell(4, 1).Value = "Kenya";
         countrySheet.Cell(4, 2).Value = "NationalIdType=KENYA_ID, NationalIdNumber.";
         countrySheet.Cell(5, 1).Value = "All";
-        countrySheet.Cell(5, 2).Value = "FirstName, LastName required. Class = class name (create class in RiseFlow first). ParentName, ParentPhone for guardian.";
+        countrySheet.Cell(5, 2).Value = "FirstName and LastName are required. Class is optional—use an existing class name if you have already created classes in RiseFlow, or leave it blank and assign later. ParentName and ParentPhone are recommended for guardian setup.";
         using var stream = new MemoryStream();
         workbook.SaveAs(stream, false);
         stream.Position = 0;

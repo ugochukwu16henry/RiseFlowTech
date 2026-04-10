@@ -113,8 +113,10 @@ export default function ExcelImportPage() {
     URL.revokeObjectURL(a.href);
   };
 
-  const hasValidationErrors = preview?.validationErrors?.length > 0;
+  const blockingErrorCount = preview?.validationErrors?.length ?? 0;
+  const hasValidationErrors = blockingErrorCount > 0;
   const duplicateWarningCount = preview?.duplicateWarnings?.length ?? 0;
+  const warningCount = preview?.warnings?.length ?? 0;
 
   return (
     <PageLayout title="Import students (Excel)" role="school">
@@ -136,7 +138,7 @@ export default function ExcelImportPage() {
           <h2 className="section-title">2. Upload & preview</h2>
           {classCount === 0 && (
             <p className="excel-error">
-              No classes found yet. You can still import students (leave the Class column blank). If your file lists class names, create matching classes first or those rows will show validation errors.
+              No classes found yet. Students can still be imported, but any class names in the sheet will be ignored until matching classes are created in RiseFlow.
             </p>
           )}
           <div
@@ -172,6 +174,9 @@ export default function ExcelImportPage() {
                 {duplicateWarningCount > 0 && (
                   <span className="excel-duplicate-note"> {duplicateWarningCount} row(s) are duplicates (already in school or repeated in file) and will be skipped on import.</span>
                 )}
+                {warningCount > 0 && (
+                  <span className="excel-warning-note"> {warningCount} row(s) reference classes that do not exist yet and will be imported without a class assignment.</span>
+                )}
               </p>
               <div className="data-table-wrap">
                 <table className="data-table">
@@ -206,6 +211,35 @@ export default function ExcelImportPage() {
                 </table>
               </div>
               <p className="card-desc">Total rows in file: {preview.totalRows}. Any blank admission numbers will be generated automatically during import.</p>
+
+              {hasValidationErrors && (
+                <div className="excel-issues-panel">
+                  <p className="excel-error"><strong>Blocking issues to fix before import:</strong></p>
+                  <ul className="excel-issue-list">
+                    {preview.validationErrors.slice(0, 8).map((issue, index) => (
+                      <li key={`${issue.rowIndex}-${index}`}>Row {issue.rowIndex}: {issue.error}</li>
+                    ))}
+                  </ul>
+                  {blockingErrorCount > 8 && (
+                    <p className="excel-hint">Showing the first 8 issues of {blockingErrorCount} total.</p>
+                  )}
+                </div>
+              )}
+
+              {warningCount > 0 && (
+                <div className="excel-issues-panel">
+                  <p className="excel-warning"><strong>Import warnings:</strong> students will still upload, but these rows could not be matched to an existing class.</p>
+                  <ul className="excel-issue-list">
+                    {preview.warnings.slice(0, 8).map((issue, index) => (
+                      <li key={`warning-${issue.rowIndex}-${index}`}>Row {issue.rowIndex}: {issue.error}</li>
+                    ))}
+                  </ul>
+                  {warningCount > 8 && (
+                    <p className="excel-hint">Showing the first 8 warnings of {warningCount} total.</p>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
                 className="btn-excel btn-import"
@@ -215,7 +249,7 @@ export default function ExcelImportPage() {
                 {importing ? 'Importing…' : 'Confirm and import'}
               </button>
               {hasValidationErrors && (
-                <p className="excel-hint">Fix validation errors (e.g. missing FirstName/LastName or unknown Class) in your file and upload again.</p>
+                <p className="excel-hint">Fix the blocking validation errors above and upload again.</p>
               )}
             </>
           )}

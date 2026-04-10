@@ -32,18 +32,19 @@ public class ExcelService
     {
         var previewRows = new List<ExcelPreviewRow>();
         var validationErrors = new List<ExcelRowValidation>();
+        var warnings = new List<ExcelRowValidation>();
         int totalRows = 0;
 
         using var workbook = new XLWorkbook(excelStream);
         var ws = workbook.Worksheet(1);
         var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
         if (lastRow < 2)
-            return new ExcelPreviewResult(previewRows, validationErrors, new List<ExcelRowValidation>(), 0);
+            return new ExcelPreviewResult(previewRows, validationErrors, new List<ExcelRowValidation>(), warnings, 0);
 
         var classes = await _db.Classes
             .AsNoTracking()
             .Where(c => c.SchoolId == schoolId)
-            .ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
+            .ToDictionaryAsync(c => NormalizeClassKey(c.Name)!, c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
 
         var existingKeys = await GetExistingStudentKeysAsync(schoolId, ct);
         var withinFileKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -57,6 +58,7 @@ public class ExcelService
                  stateOfOrigin, lga, nationality, parentName, parentPhone, bloodGroup, genotype, emergencyName, emergencyPhone) = ReadRow(ws, row);
 
             var errors = ValidateRow(row, firstName, lastName, nin, nationalIdNumber, nationalIdType, className, classes);
+            var rowWarnings = GetWarnings(row, className, classes);
 
             var dupKey = StudentDuplicateKey(admissionNumber, firstName ?? "", lastName ?? "", dob);
             var isDuplicate = existingKeys.Contains(dupKey) || withinFileKeys.Contains(dupKey);
@@ -67,6 +69,8 @@ public class ExcelService
 
             foreach (var e in errors)
                 validationErrors.Add(e);
+            foreach (var warning in rowWarnings)
+                warnings.Add(warning);
 
             var classId = ResolveClassId(className, classes);
             var preview = new ExcelPreviewRow(
@@ -97,7 +101,7 @@ public class ExcelService
                 previewRows.Add(preview);
         }
 
-        return new ExcelPreviewResult(previewRows, validationErrors, duplicateWarnings, totalRows);
+        return new ExcelPreviewResult(previewRows, validationErrors, duplicateWarnings, warnings, totalRows);
     }
 
     /// <summary>Import valid rows; skips duplicates (same admission number or same first+last+DOB in school). Returns created count, skipped count, and billing message.</summary>
@@ -112,7 +116,7 @@ public class ExcelService
         var existingCount = await _db.Students.CountAsync(s => s.SchoolId == schoolId && s.IsActive, ct);
         var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         var currencyCode = school?.CurrencyCode?.Trim() ?? "NGN";
-        var classes = await _db.Classes.Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c, StringComparer.OrdinalIgnoreCase, ct);
+        var classes = await _db.Classes.Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => NormalizeClassKey(c.Name)!, c => c, StringComparer.OrdinalIgnoreCase, ct);
         var parentCache = new Dictionary<string, Parent>(StringComparer.OrdinalIgnoreCase);
         var reservedAdmissionNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var imported = 0;
@@ -130,7 +134,8 @@ public class ExcelService
             withinFileKeys.Add(key);
 
             Guid? classId = ResolveClassId(dto.ClassName, classes.ToDictionary(c => c.Key, c => c.Value.Id));
-            var schoolClass = !string.IsNullOrWhiteSpace(dto.ClassName) && classes.TryGetValue(dto.ClassName.Trim().ToUpperInvariant(), out var matchedClass)
+            var normalizedClassName = NormalizeClassKey(dto.ClassName);
+            var schoolClass = normalizedClassName != null && classes.TryGetValue(normalizedClassName, out var matchedClass)
                 ? matchedClass
                 : null;
             var admissionNumber = await _admissionNumbers.GetUniqueAdmissionNumberAsync(
@@ -234,7 +239,7 @@ public class ExcelService
         if (lastRow < 2)
             return (valid, errorRows, errors);
 
-        var classes = await _db.Classes.AsNoTracking().Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => c.Name.Trim().ToUpperInvariant(), c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
+        var classes = await _db.Classes.AsNoTracking().Where(c => c.SchoolId == schoolId).ToDictionaryAsync(c => NormalizeClassKey(c.Name)!, c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
 
         for (var row = 2; row <= lastRow; row++)
         {
@@ -300,16 +305,28 @@ public class ExcelService
             list.Add(new ExcelRowValidation(rowIndex, "FirstName is required."));
         if (string.IsNullOrWhiteSpace(lastName))
             list.Add(new ExcelRowValidation(rowIndex, "LastName is required."));
-        // At least one national ID (NIN or NationalIdNumber) recommended for ministry alignment; not blocking
-        if (!string.IsNullOrWhiteSpace(className) && !classes.ContainsKey(className.Trim().ToUpperInvariant()))
-            list.Add(new ExcelRowValidation(rowIndex, $"Class '{className}' not found in this school. Create the class first or leave blank."));
+        return list;
+    }
+
+    private static List<ExcelRowValidation> GetWarnings(int rowIndex, string? className, IReadOnlyDictionary<string, Guid> classes)
+    {
+        var list = new List<ExcelRowValidation>();
+        if (!string.IsNullOrWhiteSpace(className) && ResolveClassId(className, classes) == null)
+            list.Add(new ExcelRowValidation(rowIndex, $"Class '{className}' was not found in this school. The student will be imported without a class assignment."));
         return list;
     }
 
     private static Guid? ResolveClassId(string? className, IReadOnlyDictionary<string, Guid> classes)
     {
+        var normalizedClassName = NormalizeClassKey(className);
+        if (normalizedClassName == null) return null;
+        return classes.TryGetValue(normalizedClassName, out var id) ? id : null;
+    }
+
+    private static string? NormalizeClassKey(string? className)
+    {
         if (string.IsNullOrWhiteSpace(className)) return null;
-        return classes.TryGetValue(className.Trim().ToUpperInvariant(), out var id) ? id : null;
+        return new string(className.Trim().Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
     }
 
     private static Parent GetOrCreateParentInBatch(Guid schoolId, string? parentName, string? parentPhone, Dictionary<string, Parent> cache, RiseFlowDbContext db)
@@ -336,7 +353,7 @@ public class ExcelService
     }
 }
 
-public record ExcelPreviewResult(IReadOnlyList<ExcelPreviewRow> PreviewRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, IReadOnlyList<ExcelRowValidation> DuplicateWarnings, int TotalRows);
+public record ExcelPreviewResult(IReadOnlyList<ExcelPreviewRow> PreviewRows, IReadOnlyList<ExcelRowValidation> ValidationErrors, IReadOnlyList<ExcelRowValidation> DuplicateWarnings, IReadOnlyList<ExcelRowValidation> Warnings, int TotalRows);
 public record ExcelPreviewRow(int RowIndex, string FirstName, string LastName, string? MiddleName, string? Gender, DateOnly? DateOfBirth, string? NIN, string? NationalIdType, string? NationalIdNumber, string? ClassName, string? AdmissionNumber, string? StateOfOrigin, string? LGA, string? Nationality, string? ParentName, string? ParentPhone, string? BloodGroup, string? Genotype, string? EmergencyContactName, string? EmergencyContactPhone, Guid? ClassId, bool HasErrors);
 public record ExcelRowValidation(int RowIndex, string Error);
 public record ExcelErrorRow(int RowIndex, string FirstName, string LastName, string Errors);
