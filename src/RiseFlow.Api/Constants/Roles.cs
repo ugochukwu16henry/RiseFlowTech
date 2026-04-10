@@ -10,6 +10,7 @@ public static class Roles
     public const string Teacher = "Teacher";
     public const string Parent = "Parent";
     public const string Student = "Student";
+    public const string Affiliate = "Affiliate";
 
-    public static readonly IReadOnlyList<string> All = new[] { SuperAdmin, SchoolAdmin, Teacher, Parent, Student };
+    public static readonly IReadOnlyList<string> All = new[] { SuperAdmin, SchoolAdmin, Teacher, Parent, Student, Affiliate };
 }

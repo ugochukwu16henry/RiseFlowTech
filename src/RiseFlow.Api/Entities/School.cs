@@ -21,6 +21,8 @@ public class School
     public string CurrencyCode { get; set; } = "NGN";
     /// <summary>Stored logo file name (e.g. under wwwroot/logos) or relative path. Set during onboarding or via logo upload.</summary>
     public string? LogoFileName { get; set; }
+    public Guid? AffiliateId { get; set; }
+    public string? AffiliateReferralCodeUsed { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
@@ -38,6 +40,7 @@ public class School
     public ICollection<AcademicTerm> AcademicTerms { get; set; } = new List<AcademicTerm>();
     public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
     public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
+    public Affiliate? Affiliate { get; set; }
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
     public ICollection<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings { get; set; } = new List<StudentProfileVisibilitySetting>();
