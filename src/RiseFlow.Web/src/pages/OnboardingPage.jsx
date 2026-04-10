@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import './OnboardingPage.css';
@@ -7,6 +7,8 @@ import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get('ref') || '';
   const [form, setForm] = useState({
     schoolName: '',
     email: '',
@@ -74,6 +76,7 @@ export default function OnboardingPage() {
       fd.append('AdminEmail', form.email.trim());
       fd.append('AdminPassword', form.adminPassword);
       fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
+      if (referralCode) fd.append('ReferralCode', referralCode);
       fd.append('CountryCode', 'NG');
       fd.append('CurrencyCode', 'NGN');
       fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
@@ -232,6 +235,11 @@ export default function OnboardingPage() {
         <Link to="/" className="onboarding-back">← Back to RiseFlow</Link>
         <h1 className="onboarding-title">Welcome to RiseFlow</h1>
         <p className="onboarding-intro">Let’s get your school digitalized in 2 minutes.</p>
+        {referralCode && (
+          <p className="onboarding-intro" style={{ marginTop: '0.35rem' }}>
+            You are signing up with affiliate code <strong>{referralCode}</strong>.
+          </p>
+        )}
 
         <div className="progress-strip" aria-label="Onboarding progress">
           <div className={`progress-dot ${progressIndex >= 1 ? 'is-active' : ''}`} />
