@@ -20,6 +20,9 @@ export default function SchoolStudentsPage() {
   const [gradeFilter, setGradeFilter] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [savingClassId, setSavingClassId] = useState(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [bulkClassId, setBulkClassId] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   const loadStudents = async (cancelledRef) => {
     setLoading(true);
@@ -76,51 +79,73 @@ export default function SchoolStudentsPage() {
     });
   }, [students, searchTerm, classFilter, gradeFilter]);
 
+  const filteredStudentIds = useMemo(() => filteredStudents.map((student) => student.id), [filteredStudents]);
+  const allFilteredSelected = filteredStudentIds.length > 0 && filteredStudentIds.every((id) => selectedStudentIds.includes(id));
+
+  const toggleStudentSelection = (studentId, isChecked) => {
+    setSelectedStudentIds((prev) => {
+      if (isChecked) return prev.includes(studentId) ? prev : [...prev, studentId];
+      return prev.filter((id) => id !== studentId);
+    });
+  };
+
+  const toggleSelectAllFiltered = (isChecked) => {
+    setSelectedStudentIds((prev) => {
+      if (isChecked) {
+        return Array.from(new Set([...prev, ...filteredStudentIds]));
+      }
+      return prev.filter((id) => !filteredStudentIds.includes(id));
+    });
+  };
+
+  const saveStudentClassAssignment = async (studentId, nextClassId) => {
+    const res = await apiFetch(`/api/students/${studentId}/class-assignment`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: nextClassId || null }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || 'Could not assign class.');
+  };
+
   const handleQuickAssignClass = async (student, nextClassId) => {
     if (!student?.id || savingClassId === student.id) return;
     setSavingClassId(student.id);
     setError(null);
 
     try {
-      const selectedClass = nextClassId ? classes.find((item) => item.id === nextClassId) : null;
-      const payload = {
-        firstName: student.firstName,
-        lastName: student.lastName,
-        middleName: student.middleName || null,
-        dateOfBirth: student.dateOfBirth || null,
-        gender: student.gender || null,
-        nationality: student.nationality || null,
-        stateOfOrigin: student.stateOfOrigin || null,
-        lga: student.lga || null,
-        nin: student.nin || null,
-        nationalIdType: student.nationalIdType || null,
-        nationalIdNumber: student.nationalIdNumber || null,
-        admissionNumber: student.admissionNumber || null,
-        dateOfAdmission: student.dateOfAdmission || null,
-        classId: nextClassId || null,
-        gradeId: selectedClass?.gradeId || student.grade?.id || student.class?.grade?.id || null,
-        previousSchool: student.previousSchool || null,
-        previousClass: student.previousClass || null,
-        bloodGroup: student.bloodGroup || null,
-        genotype: student.genotype || null,
-        allergies: student.allergies || null,
-        emergencyContactName: student.emergencyContactName || null,
-        emergencyContactPhone: student.emergencyContactPhone || null,
-      };
-
-      const res = await apiFetch(`/api/students/${student.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || 'Could not assign class.');
-
+      await saveStudentClassAssignment(student.id, nextClassId);
       await loadStudents();
     } catch (e) {
       setError(e.message || 'Failed to assign class.');
     } finally {
       setSavingClassId(null);
+    }
+  };
+
+  const handleBulkAssignClass = async () => {
+    if (!bulkClassId) {
+      setError('Select a class to assign first.');
+      return;
+    }
+    if (selectedStudentIds.length === 0) {
+      setError('Select at least one student first.');
+      return;
+    }
+
+    setBulkAssigning(true);
+    setError(null);
+    try {
+      for (const studentId of selectedStudentIds) {
+        await saveStudentClassAssignment(studentId, bulkClassId);
+      }
+      setSelectedStudentIds([]);
+      setBulkClassId('');
+      await loadStudents();
+    } catch (e) {
+      setError(e.message || 'Failed to bulk assign class.');
+    } finally {
+      setBulkAssigning(false);
     }
   };
 
@@ -149,7 +174,42 @@ export default function SchoolStudentsPage() {
         </select>
       </div>
       {!loading && !error && students.length > 0 && (
-        <p className="card-desc">Showing {filteredStudents.length} of {students.length} students. Click “Open record” on any row to assign the student to a class, view full details, teachers, results, and other edit controls.</p>
+        <p className="card-desc">Showing {filteredStudents.length} of {students.length} students. Use the quick class dropdown for one-by-one changes, or select multiple students below and bulk assign them to a class.</p>
+      )}
+      {!loading && !error && filteredStudents.length > 0 && classes.length > 0 && (
+        <div className="form-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          <span className="card-desc"><strong>{selectedStudentIds.length}</strong> selected</span>
+          <select
+            className="form-input"
+            style={{ minWidth: '220px' }}
+            value={bulkClassId}
+            onChange={(e) => setBulkClassId(e.target.value)}
+            disabled={bulkAssigning}
+          >
+            <option value="">— Bulk assign to class —</option>
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.id} value={schoolClass.id}>
+                {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-primary-action"
+            onClick={handleBulkAssignClass}
+            disabled={bulkAssigning || !bulkClassId || selectedStudentIds.length === 0}
+          >
+            {bulkAssigning ? 'Assigning…' : `Assign selected (${selectedStudentIds.length})`}
+          </button>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={() => toggleSelectAllFiltered(!allFilteredSelected)}
+            disabled={bulkAssigning}
+          >
+            {allFilteredSelected ? 'Clear selection' : 'Select all shown'}
+          </button>
+        </div>
       )}
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
@@ -162,6 +222,15 @@ export default function SchoolStudentsPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '36px' }}>
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={(e) => toggleSelectAllFiltered(e.target.checked)}
+                    aria-label="Select all visible students"
+                    disabled={bulkAssigning}
+                  />
+                </th>
                 <th style={{ width: '48px' }}>Photo</th>
                 <th>Name</th>
                 <th>Admission #</th>
@@ -174,6 +243,15 @@ export default function SchoolStudentsPage() {
             <tbody>
               {filteredStudents.map((s) => (
                 <tr key={s.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.includes(s.id)}
+                      onChange={(e) => toggleStudentSelection(s.id, e.target.checked)}
+                      aria-label={`Select ${[s.firstName, s.lastName].filter(Boolean).join(' ')}`}
+                      disabled={bulkAssigning}
+                    />
+                  </td>
                   <td><StudentPhoto studentId={s.id} firstName={s.firstName} lastName={s.lastName} size={36} /></td>
                   <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
                   <td>{s.admissionNumber || '—'}</td>
@@ -184,7 +262,7 @@ export default function SchoolStudentsPage() {
                       style={{ minWidth: '180px' }}
                       value={s.class?.id || ''}
                       onChange={(e) => handleQuickAssignClass(s, e.target.value)}
-                      disabled={savingClassId === s.id}
+                      disabled={savingClassId === s.id || bulkAssigning}
                     >
                       <option value="">— No class —</option>
                       {classes.map((schoolClass) => (

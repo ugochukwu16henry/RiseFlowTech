@@ -445,6 +445,38 @@ public class StudentsController : ControllerBase
         return Ok(student);
     }
 
+    [HttpPut("{id:guid}/class-assignment")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Student>> UpdateClassAssignment(Guid id, [FromBody] UpdateStudentClassAssignmentRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (student == null)
+            return NotFound();
+        if (student.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+
+        Class? schoolClass = null;
+        if (request.ClassId.HasValue)
+        {
+            schoolClass = await _db.Classes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == request.ClassId.Value && c.SchoolId == student.SchoolId, ct);
+            if (schoolClass == null)
+                return BadRequest("Selected class was not found for this school.");
+        }
+
+        student.ClassId = request.ClassId;
+        student.GradeId = schoolClass?.GradeId;
+        student.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(student);
+    }
+
     [HttpPut("{id:guid}/parent-corrections")]
     [Authorize(Roles = Roles.Parent)]
     [ProducesResponseType(typeof(ParentStudentCorrectionResult), StatusCodes.Status200OK)]
@@ -1098,6 +1130,7 @@ public class StudentsController : ControllerBase
     }
 }
 
+public record UpdateStudentClassAssignmentRequest(Guid? ClassId);
 public record StudentGradeSummaryDto(Guid Id, string Name, int LevelOrder);
 public record StudentClassSummaryDto(Guid Id, string Name, string? AcademicYear, StudentGradeSummaryDto? Grade);
 public record StudentListItemDto(
