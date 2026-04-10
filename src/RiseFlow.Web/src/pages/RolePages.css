@@ -213,6 +213,113 @@
 }
 .btn-primary-action:hover { background: #047857; }
 .btn-primary-action:disabled { opacity: 0.7; cursor: not-allowed; }
+.btn-primary-action--ghost {
+  background: transparent;
+  color: var(--color-deep-blue);
+  border: 1px solid var(--color-neutral-border);
+}
+.btn-primary-action--ghost:hover {
+  background: #eff6ff;
+  color: var(--color-deep-blue);
+}
+
+.sa-school-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 220px;
+}
+.sa-school-table-logo,
+.sa-school-detail-logo,
+.sa-school-logo-placeholder {
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+}
+.sa-school-table-logo,
+.sa-school-logo-placeholder {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+}
+.sa-school-detail-logo,
+.sa-school-logo-placeholder--large {
+  width: 100%;
+  max-width: 160px;
+  min-height: 120px;
+  object-fit: cover;
+}
+.sa-school-logo-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.sa-school-logo-placeholder--large {
+  width: 160px;
+  height: 160px;
+  font-size: 2rem;
+}
+.sa-school-secondary {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--color-neutral-text-secondary);
+}
+.sa-school-contact {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.875rem;
+}
+.sa-school-action-stack,
+.sa-school-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.sa-school-details-row td {
+  background: #f8fafc;
+}
+.sa-school-detail-panel {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+.sa-school-media,
+.sa-school-detail-body {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+}
+.sa-school-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+.sa-school-detail-card {
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+.sa-detail-value {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #0f172a;
+  word-break: break-word;
+}
+@media (max-width: 900px) {
+  .sa-school-detail-panel {
+    grid-template-columns: 1fr;
+  }
+  .sa-school-logo-placeholder--large,
+  .sa-school-detail-logo {
+    max-width: 100%;
+    width: 100%;
+  }
+}
 
 /* SuperAdmin Revenue Hub (same card pattern) */
 .sa-revenue-grid {

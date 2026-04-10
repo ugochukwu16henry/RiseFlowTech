@@ -17,12 +17,14 @@ public class SuperAdminController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
     private readonly SchoolOffboardingService _offboarding;
+    private readonly FileStorageService _fileStorage;
 
-    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding)
+    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding, FileStorageService fileStorage)
     {
         _db = db;
         _billing = billing;
         _offboarding = offboarding;
+        _fileStorage = fileStorage;
     }
 
     private static readonly IReadOnlyDictionary<string, string> CountryNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -40,6 +42,48 @@ public class SuperAdminController : ControllerBase
         ["RW"] = "Rwanda",
         ["ZM"] = "Zambia",
     };
+
+    private Dictionary<Guid, string> BuildUploadedFileMap(string folderName)
+    {
+        var result = new Dictionary<Guid, string>();
+        var folderPath = Path.Combine(_fileStorage.RootPath, folderName);
+        if (!Directory.Exists(folderPath))
+            return result;
+
+        foreach (var filePath in Directory.EnumerateFiles(folderPath))
+        {
+            var fileName = Path.GetFileName(filePath);
+            var fileStem = Path.GetFileNameWithoutExtension(filePath);
+            if (!Guid.TryParseExact(fileStem, "N", out var schoolId))
+                continue;
+
+            result.TryAdd(schoolId, $"{folderName}/{fileName}");
+        }
+
+        return result;
+    }
+
+    private static string? NormalizeRelativePath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return value.Replace('\\', '/').TrimStart('/');
+    }
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static string? CombineDistinct(IEnumerable<string?> values)
+    {
+        var items = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return items.Length == 0 ? null : string.Join(", ", items);
+    }
 
     /// <summary>Control room dashboard: schools by country (map data), total and monthly revenue.</summary>
     [HttpGet("dashboard")]
@@ -147,23 +191,79 @@ public class SuperAdminController : ControllerBase
             .Select(g => new { SchoolId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
 
+        var schoolAdminRoleId = await _db.Roles.AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(r => r.Name == Roles.SchoolAdmin)
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var adminDirectory = new Dictionary<Guid, (string? OwnerName, string? OwnerEmail, string? OwnerPhone)>();
+        if (schoolAdminRoleId.HasValue)
+        {
+            var adminContacts = await (
+                from userRole in _db.UserRoles.AsNoTracking().IgnoreQueryFilters()
+                join user in _db.Users.AsNoTracking().IgnoreQueryFilters() on userRole.UserId equals user.Id
+                where userRole.RoleId == schoolAdminRoleId.Value && user.SchoolId != null
+                select new
+                {
+                    SchoolId = user.SchoolId!.Value,
+                    user.FullName,
+                    user.Email,
+                    user.PhoneNumber
+                })
+                .ToListAsync(ct);
+
+            adminDirectory = adminContacts
+                .GroupBy(x => x.SchoolId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (
+                        OwnerName: CombineDistinct(g.Select(x => x.FullName)),
+                        OwnerEmail: CombineDistinct(g.Select(x => x.Email)),
+                        OwnerPhone: CombineDistinct(g.Select(x => x.PhoneNumber))));
+        }
+
+        var uploadedLogos = BuildUploadedFileMap("logos");
+        var uploadedRegistrationDocs = BuildUploadedFileMap("cac");
+
         var schools = await _db.Schools.AsNoTracking()
             .IgnoreQueryFilters()
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct);
 
         var rows = schools
-            .Select(x => new SuperAdminSchoolRowDto(
-                x.Id,
-                x.Name,
-                x.CountryCode,
-                x.CurrencyCode,
-                x.IsActive,
-                studentCounts.GetValueOrDefault(x.Id, 0),
-                teacherCounts.GetValueOrDefault(x.Id, 0),
-                parentCounts.GetValueOrDefault(x.Id, 0),
-                x.CreatedAtUtc,
-                x.Email))
+            .Select(x =>
+            {
+                var owner = adminDirectory.GetValueOrDefault(x.Id);
+                var ownerName = FirstNonEmpty(owner.OwnerName, x.PrincipalName);
+                var ownerEmail = FirstNonEmpty(owner.OwnerEmail, x.Email);
+                var primaryPhone = FirstNonEmpty(x.Phone, owner.OwnerPhone);
+                var countryName = string.IsNullOrWhiteSpace(x.CountryCode)
+                    ? null
+                    : CountryNames.GetValueOrDefault(x.CountryCode, x.CountryCode);
+
+                return new SuperAdminSchoolRowDto(
+                    x.Id,
+                    x.Name,
+                    x.CountryCode,
+                    countryName,
+                    x.CurrencyCode,
+                    x.IsActive,
+                    studentCounts.GetValueOrDefault(x.Id, 0),
+                    teacherCounts.GetValueOrDefault(x.Id, 0),
+                    parentCounts.GetValueOrDefault(x.Id, 0),
+                    x.CreatedAtUtc,
+                    ownerEmail,
+                    ownerName,
+                    primaryPhone,
+                    primaryPhone,
+                    x.Address,
+                    x.Email,
+                    x.PrincipalName,
+                    NormalizeRelativePath(x.LogoFileName) ?? uploadedLogos.GetValueOrDefault(x.Id),
+                    x.CacNumber,
+                    uploadedRegistrationDocs.GetValueOrDefault(x.Id));
+            })
             .ToList();
 
         return Ok(rows);
