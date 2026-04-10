@@ -8,6 +8,8 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RiseFlow.Api.Data;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using RiseFlow.Api.Middleware;
 using RiseFlow.Api.Services;
 
@@ -21,18 +23,18 @@ SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
 if (Environment.GetEnvironmentVariable("PORT") is { } port)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Database: PostgreSQL by default. SQLite remains available only when explicitly selected for local fallback/troubleshooting.
+// Database: PostgreSQL by default. Railway/hosted deployments resolve `DATABASE_URL` automatically.
 var dbProvider = builder.Configuration["Database:Provider"] ?? "Npgsql";
 builder.Services.AddDbContext<RiseFlowDbContext>(options =>
 {
     if (string.Equals(dbProvider, "Npgsql", StringComparison.OrdinalIgnoreCase)
         || string.Equals(dbProvider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
     {
-        var pg = builder.Configuration.GetConnectionString("DefaultConnection");
+        var pg = DatabaseConnectionHelper.GetConnectionString(builder.Configuration);
         if (string.IsNullOrWhiteSpace(pg))
         {
             throw new InvalidOperationException(
-                "Database:Provider requests PostgreSQL but ConnectionStrings:DefaultConnection is missing or empty.");
+                "Database:Provider requests PostgreSQL but no usable connection string was resolved from DATABASE_URL, DATABASE_PUBLIC_URL, or ConnectionStrings:DefaultConnection.");
         }
 
         options.UseNpgsql(pg);
@@ -49,9 +51,10 @@ builder.Services.AddDbContext<RiseFlowDbContext>(options =>
     options.UseSqlite(sqliteConn);
 });
 
-// Health checks (DB) — aligns with starter-kit-style production readiness
+// Health checks: `/health` is liveness for Railway/container probes; `/health/ready` includes DB readiness.
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<RiseFlowDbContext>("database");
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<RiseFlowDbContext>("database", tags: new[] { "ready" });
 
 // OpenTelemetry traces → OTLP (set OTEL_EXPORTER_OTLP_ENDPOINT or OpenTelemetry:OtlpEndpoint)
 if (builder.Configuration.GetValue("OpenTelemetry:Enabled", true))
@@ -240,7 +243,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/", () => Results.Ok("RiseFlow API OK"));
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 app.MapControllers();
 
