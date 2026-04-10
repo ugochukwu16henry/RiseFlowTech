@@ -270,7 +270,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("AcademicTerms");
+                    b.ToTable("AcademicTerms", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Affiliate", b =>
@@ -284,8 +284,8 @@ namespace RiseFlow.Api.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.Property<string>("AccountNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<DateTime?>("ApprovedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -313,13 +313,13 @@ namespace RiseFlow.Api.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("UniqueCode")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -335,7 +335,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Affiliates");
+                    b.ToTable("Affiliates", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliateCommissionLedger", b =>
@@ -361,8 +361,8 @@ namespace RiseFlow.Api.Migrations
 
                     b.Property<string>("CommissionType")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -390,11 +390,12 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("AffiliatePayoutId");
 
-                    b.HasIndex("BillingRecordId");
+                    b.HasIndex("BillingRecordId")
+                        .IsUnique();
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("AffiliateCommissionLedgers");
+                    b.ToTable("AffiliateCommissionLedgers", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliateInvite", b =>
@@ -432,7 +433,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("InviteToken")
                         .IsUnique();
 
-                    b.ToTable("AffiliateInvites");
+                    b.ToTable("AffiliateInvites", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliateLeadRequest", b =>
@@ -466,8 +467,8 @@ namespace RiseFlow.Api.Migrations
                         .HasColumnType("character varying(1024)");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -478,7 +479,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("AffiliateLeadRequests");
+                    b.ToTable("AffiliateLeadRequests", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliateNotification", b =>
@@ -506,8 +507,8 @@ namespace RiseFlow.Api.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -518,7 +519,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("AffiliateId");
 
-                    b.ToTable("AffiliateNotifications");
+                    b.ToTable("AffiliateNotifications", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliatePayout", b =>
@@ -575,7 +576,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("AffiliateId");
 
-                    b.ToTable("AffiliatePayouts");
+                    b.ToTable("AffiliatePayouts", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AffiliateTrainingVideo", b =>
@@ -599,8 +600,8 @@ namespace RiseFlow.Api.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Topic")
                         .HasMaxLength(128)
@@ -611,12 +612,12 @@ namespace RiseFlow.Api.Migrations
 
                     b.Property<string>("YoutubeUrl")
                         .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("AffiliateTrainingVideos");
+                    b.ToTable("AffiliateTrainingVideos", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AssessmentCategory", b =>
@@ -649,7 +650,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("AssessmentCategories");
+                    b.ToTable("AssessmentCategories", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AssessmentItem", b =>
@@ -682,7 +683,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("AssessmentItems");
+                    b.ToTable("AssessmentItems", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AttendanceRecord", b =>
@@ -728,7 +729,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("SchoolId", "StudentId", "Date", "Period")
                         .IsUnique();
 
-                    b.ToTable("AttendanceRecords");
+                    b.ToTable("AttendanceRecords", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.AuditLog", b =>
@@ -775,7 +776,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId", "CreatedAtUtc");
 
-                    b.ToTable("AuditLogs");
+                    b.ToTable("AuditLogs", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.BillingRecord", b =>
@@ -832,7 +833,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("BillingRecords");
+                    b.ToTable("BillingRecords", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Class", b =>
@@ -868,7 +869,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Classes");
+                    b.ToTable("Classes", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.ClassSubject", b =>
@@ -889,7 +890,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("ClassSubjects");
+                    b.ToTable("ClassSubjects", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.FileAsset", b =>
@@ -936,7 +937,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FileAssets");
+                    b.ToTable("FileAssets", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Grade", b =>
@@ -967,7 +968,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("SchoolId", "Name")
                         .IsUnique();
 
-                    b.ToTable("Grades");
+                    b.ToTable("Grades", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Parent", b =>
@@ -1030,7 +1031,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Parents");
+                    b.ToTable("Parents", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.PlatformComplianceSettings", b =>
@@ -1058,7 +1059,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PlatformComplianceSettings");
+                    b.ToTable("PlatformComplianceSettings", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.School", b =>
@@ -1135,7 +1136,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("AffiliateId");
 
-                    b.ToTable("Schools");
+                    b.ToTable("Schools", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Student", b =>
@@ -1228,6 +1229,13 @@ namespace RiseFlow.Api.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<DateTime?>("ParentProfileLastUpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreviousClass")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<string>("PreviousSchool")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1255,7 +1263,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("SchoolId", "ParentAccessCode")
                         .IsUnique();
 
-                    b.ToTable("Students");
+                    b.ToTable("Students", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.StudentAssessment", b =>
@@ -1298,7 +1306,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("TermId");
 
-                    b.ToTable("StudentAssessments");
+                    b.ToTable("StudentAssessments", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.StudentParent", b =>
@@ -1323,7 +1331,115 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("StudentParents");
+                    b.ToTable("StudentParents", (string)null);
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentPortalAccess", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CredentialsSharedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastPasswordResetAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LoginId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ShowDateOfBirth")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowEmergencyContacts")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowHealthDetails")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowLocationDetails")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowParentContactDetails")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowPreviousSchoolDetails")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.HasIndex("SchoolId", "LoginId")
+                        .IsUnique();
+
+                    b.ToTable("StudentPortalAccesses", (string)null);
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentProfileVisibilitySetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ShowAcademicHistoryToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowDateOfBirthToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowHealthDetailsToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowLocationDetailsToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowParentContactsToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowPreviousRecordToTeachers")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId")
+                        .IsUnique();
+
+                    b.ToTable("StudentProfileVisibilitySettings", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.StudentResult", b =>
@@ -1384,7 +1500,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("TermId");
 
-                    b.ToTable("StudentResults");
+                    b.ToTable("StudentResults", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Subject", b =>
@@ -1418,7 +1534,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Subjects");
+                    b.ToTable("Subjects", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Teacher", b =>
@@ -1532,6 +1648,10 @@ namespace RiseFlow.Api.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<string>("Religion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("ResidentialAddress")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
@@ -1573,7 +1693,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SchoolId");
 
-                    b.ToTable("Teachers");
+                    b.ToTable("Teachers", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.TeacherClass", b =>
@@ -1595,7 +1715,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("ClassId");
 
-                    b.ToTable("TeacherClasses");
+                    b.ToTable("TeacherClasses", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.TeacherClassSubject", b =>
@@ -1618,7 +1738,92 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("TeacherClassSubjects");
+                    b.ToTable("TeacherClassSubjects", (string)null);
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherCustomFieldValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FieldKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Value")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId");
+
+                    b.HasIndex("TeacherId", "FieldKey")
+                        .IsUnique();
+
+                    b.ToTable("TeacherCustomFieldValues", (string)null);
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherProfileFieldSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("FieldKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsAdminOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsCustom")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEditableByTeacher")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVisibleToTeacher")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("SchoolId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "FieldKey")
+                        .IsUnique();
+
+                    b.ToTable("TeacherProfileFieldSettings", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.TeacherSubject", b =>
@@ -1636,7 +1841,7 @@ namespace RiseFlow.Api.Migrations
 
                     b.HasIndex("SubjectId");
 
-                    b.ToTable("TeacherSubjects");
+                    b.ToTable("TeacherSubjects", (string)null);
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.TranscriptVerification", b =>
@@ -1676,7 +1881,7 @@ namespace RiseFlow.Api.Migrations
                     b.HasIndex("VerificationToken")
                         .IsUnique();
 
-                    b.ToTable("TranscriptVerifications");
+                    b.ToTable("TranscriptVerifications", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -1992,6 +2197,44 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentPortalAccess", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("StudentPortalAccesses")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Student", "Student")
+                        .WithOne("PortalAccess")
+                        .HasForeignKey("RiseFlow.Api.Entities.StudentPortalAccess", "StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Data.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.StudentProfileVisibilitySetting", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("StudentProfileVisibilitySettings")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+                });
+
             modelBuilder.Entity("RiseFlow.Api.Entities.StudentResult", b =>
                 {
                     b.HasOne("RiseFlow.Api.Entities.Teacher", "EnteredByTeacher")
@@ -2100,6 +2343,36 @@ namespace RiseFlow.Api.Migrations
                     b.Navigation("Subject");
 
                     b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherCustomFieldValue", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("TeacherCustomFieldValues")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RiseFlow.Api.Entities.Teacher", "Teacher")
+                        .WithMany("CustomFieldValues")
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("RiseFlow.Api.Entities.TeacherProfileFieldSetting", b =>
+                {
+                    b.HasOne("RiseFlow.Api.Entities.School", "School")
+                        .WithMany("TeacherProfileFieldSettings")
+                        .HasForeignKey("SchoolId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("School");
                 });
 
             modelBuilder.Entity("RiseFlow.Api.Entities.TeacherSubject", b =>
@@ -2215,11 +2488,19 @@ namespace RiseFlow.Api.Migrations
 
                     b.Navigation("Parents");
 
+                    b.Navigation("StudentPortalAccesses");
+
+                    b.Navigation("StudentProfileVisibilitySettings");
+
                     b.Navigation("StudentResults");
 
                     b.Navigation("Students");
 
                     b.Navigation("Subjects");
+
+                    b.Navigation("TeacherCustomFieldValues");
+
+                    b.Navigation("TeacherProfileFieldSettings");
 
                     b.Navigation("Teachers");
 
@@ -2228,6 +2509,8 @@ namespace RiseFlow.Api.Migrations
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Student", b =>
                 {
+                    b.Navigation("PortalAccess");
+
                     b.Navigation("Results");
 
                     b.Navigation("StudentParents");
@@ -2248,6 +2531,8 @@ namespace RiseFlow.Api.Migrations
 
             modelBuilder.Entity("RiseFlow.Api.Entities.Teacher", b =>
                 {
+                    b.Navigation("CustomFieldValues");
+
                     b.Navigation("EnteredResults");
 
                     b.Navigation("TeacherClassSubjects");
