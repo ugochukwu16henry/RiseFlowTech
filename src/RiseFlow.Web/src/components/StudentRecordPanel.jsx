@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import StudentPhoto from './StudentPhoto';
 import { apiFetch } from '../api';
 
@@ -12,7 +13,10 @@ function formatDate(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
 }
 
-function buildSchoolPayload(detail, form) {
+function buildSchoolPayload(detail, form, availableClasses = []) {
+  const selectedClassId = form.classId || null;
+  const selectedClass = selectedClassId ? availableClasses.find((item) => item.id === selectedClassId) : null;
+
   return {
     firstName: form.firstName?.trim() || detail.firstName,
     lastName: form.lastName?.trim() || detail.lastName,
@@ -27,8 +31,8 @@ function buildSchoolPayload(detail, form) {
     nationalIdNumber: form.nationalIdNumber?.trim() || null,
     admissionNumber: form.admissionNumber?.trim() || null,
     dateOfAdmission: form.dateOfAdmission || detail.dateOfAdmission || null,
-    classId: detail.class?.id || null,
-    gradeId: detail.grade?.id || null,
+    classId: selectedClassId,
+    gradeId: selectedClass?.gradeId || null,
     previousSchool: form.previousSchool?.trim() || null,
     previousClass: form.previousClass?.trim() || null,
     bloodGroup: form.bloodGroup?.trim() || null,
@@ -69,6 +73,8 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [form, setForm] = useState({});
   const [visibilityForm, setVisibilityForm] = useState(null);
+  const [schoolClasses, setSchoolClasses] = useState([]);
+  const [loadingClasses, setLoadingClasses] = useState(role === 'school');
 
   useEffect(() => {
     if (!studentId) return undefined;
@@ -89,6 +95,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
           firstName: data.firstName || '',
           lastName: data.lastName || '',
           middleName: data.middleName || '',
+          classId: data.class?.id || '',
           dateOfBirth: toInputDate(data.dateOfBirth),
           gender: data.gender || '',
           nationality: data.nationality || '',
@@ -119,6 +126,32 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
     return () => { cancelled = true; };
   }, [studentId]);
 
+  useEffect(() => {
+    if (role !== 'school') {
+      setSchoolClasses([]);
+      setLoadingClasses(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoadingClasses(true);
+    apiFetch('/api/schools/classes')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setSchoolClasses(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setSchoolClasses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClasses(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
   const groupedTerms = useMemo(() => (Array.isArray(detail?.termResults) ? detail.termResults : []), [detail]);
 
   const updateForm = (key, value) => {
@@ -147,7 +180,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
 
     try {
       const isParent = role === 'parent';
-      const payload = isParent ? buildParentPayload(form, detail) : buildSchoolPayload(detail, form);
+      const payload = isParent ? buildParentPayload(form, detail) : buildSchoolPayload(detail, form, schoolClasses);
       const res = await apiFetch(isParent ? `/api/students/${studentId}/parent-corrections` : `/api/students/${studentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -383,6 +416,23 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
 
                   {role === 'school' && (
                     <>
+                      <label>
+                        <span>Assign to class</span>
+                        <select className="form-input" value={form.classId || ''} onChange={(e) => updateForm('classId', e.target.value)} disabled={saving || loadingClasses}>
+                          <option value="">— No class assigned —</option>
+                          {schoolClasses.map((schoolClass) => (
+                            <option key={schoolClass.id} value={schoolClass.id}>
+                              {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {loadingClasses && <span className="card-desc">Loading classes…</span>}
+                        {!loadingClasses && schoolClasses.length === 0 && (
+                          <span className="card-desc">
+                            No classes yet. <Link to="/school/classes">Create a class first</Link>, then return here to assign this student.
+                          </span>
+                        )}
+                      </label>
                       <label>
                         <span>Admission number</span>
                         <input className="form-input" value={form.admissionNumber || ''} onChange={(e) => updateForm('admissionNumber', e.target.value)} disabled={saving} />
