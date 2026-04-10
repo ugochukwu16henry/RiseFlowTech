@@ -43,6 +43,13 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
     public DbSet<FileAsset> FileAssets => Set<FileAsset>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<Affiliate> Affiliates => Set<Affiliate>();
+    public DbSet<AffiliateLeadRequest> AffiliateLeadRequests => Set<AffiliateLeadRequest>();
+    public DbSet<AffiliateInvite> AffiliateInvites => Set<AffiliateInvite>();
+    public DbSet<AffiliateTrainingVideo> AffiliateTrainingVideos => Set<AffiliateTrainingVideo>();
+    public DbSet<AffiliatePayout> AffiliatePayouts => Set<AffiliatePayout>();
+    public DbSet<AffiliateCommissionLedger> AffiliateCommissionLedgers => Set<AffiliateCommissionLedger>();
+    public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -66,9 +73,14 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CacNumber).HasMaxLength(64);
+            e.Property(x => x.AffiliateReferralCodeUsed).HasMaxLength(64);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);
+            e.HasOne(x => x.Affiliate)
+                .WithMany(x => x.ReferredSchools)
+                .HasForeignKey(x => x.AffiliateId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Grade
@@ -306,6 +318,105 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(3);
             e.Property(x => x.PaymentReference).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.BillingRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Affiliate program
+        builder.Entity<Affiliate>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.UniqueCode).IsRequired().HasMaxLength(32);
+            e.Property(x => x.HeadshotPath).HasMaxLength(512);
+            e.Property(x => x.PhoneNumber).HasMaxLength(64);
+            e.Property(x => x.CountryCode).HasMaxLength(8);
+            e.Property(x => x.BankName).HasMaxLength(128);
+            e.Property(x => x.AccountNumber).HasMaxLength(64);
+            e.Property(x => x.AccountName).HasMaxLength(128);
+            e.Property(x => x.PaystackRecipientCode).HasMaxLength(128);
+            e.HasIndex(x => x.UniqueCode).IsUnique();
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AffiliateLeadRequest>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FullName).IsRequired().HasMaxLength(128);
+            e.Property(x => x.Email).IsRequired().HasMaxLength(256);
+            e.Property(x => x.PhoneNumber).HasMaxLength(64);
+            e.Property(x => x.CountryCode).HasMaxLength(8);
+            e.Property(x => x.Note).HasMaxLength(1024);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
+            e.HasIndex(x => x.Email);
+        });
+
+        builder.Entity<AffiliateInvite>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Email).IsRequired().HasMaxLength(256);
+            e.Property(x => x.InviteToken).IsRequired().HasMaxLength(128);
+            e.HasIndex(x => x.InviteToken).IsUnique();
+            e.HasOne(x => x.AffiliateLeadRequest)
+                .WithMany(x => x.Invites)
+                .HasForeignKey(x => x.AffiliateLeadRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AffiliateTrainingVideo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).IsRequired().HasMaxLength(256);
+            e.Property(x => x.Topic).HasMaxLength(128);
+            e.Property(x => x.Description).HasMaxLength(2048);
+            e.Property(x => x.YoutubeUrl).IsRequired().HasMaxLength(1024);
+        });
+
+        builder.Entity<AffiliatePayout>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.CurrencyCode).IsRequired().HasMaxLength(8);
+            e.Property(x => x.PayoutType).IsRequired().HasMaxLength(32);
+            e.Property(x => x.PaystackTransferReference).HasMaxLength(128);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
+            e.Property(x => x.FailureReason).HasMaxLength(1024);
+            e.HasOne(x => x.Affiliate)
+                .WithMany(x => x.Payouts)
+                .HasForeignKey(x => x.AffiliateId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AffiliateCommissionLedger>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.CommissionType).IsRequired().HasMaxLength(32);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(32);
+            e.HasOne(x => x.Affiliate)
+                .WithMany(x => x.CommissionLedgers)
+                .HasForeignKey(x => x.AffiliateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.School)
+                .WithMany()
+                .HasForeignKey(x => x.SchoolId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.BillingRecord)
+                .WithMany()
+                .HasForeignKey(x => x.BillingRecordId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.AffiliatePayout)
+                .WithMany(x => x.CommissionLedgers)
+                .HasForeignKey(x => x.AffiliatePayoutId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AffiliateNotification>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).IsRequired().HasMaxLength(256);
+            e.Property(x => x.Message).IsRequired().HasMaxLength(2048);
+            e.Property(x => x.Type).IsRequired().HasMaxLength(32);
+            e.HasOne(x => x.Affiliate)
+                .WithMany(x => x.Notifications)
+                .HasForeignKey(x => x.AffiliateId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // TranscriptVerification

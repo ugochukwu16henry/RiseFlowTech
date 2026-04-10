@@ -16,12 +16,14 @@ public class SchoolOnboardingService
     private readonly RiseFlowDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly AffiliateService _affiliateService;
 
-    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, AffiliateService affiliateService)
     {
         _db = db;
         _userManager = userManager;
         _env = env;
+        _affiliateService = affiliateService;
     }
 
     public async Task<SchoolOnboardingResult> OnboardSchoolAsync(OnboardSchoolRequest request, CancellationToken ct = default)
@@ -29,6 +31,8 @@ public class SchoolOnboardingService
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         try
         {
+            var affiliate = await _affiliateService.FindByReferralCodeAsync(request.ReferralCode, ct);
+
             var school = new School
             {
                 Id = Guid.NewGuid(),
@@ -39,6 +43,8 @@ public class SchoolOnboardingService
                 Phone = request.Phone,
                 Email = request.Email,
                 CacNumber = request.CacNumber,
+                AffiliateId = affiliate?.Id,
+                AffiliateReferralCodeUsed = affiliate?.UniqueCode,
                 CountryCode = request.CountryCode?.Trim().ToUpperInvariant(),
                 CurrencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? "NGN" : request.CurrencyCode.Trim().ToUpperInvariant(),
                 IsActive = true,
@@ -164,6 +170,7 @@ public record OnboardSchoolRequest(
     string? AdminEmail,
     string? AdminPassword,
     string? AdminFullName,
+    string? ReferralCode = null,
     /// <summary>Required when creating an admin account. Must be true to comply with ToS and Data Processing Agreement.</summary>
     bool AgreedToTermsAndDpa = false);
 

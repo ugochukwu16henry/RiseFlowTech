@@ -132,6 +132,8 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<IClaimsTransformation, EnsureSchoolIdClaimTransformation>();
 builder.Services.AddScoped<SchoolOnboardingService>();
 builder.Services.AddScoped<SchoolOffboardingService>();
+builder.Services.AddSingleton<FileStorageService>();
+builder.Services.AddScoped<AffiliateService>();
 builder.Services.AddSingleton<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<TranscriptPdfService>();
