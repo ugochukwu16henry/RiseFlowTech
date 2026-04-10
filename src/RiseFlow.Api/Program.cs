@@ -261,14 +261,51 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
 {
     try
     {
+        static bool IsDuplicateColumn(Exception ex) => ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase);
+
         try
         {
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Teachers\" ADD COLUMN \"Religion\" TEXT NULL;");
         }
-        catch (Exception ex) when (ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
+        catch (Exception ex) when (IsDuplicateColumn(ex))
         {
             // Column already exists in this local DB.
         }
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Students\" ADD COLUMN \"PreviousClass\" TEXT NULL;");
+        }
+        catch (Exception ex) when (IsDuplicateColumn(ex))
+        {
+            // Column already exists in this local DB.
+        }
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Students\" ADD COLUMN \"ParentProfileLastUpdatedAtUtc\" TEXT NULL;");
+        }
+        catch (Exception ex) when (IsDuplicateColumn(ex))
+        {
+            // Column already exists in this local DB.
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS "StudentProfileVisibilitySettings" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_StudentProfileVisibilitySettings" PRIMARY KEY,
+                "SchoolId" TEXT NOT NULL,
+                "ShowDateOfBirthToTeachers" INTEGER NOT NULL,
+                "ShowLocationDetailsToTeachers" INTEGER NOT NULL,
+                "ShowHealthDetailsToTeachers" INTEGER NOT NULL,
+                "ShowParentContactsToTeachers" INTEGER NOT NULL,
+                "ShowAcademicHistoryToTeachers" INTEGER NOT NULL,
+                "ShowPreviousRecordToTeachers" INTEGER NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL,
+                "UpdatedAtUtc" TEXT NULL,
+                CONSTRAINT "FK_StudentProfileVisibilitySettings_Schools_SchoolId" FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE
+            );
+            """);
 
         await context.Database.ExecuteSqlRawAsync(
             """
@@ -303,12 +340,13 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
             );
             """);
 
+        await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_StudentProfileVisibilitySettings_SchoolId\" ON \"StudentProfileVisibilitySettings\" (\"SchoolId\");");
         await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherProfileFieldSettings_SchoolId_FieldKey\" ON \"TeacherProfileFieldSettings\" (\"SchoolId\", \"FieldKey\");");
         await context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_TeacherId_FieldKey\" ON \"TeacherCustomFieldValues\" (\"TeacherId\", \"FieldKey\");");
         await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_TeacherCustomFieldValues_SchoolId\" ON \"TeacherCustomFieldValues\" (\"SchoolId\");");
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "Could not patch the local SQLite schema for teacher profile governance.");
+        logger.LogWarning(ex, "Could not patch the local SQLite schema for development-only governance tables.");
     }
 }
