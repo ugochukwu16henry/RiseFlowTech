@@ -43,6 +43,7 @@ export default function TeacherPage() {
   const [attendance, setAttendance] = useState({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [activeView, setActiveView] = useState('overview');
+  const [showProfileDetails, setShowProfileDetails] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [studentClassFilter, setStudentClassFilter] = useState('');
   const [studentGradeFilter, setStudentGradeFilter] = useState('');
@@ -343,7 +344,28 @@ export default function TeacherPage() {
                 <p className="empty-state">No teacher profile found. Sign in through your school&apos;s teacher login.</p>
               )}
               {me && (
-                <section className="progress-section" aria-label="Teacher profile">
+                <>
+                  <div className="dashboard-card" style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div>
+                        <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>Teacher details</h3>
+                        <p className="card-desc" style={{ margin: 0 }}>
+                          Your profile information stays hidden until you click <strong>View details</strong>.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => setShowProfileDetails((prev) => !prev)}
+                        aria-expanded={showProfileDetails}
+                      >
+                        {showProfileDetails ? 'Hide details' : 'View details'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showProfileDetails && (
+                    <section className="progress-section" aria-label="Teacher profile">
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                     <TeacherPhoto teacherId={me.id} fullName={`${me.firstName} ${me.lastName}`} size={56} />
                     <div>
@@ -556,7 +578,9 @@ export default function TeacherPage() {
                       <span className="card-desc">School-managed items like account status, salary, and locked custom fields remain read-only.</span>
                     </div>
                   </form>
-                </section>
+                    </section>
+                  )}
+                </>
               )}
             </>
           )}

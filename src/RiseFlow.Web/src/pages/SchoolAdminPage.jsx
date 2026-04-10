@@ -88,8 +88,8 @@ export default function SchoolAdminPage() {
       return;
     }
 
-    if (!selectedTeacherId || !teachers.some((teacher) => teacher.id === selectedTeacherId)) {
-      setSelectedTeacherId(teachers[0].id);
+    if (selectedTeacherId && !teachers.some((teacher) => teacher.id === selectedTeacherId)) {
+      setSelectedTeacherId(null);
     }
   }, [teachers, selectedTeacherId]);
 
@@ -414,9 +414,10 @@ export default function SchoolAdminPage() {
                       <button
                         type="button"
                         className="btn-primary-action btn-primary-action--ghost"
-                        onClick={() => setSelectedTeacherId(t.id)}
+                        onClick={() => setSelectedTeacherId((prev) => (prev === t.id ? null : t.id))}
+                        aria-expanded={selectedTeacherId === t.id}
                       >
-                        {selectedTeacherId === t.id ? 'Viewing' : 'View details'}
+                        {selectedTeacherId === t.id ? 'Hide details' : 'View details'}
                       </button>
                     </td>
                   </tr>
@@ -425,13 +426,18 @@ export default function SchoolAdminPage() {
             </table>
           </div>
 
-          {selectedTeacher && (
+          {selectedTeacher ? (
             <TeacherDetailsPanel
               teacher={selectedTeacher}
+              onClose={() => setSelectedTeacherId(null)}
               onTeacherUpdated={(updatedTeacher) => {
                 setTeachers((prev) => prev.map((item) => (item.id === updatedTeacher.id ? updatedTeacher : item)));
               }}
             />
+          ) : (
+            <p className="card-desc" style={{ marginTop: '0.75rem' }}>
+              Teacher details stay hidden until you click <strong>View details</strong>.
+            </p>
           )}
         </>
       )}
@@ -699,7 +705,7 @@ function buildTeacherAdminFormState(teacher) {
   };
 }
 
-function TeacherDetailsPanel({ teacher, onTeacherUpdated }) {
+function TeacherDetailsPanel({ teacher, onTeacherUpdated, onClose }) {
   const fullName = [teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(' ') || 'Teacher';
   const [adminForm, setAdminForm] = useState(() => buildTeacherAdminFormState(teacher));
   const [savingSettings, setSavingSettings] = useState(false);
@@ -901,13 +907,20 @@ function TeacherDetailsPanel({ teacher, onTeacherUpdated }) {
 
   return (
     <section className="progress-section" aria-label="Teacher details" style={{ marginTop: '1rem' }}>
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <TeacherPhoto teacherId={teacher.id} fullName={fullName} size={56} />
-        <div>
-          <h3 className="card-title" style={{ margin: 0 }}>{fullName}</h3>
-          <p className="card-desc">Role: {teacher.roleTitle || 'Teacher'} • Department: {teacher.department || '—'} • Status: {teacher.isActive ? 'Active' : 'Inactive'}</p>
-          <p className="card-desc">Classes handled: {teacher.assignedClassCount ?? teacher.teacherClasses?.length ?? 0} • Students handled: {teacher.assignedStudentCount ?? 0}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <TeacherPhoto teacherId={teacher.id} fullName={fullName} size={56} />
+          <div>
+            <h3 className="card-title" style={{ margin: 0 }}>{fullName}</h3>
+            <p className="card-desc">Role: {teacher.roleTitle || 'Teacher'} • Department: {teacher.department || '—'} • Status: {teacher.isActive ? 'Active' : 'Inactive'}</p>
+            <p className="card-desc">Classes handled: {teacher.assignedClassCount ?? teacher.teacherClasses?.length ?? 0} • Students handled: {teacher.assignedStudentCount ?? 0}</p>
+          </div>
         </div>
+        {onClose && (
+          <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={onClose}>
+            Hide details
+          </button>
+        )}
       </div>
 
       {Array.isArray(teacher.teacherClasses) && teacher.teacherClasses.length > 0 && (
