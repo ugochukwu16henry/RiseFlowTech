@@ -21,7 +21,7 @@ function studentListHttpError(status, bodySnippet) {
     return 'The API is not reachable. For local dev: run RiseFlow.Api on port 5221 and use the Vite dev server with an empty VITE_API_URL so /api is proxied.';
   }
   if (status >= 500) {
-    return `Server error (${status}) while loading students. Check API logs.`;
+    return 'The student directory is syncing with the live API. Please refresh shortly.';
   }
   const hint = (bodySnippet || '').trim().slice(0, 200);
   return hint ? `Could not load students: ${hint}` : `Could not load students (HTTP ${status}).`;

@@ -295,8 +295,8 @@ public class StudentsController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
-    [ProducesResponseType(typeof(List<Student>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<Student>>> List(CancellationToken ct)
+    [ProducesResponseType(typeof(List<StudentDirectoryItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentDirectoryItemDto>>> List(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -306,11 +306,33 @@ public class StudentsController : ControllerBase
         {
             var list = await _db.Students
                 .AsNoTracking()
-                .Include(s => s.Class)
-                .Include(s => s.Grade)
                 .Where(s => s.SchoolId == schoolId)
                 .OrderBy(s => s.LastName)
                 .ThenBy(s => s.FirstName)
+                .Select(s => new StudentDirectoryItemDto(
+                    s.Id,
+                    s.FirstName,
+                    s.LastName,
+                    s.MiddleName,
+                    s.AdmissionNumber,
+                    s.IsActive,
+                    s.ProfilePhotoFileName,
+                    s.ClassId == null
+                        ? null
+                        : new StudentDirectoryClassDto(
+                            s.ClassId.Value,
+                            s.Class != null ? s.Class.Name : null,
+                            s.Class != null && s.Class.Grade != null
+                                ? s.Class.Grade.Name
+                                : (s.Grade != null ? s.Grade.Name : null)),
+                    s.GradeId == null
+                        ? null
+                        : new StudentDirectoryGradeDto(
+                            s.GradeId.Value,
+                            s.Grade != null
+                                ? s.Grade.Name
+                                : (s.Class != null && s.Class.Grade != null ? s.Class.Grade.Name : null))
+                ))
                 .ToListAsync(ct);
             return Ok(list);
         }
@@ -323,18 +345,16 @@ public class StudentsController : ControllerBase
                 .Where(s => s.SchoolId == schoolId)
                 .OrderBy(s => s.LastName)
                 .ThenBy(s => s.FirstName)
-                .Select(s => new
-                {
+                .Select(s => new StudentDirectoryItemDto(
                     s.Id,
                     s.FirstName,
                     s.LastName,
-                    MiddleName = (string?)null,
-                    AdmissionNumber = (string?)null,
-                    Class = (object?)null,
-                    Grade = (object?)null,
+                    null,
+                    null,
                     s.IsActive,
-                    ProfilePhotoFileName = (string?)null
-                })
+                    null,
+                    null,
+                    null))
                 .ToListAsync(ct);
 
             return Ok(fallback);
@@ -781,6 +801,18 @@ public class StudentsController : ControllerBase
 public record AccessCodeDto(string Code);
 public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);
 public record StudentWithAccessCodeDto(Guid Id, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? ParentAccessCode);
+public record StudentDirectoryItemDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string? AdmissionNumber,
+    bool IsActive,
+    string? ProfilePhotoFileName,
+    StudentDirectoryClassDto? Class,
+    StudentDirectoryGradeDto? Grade);
+public record StudentDirectoryClassDto(Guid Id, string? Name, string? GradeName);
+public record StudentDirectoryGradeDto(Guid Id, string? Name);
 public record StudentSelfDashboardDto(
     Guid StudentId,
     string FullName,
