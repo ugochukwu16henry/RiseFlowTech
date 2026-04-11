@@ -20,6 +20,12 @@ const NAV_BY_ROLE = {
     { to: '/super-admin/compliance', label: 'System settings' },
     { to: '/super-admin/data-offboarding', label: 'Data offboarding' },
   ],
+  affiliate: [
+    { to: '/affiliate', label: 'Dashboard', end: true },
+    { to: '/affiliate/schools', label: 'My schools' },
+    { to: '/affiliate/payouts', label: 'Payouts' },
+    { to: '/affiliate/training', label: 'Training' },
+  ],
   teacher: [{ to: '/teacher', label: 'Dashboard', end: true }],
   parent: [
     { to: '/parent', label: 'Family', end: true },
@@ -63,7 +69,7 @@ function getBrandInitials(name) {
 /**
  * Shared app shell: sidebar + top bar (homepage stays standalone elsewhere).
  * @param {'app'|'auth'} variant — app = full dashboard; auth = slim header for login/onboarding
- * @param {'school'|'super'|'teacher'|'parent'|'student'|'legal'|undefined} role — sidebar links; omit for empty aside
+ * @param {'school'|'super'|'affiliate'|'teacher'|'parent'|'student'|'legal'|undefined} role — sidebar links; omit for empty aside
  */
 export default function PageLayout({
   title,
@@ -79,7 +85,7 @@ export default function PageLayout({
   const showSignOutButton = showSignOut ?? variant === 'app';
   const [schoolBrand, setSchoolBrand] = useState(null);
   const [logoFailed, setLogoFailed] = useState(false);
-  const usesPlatformBrand = !role || role === 'super' || role === 'legal';
+  const usesPlatformBrand = !role || role === 'super' || role === 'legal' || role === 'affiliate';
 
   useEffect(() => {
     let cancelled = false;
@@ -122,17 +128,19 @@ export default function PageLayout({
   const brandName = usesPlatformBrand
     ? 'RiseFlow'
     : (schoolBrand?.name || 'School Portal');
-  const brandTagline = usesPlatformBrand
-    ? 'School OS'
-    : role === 'school'
-      ? 'Admin dashboard'
-      : role === 'teacher'
-        ? 'Teacher workspace'
-        : role === 'parent'
-          ? 'Family portal'
-          : role === 'student'
-            ? 'Student portal'
-            : 'Dashboard';
+  const brandTagline = role === 'affiliate'
+    ? 'Affiliate partner hub'
+    : usesPlatformBrand
+      ? 'School OS'
+      : role === 'school'
+        ? 'Admin dashboard'
+        : role === 'teacher'
+          ? 'Teacher workspace'
+          : role === 'parent'
+            ? 'Family portal'
+            : role === 'student'
+              ? 'Student portal'
+              : 'Dashboard';
   const brandInitials = usesPlatformBrand ? 'RF' : getBrandInitials(brandName);
   const brandLogo = usesPlatformBrand ? null : schoolBrand?.logo;
 

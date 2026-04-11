@@ -38,7 +38,16 @@ export default function AffiliatePage() {
     setError(null);
     try {
       const res = await apiFetch('/api/affiliates/me/dashboard');
-      if (!res.ok) throw new Error('Could not load affiliate dashboard.');
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Please sign in again with your affiliate account to continue.');
+      }
+      if (res.status === 404) {
+        throw new Error('Your affiliate profile is still being prepared. Refresh shortly or contact support.');
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || 'Could not load affiliate dashboard.');
+      }
       const data = await res.json();
       setDashboard(data);
       setSettingsForm({
@@ -49,7 +58,10 @@ export default function AffiliatePage() {
         phoneNumber: data?.payoutSettings?.phoneNumber || '',
       });
     } catch (e) {
-      setError(e.message || 'Could not load affiliate dashboard.');
+      const message = e?.message === 'Failed to fetch'
+        ? 'We could not reach the affiliate service right now. Please refresh and try again.'
+        : (e?.message || 'Could not load affiliate dashboard.');
+      setError(message);
       setDashboard(null);
     } finally {
       setLoading(false);

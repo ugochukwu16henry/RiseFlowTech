@@ -287,39 +287,46 @@ public class AffiliateService
 
     public async Task SyncPendingPayoutsAsync(CancellationToken ct = default)
     {
-        var readyLedgers = await _db.AffiliateCommissionLedgers
-            .Include(x => x.BillingRecord)
-            .Where(x => x.Status == AffiliateConstants.CommissionStatusReadyForPayout && x.AffiliatePayoutId == null)
-            .ToListAsync(ct);
-
-        if (readyLedgers.Count == 0)
-            return;
-
-        foreach (var group in readyLedgers.GroupBy(x => x.AffiliateId))
+        try
         {
-            var totalAmount = group.Sum(x => x.TotalCommissionAmount);
-            if (totalAmount <= 0)
-                continue;
+            var readyLedgers = await _db.AffiliateCommissionLedgers
+                .Include(x => x.BillingRecord)
+                .Where(x => x.Status == AffiliateConstants.CommissionStatusReadyForPayout && x.AffiliatePayoutId == null)
+                .ToListAsync(ct);
 
-            var payout = new AffiliatePayout
+            if (readyLedgers.Count == 0)
+                return;
+
+            foreach (var group in readyLedgers.GroupBy(x => x.AffiliateId))
             {
-                Id = Guid.NewGuid(),
-                AffiliateId = group.Key,
-                Amount = totalAmount,
-                CurrencyCode = "NGN",
-                PayoutType = "Commission",
-                Status = AffiliateConstants.PayoutStatusPending,
-                PeriodStartUtc = group.Min(x => x.BillingRecord?.PeriodStart.ToDateTime(TimeOnly.MinValue) ?? x.CreatedAtUtc),
-                PeriodEndUtc = group.Max(x => x.BillingRecord?.PeriodEnd.ToDateTime(TimeOnly.MaxValue) ?? x.CreatedAtUtc),
-                CreatedAtUtc = DateTime.UtcNow
-            };
+                var totalAmount = group.Sum(x => x.TotalCommissionAmount);
+                if (totalAmount <= 0)
+                    continue;
 
-            _db.AffiliatePayouts.Add(payout);
-            foreach (var ledger in group)
-                ledger.AffiliatePayoutId = payout.Id;
+                var payout = new AffiliatePayout
+                {
+                    Id = Guid.NewGuid(),
+                    AffiliateId = group.Key,
+                    Amount = totalAmount,
+                    CurrencyCode = "NGN",
+                    PayoutType = "Commission",
+                    Status = AffiliateConstants.PayoutStatusPending,
+                    PeriodStartUtc = group.Min(x => x.BillingRecord?.PeriodStart.ToDateTime(TimeOnly.MinValue) ?? x.CreatedAtUtc),
+                    PeriodEndUtc = group.Max(x => x.BillingRecord?.PeriodEnd.ToDateTime(TimeOnly.MaxValue) ?? x.CreatedAtUtc),
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+
+                _db.AffiliatePayouts.Add(payout);
+                foreach (var ledger in group)
+                    ledger.AffiliatePayoutId = payout.Id;
+            }
+
+            await _db.SaveChangesAsync(ct);
         }
-
-        await _db.SaveChangesAsync(ct);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate payout sync skipped because the current database schema is not fully ready.");
+        }
     }
 
     public async Task<List<AffiliateSummaryDto>> GetAffiliateSummariesAsync(CancellationToken ct = default)
@@ -394,7 +401,21 @@ public class AffiliateService
             return null;
 
         var summaries = await GetAffiliateSummariesAsync(ct);
-        var summary = summaries.First(x => x.AffiliateId == affiliateId);
+        var summary = summaries.FirstOrDefault(x => x.AffiliateId == affiliateId)
+            ?? new AffiliateSummaryDto(
+                affiliate.Id,
+                affiliate.User.FullName ?? affiliate.User.Email ?? "Affiliate",
+                affiliate.User.Email ?? string.Empty,
+                affiliate.UniqueCode,
+                affiliate.IsActive,
+                affiliate.CountryCode,
+                affiliate.PhoneNumber,
+                affiliate.HeadshotPath,
+                0,
+                0,
+                0m,
+                0m,
+                affiliate.ApprovedAtUtc);
         var schools = await BuildSchoolSummariesAsync(affiliateId, ct);
         var payouts = await BuildPayoutHistoryAsync(affiliateId, ct);
         var notifications = await BuildNotificationsAsync(affiliateId, ct);
@@ -411,10 +432,7 @@ public class AffiliateService
     {
         await SyncPendingPayoutsAsync(ct);
 
-        var affiliate = await _db.Affiliates
-            .Include(x => x.User)
-            .FirstOrDefaultAsync(x => x.UserId == userId, ct);
-
+        var affiliate = await GetOrCreateAffiliateAsync(userId, ct);
         if (affiliate == null)
             return null;
 
@@ -433,10 +451,19 @@ public class AffiliateService
             .Sum(x => x.Amount);
 
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-        var currentMonthEarnings = await _db.AffiliateCommissionLedgers
-            .AsNoTracking()
-            .Where(x => x.AffiliateId == affiliate.Id && x.CreatedAtUtc >= monthStart)
-            .SumAsync(x => (decimal?)x.TotalCommissionAmount, ct) ?? 0m;
+        decimal currentMonthEarnings = 0m;
+
+        try
+        {
+            currentMonthEarnings = await _db.AffiliateCommissionLedgers
+                .AsNoTracking()
+                .Where(x => x.AffiliateId == affiliate.Id && x.CreatedAtUtc >= monthStart)
+                .SumAsync(x => (decimal?)x.TotalCommissionAmount, ct) ?? 0m;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate month earnings could not be loaded for affiliate {AffiliateId}. Returning 0.", affiliate.Id);
+        }
 
         return new AffiliateDashboardDto(
             affiliate.User.FullName ?? affiliate.User.Email ?? "Affiliate",
@@ -459,7 +486,7 @@ public class AffiliateService
 
     public async Task<AffiliatePayoutSettingsDto?> UpdatePayoutSettingsAsync(Guid userId, UpdateAffiliatePayoutSettingsRequest request, CancellationToken ct = default)
     {
-        var affiliate = await _db.Affiliates.FirstOrDefaultAsync(x => x.UserId == userId, ct);
+        var affiliate = await GetOrCreateAffiliateAsync(userId, ct);
         if (affiliate == null)
             return null;
 
@@ -479,7 +506,7 @@ public class AffiliateService
         if (file == null || file.Length == 0)
             throw new InvalidOperationException("Headshot file is required.");
 
-        var affiliate = await _db.Affiliates.FirstOrDefaultAsync(x => x.UserId == userId, ct)
+        var affiliate = await GetOrCreateAffiliateAsync(userId, ct)
             ?? throw new InvalidOperationException("Affiliate account not found.");
 
         var ext = Path.GetExtension(file.FileName);
@@ -709,89 +736,153 @@ public class AffiliateService
 
     private async Task<List<AffiliateSchoolSummaryDto>> BuildSchoolSummariesAsync(Guid affiliateId, CancellationToken ct)
     {
-        var schools = await _db.Schools
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .Where(x => x.AffiliateId == affiliateId)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .ToListAsync(ct);
-
-        var schoolIds = schools.Select(x => x.Id).ToList();
-        var studentCounts = schoolIds.Count == 0
-            ? new Dictionary<Guid, int>()
-            : await _db.Students
+        try
+        {
+            var schools = await _db.Schools
                 .AsNoTracking()
                 .IgnoreQueryFilters()
-                .Where(x => schoolIds.Contains(x.SchoolId) && x.IsActive)
+                .Where(x => x.AffiliateId == affiliateId)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            var schoolIds = schools.Select(x => x.Id).ToList();
+            var studentCounts = schoolIds.Count == 0
+                ? new Dictionary<Guid, int>()
+                : await _db.Students
+                    .AsNoTracking()
+                    .IgnoreQueryFilters()
+                    .Where(x => schoolIds.Contains(x.SchoolId) && x.IsActive)
+                    .GroupBy(x => x.SchoolId)
+                    .Select(g => new { SchoolId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+
+            var commissionRows = await _db.AffiliateCommissionLedgers
+                .AsNoTracking()
+                .Where(x => x.AffiliateId == affiliateId)
+                .ToListAsync(ct);
+
+            var paidBillingMap = await _db.BillingRecords
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(x => x.School.AffiliateId == affiliateId && x.AmountPaid != null && x.AmountPaid >= x.AmountDue)
                 .GroupBy(x => x.SchoolId)
-                .Select(g => new { SchoolId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
+                .Select(g => new { SchoolId = g.Key, LatestPaidAtUtc = g.Max(x => x.PaidAtUtc) })
+                .ToDictionaryAsync(x => x.SchoolId, x => x.LatestPaidAtUtc, ct);
 
-        var commissionRows = await _db.AffiliateCommissionLedgers
-            .AsNoTracking()
-            .Where(x => x.AffiliateId == affiliateId)
-            .ToListAsync(ct);
-
-        var paidBillingMap = await _db.BillingRecords
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .Where(x => x.School.AffiliateId == affiliateId && x.AmountPaid != null && x.AmountPaid >= x.AmountDue)
-            .GroupBy(x => x.SchoolId)
-            .Select(g => new { SchoolId = g.Key, LatestPaidAtUtc = g.Max(x => x.PaidAtUtc) })
-            .ToDictionaryAsync(x => x.SchoolId, x => x.LatestPaidAtUtc, ct);
-
-        return schools.Select(school =>
+            return schools.Select(school =>
+            {
+                var totalStudents = studentCounts.GetValueOrDefault(school.Id, 0);
+                var billableStudents = Math.Max(0, totalStudents - CountryBillingConfig.FreeTierStudentCount);
+                var rows = commissionRows.Where(x => x.SchoolId == school.Id).ToList();
+                return new AffiliateSchoolSummaryDto(
+                    school.Id,
+                    school.Name,
+                    totalStudents,
+                    billableStudents,
+                    school.CreatedAtUtc,
+                    paidBillingMap.GetValueOrDefault(school.Id),
+                    rows.Sum(x => x.TotalCommissionAmount),
+                    rows.Where(x => x.Status == AffiliateConstants.CommissionStatusPending || x.Status == AffiliateConstants.CommissionStatusReadyForPayout).Sum(x => x.TotalCommissionAmount),
+                    rows.Where(x => x.Status == AffiliateConstants.CommissionStatusPaid).Sum(x => x.TotalCommissionAmount));
+            }).ToList();
+        }
+        catch (Exception ex)
         {
-            var totalStudents = studentCounts.GetValueOrDefault(school.Id, 0);
-            var billableStudents = Math.Max(0, totalStudents - CountryBillingConfig.FreeTierStudentCount);
-            var rows = commissionRows.Where(x => x.SchoolId == school.Id).ToList();
-            return new AffiliateSchoolSummaryDto(
-                school.Id,
-                school.Name,
-                totalStudents,
-                billableStudents,
-                school.CreatedAtUtc,
-                paidBillingMap.GetValueOrDefault(school.Id),
-                rows.Sum(x => x.TotalCommissionAmount),
-                rows.Where(x => x.Status == AffiliateConstants.CommissionStatusPending || x.Status == AffiliateConstants.CommissionStatusReadyForPayout).Sum(x => x.TotalCommissionAmount),
-                rows.Where(x => x.Status == AffiliateConstants.CommissionStatusPaid).Sum(x => x.TotalCommissionAmount));
-        }).ToList();
+            _logger.LogWarning(ex, "Affiliate school summaries could not be loaded for affiliate {AffiliateId}. Returning an empty list instead.", affiliateId);
+            return new List<AffiliateSchoolSummaryDto>();
+        }
     }
 
     private async Task<List<AffiliatePayoutDto>> BuildPayoutHistoryAsync(Guid affiliateId, CancellationToken ct)
     {
-        return await _db.AffiliatePayouts
-            .AsNoTracking()
-            .Include(x => x.Affiliate)
-            .ThenInclude(x => x.User)
-            .Where(x => x.AffiliateId == affiliateId)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new AffiliatePayoutDto(
-                x.Id,
-                x.AffiliateId,
-                x.Affiliate.User.FullName ?? x.Affiliate.User.Email ?? "Affiliate",
-                x.Amount,
-                x.CurrencyCode,
-                x.PayoutType,
-                x.Status,
-                x.PaystackTransferReference,
-                x.PeriodStartUtc,
-                x.PeriodEndUtc,
-                x.PaidAtUtc,
-                x.CreatedAtUtc,
-                x.FailureReason))
-            .ToListAsync(ct);
+        try
+        {
+            return await _db.AffiliatePayouts
+                .AsNoTracking()
+                .Include(x => x.Affiliate)
+                .ThenInclude(x => x.User)
+                .Where(x => x.AffiliateId == affiliateId)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Select(x => new AffiliatePayoutDto(
+                    x.Id,
+                    x.AffiliateId,
+                    x.Affiliate.User.FullName ?? x.Affiliate.User.Email ?? "Affiliate",
+                    x.Amount,
+                    x.CurrencyCode,
+                    x.PayoutType,
+                    x.Status,
+                    x.PaystackTransferReference,
+                    x.PeriodStartUtc,
+                    x.PeriodEndUtc,
+                    x.PaidAtUtc,
+                    x.CreatedAtUtc,
+                    x.FailureReason))
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate payout history could not be loaded for affiliate {AffiliateId}. Returning an empty list instead.", affiliateId);
+            return new List<AffiliatePayoutDto>();
+        }
     }
 
     private async Task<List<AffiliateNotificationDto>> BuildNotificationsAsync(Guid affiliateId, CancellationToken ct)
     {
-        return await _db.AffiliateNotifications
-            .AsNoTracking()
-            .Where(x => x.AffiliateId == affiliateId)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Take(20)
-            .Select(x => new AffiliateNotificationDto(x.Id, x.Title, x.Message, x.Type, x.IsRead, x.CreatedAtUtc))
-            .ToListAsync(ct);
+        try
+        {
+            return await _db.AffiliateNotifications
+                .AsNoTracking()
+                .Where(x => x.AffiliateId == affiliateId)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Take(20)
+                .Select(x => new AffiliateNotificationDto(x.Id, x.Title, x.Message, x.Type, x.IsRead, x.CreatedAtUtc))
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate notifications could not be loaded for affiliate {AffiliateId}. Returning an empty list instead.", affiliateId);
+            return new List<AffiliateNotificationDto>();
+        }
+    }
+
+    private async Task<Affiliate?> GetOrCreateAffiliateAsync(Guid userId, CancellationToken ct)
+    {
+        try
+        {
+            var affiliate = await _db.Affiliates
+                .Include(x => x.User)
+                .FirstOrDefaultAsync(x => x.UserId == userId, ct);
+
+            if (affiliate != null)
+                return affiliate;
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null || !await _userManager.IsInRoleAsync(user, Roles.Affiliate))
+                return null;
+
+            affiliate = new Affiliate
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                UniqueCode = await GenerateUniqueCodeAsync(ct),
+                CountryCode = "NG",
+                IsActive = true,
+                ApprovedAtUtc = DateTime.UtcNow,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow,
+                User = user
+            };
+
+            _db.Affiliates.Add(affiliate);
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("Auto-created missing affiliate profile for user {UserId}.", userId);
+            return affiliate;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate profile could not be loaded or auto-created for user {UserId}.", userId);
+            return null;
+        }
     }
 
     private async Task<string> GenerateUniqueCodeAsync(CancellationToken ct)
