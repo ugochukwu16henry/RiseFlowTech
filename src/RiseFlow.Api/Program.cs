@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,14 @@ using RiseFlow.Api.Services;
 
 // Phased FSH migration: production remains this API + React. Platform host: src/RiseFlow.Platform.Api (see docs/PHASED_FSH_MIGRATION.md).
 var builder = WebApplication.CreateBuilder(args);
+
+// Railway / reverse proxies: see HTTPS and correct scheme for cookies & redirects (must run first in pipeline).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Sensitive data encryption at rest (NIN, phone numbers). Set Encryption:Key (Base64 256-bit) in config; if unset, values stay plaintext.
 SensitiveDataEncryption.Initialize(builder.Configuration["Encryption:Key"]);
@@ -165,18 +174,18 @@ builder.Services.AddCors(options =>
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             ?? Array.Empty<string>();
 
-        var allowedOrigins = configuredOrigins.Length > 0
-            ? configuredOrigins
-            : new[]
-            {
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "https://rise-flow-tech.vercel.app",
-                "https://www.riseflow.com",
-                "https://riseflow.com"
-            };
-
-        var normalizedOrigins = new HashSet<string>(allowedOrigins, StringComparer.OrdinalIgnoreCase);
+        // Union with defaults so Cors:AllowedOrigins on Railway can add custom domains without dropping Vercel / localhost.
+        var defaultOrigins = new[]
+        {
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://rise-flow-tech.vercel.app",
+            "https://www.riseflow.com",
+            "https://riseflow.com"
+        };
+        var normalizedOrigins = new HashSet<string>(defaultOrigins, StringComparer.OrdinalIgnoreCase);
+        foreach (var o in configuredOrigins)
+            normalizedOrigins.Add(o);
 
         policy
             .SetIsOriginAllowed(origin =>
@@ -217,6 +226,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseCors();
 app.UseRateLimiter();
 app.UseMultiTenant();
