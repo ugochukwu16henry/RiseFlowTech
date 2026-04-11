@@ -20,19 +20,22 @@ public class AffiliateService
     private readonly IConfiguration _configuration;
     private readonly FileStorageService _fileStorage;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<AffiliateService> _logger;
 
     public AffiliateService(
         RiseFlowDbContext db,
         UserManager<ApplicationUser> userManager,
         IConfiguration configuration,
         FileStorageService fileStorage,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        ILogger<AffiliateService> logger)
     {
         _db = db;
         _userManager = userManager;
         _configuration = configuration;
         _fileStorage = fileStorage;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     public AffiliateProgramInfoDto GetProgramInfo()
@@ -80,20 +83,28 @@ public class AffiliateService
 
     public async Task<List<AffiliateLeadRequestDto>> GetLeadRequestsAsync(CancellationToken ct = default)
     {
-        return await _db.AffiliateLeadRequests
-            .AsNoTracking()
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new AffiliateLeadRequestDto(
-                x.Id,
-                x.FullName,
-                x.Email,
-                x.PhoneNumber,
-                x.CountryCode,
-                x.Note,
-                x.Status,
-                x.InviteSentAtUtc,
-                x.CreatedAtUtc))
-            .ToListAsync(ct);
+        try
+        {
+            return await _db.AffiliateLeadRequests
+                .AsNoTracking()
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Select(x => new AffiliateLeadRequestDto(
+                    x.Id,
+                    x.FullName,
+                    x.Email,
+                    x.PhoneNumber,
+                    x.CountryCode,
+                    x.Note,
+                    x.Status,
+                    x.InviteSentAtUtc,
+                    x.CreatedAtUtc))
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate lead requests could not be loaded from the current database schema. Returning an empty list instead.");
+            return new List<AffiliateLeadRequestDto>();
+        }
     }
 
     public async Task<SendAffiliateInviteResult> SendInviteAsync(Guid leadId, CancellationToken ct = default)
@@ -313,55 +324,63 @@ public class AffiliateService
 
     public async Task<List<AffiliateSummaryDto>> GetAffiliateSummariesAsync(CancellationToken ct = default)
     {
-        await SyncPendingPayoutsAsync(ct);
+        try
+        {
+            await SyncPendingPayoutsAsync(ct);
 
-        var affiliates = await _db.Affiliates
-            .AsNoTracking()
-            .Include(x => x.User)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .ToListAsync(ct);
+            var affiliates = await _db.Affiliates
+                .AsNoTracking()
+                .Include(x => x.User)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ToListAsync(ct);
 
-        var schoolCounts = await _db.Schools
-            .IgnoreQueryFilters()
-            .Where(x => x.AffiliateId != null)
-            .GroupBy(x => x.AffiliateId!.Value)
-            .Select(g => new { AffiliateId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.AffiliateId, x => x.Count, ct);
+            var schoolCounts = await _db.Schools
+                .IgnoreQueryFilters()
+                .Where(x => x.AffiliateId != null)
+                .GroupBy(x => x.AffiliateId!.Value)
+                .Select(g => new { AffiliateId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AffiliateId, x => x.Count, ct);
 
-        var billableStudents = await _db.AffiliateCommissionLedgers
-            .AsNoTracking()
-            .GroupBy(x => x.AffiliateId)
-            .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.BillableStudentCount) })
-            .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
+            var billableStudents = await _db.AffiliateCommissionLedgers
+                .AsNoTracking()
+                .GroupBy(x => x.AffiliateId)
+                .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.BillableStudentCount) })
+                .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
 
-        var pendingTotals = await _db.AffiliatePayouts
-            .AsNoTracking()
-            .Where(x => x.Status == AffiliateConstants.PayoutStatusPending || x.Status == AffiliateConstants.PayoutStatusProcessing)
-            .GroupBy(x => x.AffiliateId)
-            .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.Amount) })
-            .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
+            var pendingTotals = await _db.AffiliatePayouts
+                .AsNoTracking()
+                .Where(x => x.Status == AffiliateConstants.PayoutStatusPending || x.Status == AffiliateConstants.PayoutStatusProcessing)
+                .GroupBy(x => x.AffiliateId)
+                .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.Amount) })
+                .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
 
-        var paidTotals = await _db.AffiliatePayouts
-            .AsNoTracking()
-            .Where(x => x.Status == AffiliateConstants.PayoutStatusPaid)
-            .GroupBy(x => x.AffiliateId)
-            .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.Amount) })
-            .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
+            var paidTotals = await _db.AffiliatePayouts
+                .AsNoTracking()
+                .Where(x => x.Status == AffiliateConstants.PayoutStatusPaid)
+                .GroupBy(x => x.AffiliateId)
+                .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.Amount) })
+                .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
 
-        return affiliates.Select(x => new AffiliateSummaryDto(
-            x.Id,
-            x.User.FullName ?? x.User.Email ?? "Affiliate",
-            x.User.Email ?? string.Empty,
-            x.UniqueCode,
-            x.IsActive,
-            x.CountryCode,
-            x.PhoneNumber,
-            x.HeadshotPath,
-            schoolCounts.GetValueOrDefault(x.Id, 0),
-            billableStudents.GetValueOrDefault(x.Id, 0),
-            pendingTotals.GetValueOrDefault(x.Id, 0m),
-            paidTotals.GetValueOrDefault(x.Id, 0m),
-            x.ApprovedAtUtc)).ToList();
+            return affiliates.Select(x => new AffiliateSummaryDto(
+                x.Id,
+                x.User.FullName ?? x.User.Email ?? "Affiliate",
+                x.User.Email ?? string.Empty,
+                x.UniqueCode,
+                x.IsActive,
+                x.CountryCode,
+                x.PhoneNumber,
+                x.HeadshotPath,
+                schoolCounts.GetValueOrDefault(x.Id, 0),
+                billableStudents.GetValueOrDefault(x.Id, 0),
+                pendingTotals.GetValueOrDefault(x.Id, 0m),
+                paidTotals.GetValueOrDefault(x.Id, 0m),
+                x.ApprovedAtUtc)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate summaries could not be loaded from the current database schema. Returning an empty list instead.");
+            return new List<AffiliateSummaryDto>();
+        }
     }
 
     public async Task<AffiliateAdminDetailDto?> GetAffiliateAdminDetailAsync(Guid affiliateId, CancellationToken ct = default)
@@ -486,23 +505,31 @@ public class AffiliateService
 
     public async Task<List<AffiliateTrainingVideoDto>> ListTrainingVideoDtosAsync(bool includeUnpublished, CancellationToken ct = default)
     {
-        IQueryable<AffiliateTrainingVideo> query = _db.AffiliateTrainingVideos.AsNoTracking();
-        if (!includeUnpublished)
-            query = query.Where(x => x.IsPublished);
+        try
+        {
+            IQueryable<AffiliateTrainingVideo> query = _db.AffiliateTrainingVideos.AsNoTracking();
+            if (!includeUnpublished)
+                query = query.Where(x => x.IsPublished);
 
-        return await query
-            .OrderBy(x => x.SortOrder)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .Select(x => new AffiliateTrainingVideoDto(
-                x.Id,
-                x.Title,
-                x.Topic,
-                x.Description,
-                NormalizeYoutubeUrl(x.YoutubeUrl),
-                x.IsPublished,
-                x.SortOrder,
-                x.CreatedAtUtc))
-            .ToListAsync(ct);
+            return await query
+                .OrderBy(x => x.SortOrder)
+                .ThenByDescending(x => x.CreatedAtUtc)
+                .Select(x => new AffiliateTrainingVideoDto(
+                    x.Id,
+                    x.Title,
+                    x.Topic,
+                    x.Description,
+                    NormalizeYoutubeUrl(x.YoutubeUrl),
+                    x.IsPublished,
+                    x.SortOrder,
+                    x.CreatedAtUtc))
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate training videos could not be loaded from the current database schema. Returning an empty list instead.");
+            return new List<AffiliateTrainingVideoDto>();
+        }
     }
 
     public async Task<AffiliateTrainingVideoDto> SaveTrainingVideoAsync(Guid? id, SaveAffiliateTrainingVideoRequest request, CancellationToken ct = default)
@@ -548,28 +575,36 @@ public class AffiliateService
 
     public async Task<List<AffiliatePayoutDto>> GetPayoutsForSuperAdminAsync(CancellationToken ct = default)
     {
-        await SyncPendingPayoutsAsync(ct);
+        try
+        {
+            await SyncPendingPayoutsAsync(ct);
 
-        return await _db.AffiliatePayouts
-            .AsNoTracking()
-            .Include(x => x.Affiliate)
-            .ThenInclude(x => x.User)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new AffiliatePayoutDto(
-                x.Id,
-                x.AffiliateId,
-                x.Affiliate.User.FullName ?? x.Affiliate.User.Email ?? "Affiliate",
-                x.Amount,
-                x.CurrencyCode,
-                x.PayoutType,
-                x.Status,
-                x.PaystackTransferReference,
-                x.PeriodStartUtc,
-                x.PeriodEndUtc,
-                x.PaidAtUtc,
-                x.CreatedAtUtc,
-                x.FailureReason))
-            .ToListAsync(ct);
+            return await _db.AffiliatePayouts
+                .AsNoTracking()
+                .Include(x => x.Affiliate)
+                .ThenInclude(x => x.User)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Select(x => new AffiliatePayoutDto(
+                    x.Id,
+                    x.AffiliateId,
+                    x.Affiliate.User.FullName ?? x.Affiliate.User.Email ?? "Affiliate",
+                    x.Amount,
+                    x.CurrencyCode,
+                    x.PayoutType,
+                    x.Status,
+                    x.PaystackTransferReference,
+                    x.PeriodStartUtc,
+                    x.PeriodEndUtc,
+                    x.PaidAtUtc,
+                    x.CreatedAtUtc,
+                    x.FailureReason))
+                .ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate payouts could not be loaded from the current database schema. Returning an empty list instead.");
+            return new List<AffiliatePayoutDto>();
+        }
     }
 
     public async Task<AffiliatePayoutDto> PayPayoutAsync(Guid payoutId, CancellationToken ct = default)

@@ -17,12 +17,14 @@ public class SuperAdminController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
     private readonly SchoolOffboardingService _offboarding;
+    private readonly ILogger<SuperAdminController> _logger;
 
-    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding)
+    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding, ILogger<SuperAdminController> logger)
     {
         _db = db;
         _billing = billing;
         _offboarding = offboarding;
+        _logger = logger;
     }
 
     private static readonly IReadOnlyDictionary<string, string> CountryNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -147,38 +149,87 @@ public class SuperAdminController : ControllerBase
             .Select(g => new { SchoolId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.SchoolId, x => x.Count, ct);
 
-        var schools = await _db.Schools.AsNoTracking()
-            .IgnoreQueryFilters()
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .ToListAsync(ct);
+        try
+        {
+            var schools = await _db.Schools.AsNoTracking()
+                .IgnoreQueryFilters()
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .ToListAsync(ct);
 
-        var rows = schools
-            .Select(x => new SuperAdminSchoolRowDto(
-                Id: x.Id,
-                Name: x.Name,
-                CountryCode: x.CountryCode,
-                CountryName: !string.IsNullOrWhiteSpace(x.CountryCode)
-                    ? CountryNames.GetValueOrDefault(x.CountryCode, x.CountryCode)
-                    : null,
-                CurrencyCode: x.CurrencyCode,
-                IsActive: x.IsActive,
-                StudentCount: studentCounts.GetValueOrDefault(x.Id, 0),
-                TeacherCount: teacherCounts.GetValueOrDefault(x.Id, 0),
-                ParentCount: parentCounts.GetValueOrDefault(x.Id, 0),
-                CreatedAtUtc: x.CreatedAtUtc,
-                OwnerEmail: x.Email,
-                OwnerName: x.PrincipalName,
-                Phone: x.Phone,
-                WhatsAppNumber: x.Phone,
-                Address: x.Address,
-                SchoolEmail: x.Email,
-                PrincipalName: x.PrincipalName,
-                LogoPath: x.LogoFileName,
-                CacNumber: x.CacNumber,
-                RegistrationDocumentPath: null))
-            .ToList();
+            var rows = schools
+                .Select(x => new SuperAdminSchoolRowDto(
+                    Id: x.Id,
+                    Name: x.Name,
+                    CountryCode: x.CountryCode,
+                    CountryName: !string.IsNullOrWhiteSpace(x.CountryCode)
+                        ? CountryNames.GetValueOrDefault(x.CountryCode, x.CountryCode)
+                        : null,
+                    CurrencyCode: x.CurrencyCode,
+                    IsActive: x.IsActive,
+                    StudentCount: studentCounts.GetValueOrDefault(x.Id, 0),
+                    TeacherCount: teacherCounts.GetValueOrDefault(x.Id, 0),
+                    ParentCount: parentCounts.GetValueOrDefault(x.Id, 0),
+                    CreatedAtUtc: x.CreatedAtUtc,
+                    OwnerEmail: x.Email,
+                    OwnerName: x.PrincipalName,
+                    Phone: x.Phone,
+                    WhatsAppNumber: x.Phone,
+                    Address: x.Address,
+                    SchoolEmail: x.Email,
+                    PrincipalName: x.PrincipalName,
+                    LogoPath: x.LogoFileName,
+                    CacNumber: x.CacNumber,
+                    RegistrationDocumentPath: null))
+                .ToList();
 
-        return Ok(rows);
+            return Ok(rows);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Full Super Admin school directory query failed; falling back to minimal school metadata.");
+
+            var schools = await _db.Schools.AsNoTracking()
+                .IgnoreQueryFilters()
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Name,
+                    x.CountryCode,
+                    x.CurrencyCode,
+                    x.IsActive,
+                    x.CreatedAtUtc
+                })
+                .ToListAsync(ct);
+
+            var fallbackRows = schools
+                .Select(x => new SuperAdminSchoolRowDto(
+                    Id: x.Id,
+                    Name: x.Name,
+                    CountryCode: x.CountryCode,
+                    CountryName: !string.IsNullOrWhiteSpace(x.CountryCode)
+                        ? CountryNames.GetValueOrDefault(x.CountryCode, x.CountryCode)
+                        : null,
+                    CurrencyCode: x.CurrencyCode,
+                    IsActive: x.IsActive,
+                    StudentCount: studentCounts.GetValueOrDefault(x.Id, 0),
+                    TeacherCount: teacherCounts.GetValueOrDefault(x.Id, 0),
+                    ParentCount: parentCounts.GetValueOrDefault(x.Id, 0),
+                    CreatedAtUtc: x.CreatedAtUtc,
+                    OwnerEmail: null,
+                    OwnerName: null,
+                    Phone: null,
+                    WhatsAppNumber: null,
+                    Address: null,
+                    SchoolEmail: null,
+                    PrincipalName: null,
+                    LogoPath: null,
+                    CacNumber: null,
+                    RegistrationDocumentPath: null))
+                .ToList();
+
+            return Ok(fallbackRows);
+        }
     }
 
     /// <summary>
