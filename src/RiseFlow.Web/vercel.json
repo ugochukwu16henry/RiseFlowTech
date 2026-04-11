@@ -3,6 +3,10 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://riseflowtech-backend-production.up.railway.app/api/$1" },
+    { "source": "/verify/(.*)", "destination": "https://riseflowtech-backend-production.up.railway.app/verify/$1" },
+    { "source": "/health", "destination": "https://riseflowtech-backend-production.up.railway.app/health" },
+    { "source": "/health/ready", "destination": "https://riseflowtech-backend-production.up.railway.app/health/ready" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

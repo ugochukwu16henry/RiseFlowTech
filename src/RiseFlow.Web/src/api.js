@@ -12,11 +12,24 @@
 function resolveApiBase() {
   const raw = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
   if (typeof window === 'undefined') return raw;
+
   const forceRemote =
     import.meta.env.VITE_API_URL_FORCE === '1' || import.meta.env.VITE_API_URL_FORCE === 'true';
-  if (import.meta.env.DEV && !forceRemote) {
+
+  const host = window.location.hostname.toLowerCase();
+  const preferSameOrigin = host === 'localhost'
+    || host === '127.0.0.1'
+    || host === '::1'
+    || host.endsWith('.vercel.app')
+    || host === 'riseflow.com'
+    || host === 'www.riseflow.com';
+
+  // Local dev should use the Vite proxy. On deployed web hosts, prefer same-origin `/api`
+  // so auth cookies stay first-party via the hosting rewrite/proxy instead of cross-site.
+  if (!forceRemote && (import.meta.env.DEV || preferSameOrigin)) {
     return '';
   }
+
   return raw;
 }
 
