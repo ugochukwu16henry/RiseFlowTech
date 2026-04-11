@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -64,6 +65,12 @@ export default function SuperAdminCompliancePage() {
   return (
     <PageLayout title="Super Admin — System Settings" role="super">
       <h2 className="section-title">Compliance settings</h2>
+      <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <Link to="/super-admin" className="btn-primary-action btn-primary-action--ghost">Control room</Link>
+        <Link to="/super-admin/schools" className="btn-primary-action btn-primary-action--ghost">Schools</Link>
+        <Link to="/super-admin/revenue" className="btn-primary-action btn-primary-action--ghost">Revenue</Link>
+        <Link to="/super-admin/affiliates" className="btn-primary-action btn-primary-action--ghost">Affiliates</Link>
+      </div>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
 

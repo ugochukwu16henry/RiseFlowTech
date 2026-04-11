@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
@@ -39,6 +40,12 @@ export default function SuperAdminRevenuePage() {
   return (
     <PageLayout title="Super Admin — Revenue Hub" role="super">
       <h2 className="section-title">Revenue hub</h2>
+      <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <Link to="/super-admin" className="btn-primary-action btn-primary-action--ghost">Control room</Link>
+        <Link to="/super-admin/schools" className="btn-primary-action btn-primary-action--ghost">Schools</Link>
+        <Link to="/super-admin/affiliates" className="btn-primary-action btn-primary-action--ghost">Affiliates</Link>
+        <Link to="/super-admin/data-offboarding" className="btn-primary-action btn-primary-action--ghost">Data offboarding</Link>
+      </div>
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
 
@@ -69,6 +76,7 @@ export default function SuperAdminRevenuePage() {
                     <th>Students</th>
                     <th>Monthly income</th>
                     <th>Total paid</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -78,6 +86,11 @@ export default function SuperAdminRevenuePage() {
                       <td>{s.studentCount ?? 0}</td>
                       <td>{formatMoney(s.monthlyIncome)}</td>
                       <td>{formatMoney(s.totalPaidToDate)}</td>
+                      <td>
+                        <Link to={`/super-admin/schools?schoolId=${s.schoolId}`} className="btn-primary-action btn-primary-action--ghost">
+                          View school
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

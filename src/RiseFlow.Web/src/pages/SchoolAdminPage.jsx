@@ -278,6 +278,14 @@ export default function SchoolAdminPage() {
 
       {activeView === 'overview' && (
         <>
+      <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <Link to="/school/students" className="btn-primary-action">Students</Link>
+        <Link to="/school/classes" className="btn-primary-action btn-primary-action--ghost">Grades & classes</Link>
+        <Link to="/school/billing" className="btn-primary-action btn-primary-action--ghost">Billing</Link>
+        <Link to="/school/reports" className="btn-primary-action btn-primary-action--ghost">Reports</Link>
+        <Link to="/school/import" className="btn-primary-action btn-primary-action--ghost">Import</Link>
+        <Link to="/school/access-codes" className="btn-primary-action btn-primary-action--ghost">Access codes</Link>
+      </div>
       {outstanding > 0 && (
         <div className="access-codes-result access-codes-result--error" style={{ marginBottom: '1rem' }}>
           <p style={{ margin: 0 }}>

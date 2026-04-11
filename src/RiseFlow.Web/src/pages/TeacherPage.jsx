@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
@@ -143,6 +144,17 @@ export default function TeacherPage() {
         <section className="school-admin-view">
           {activeView === 'overview' && (
             <>
+              <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <button type="button" className="btn-primary-action" onClick={() => setActiveView('students')}>
+                  Open my students
+                </button>
+                <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('attendance')} disabled={classes.length === 0}>
+                  Attendance
+                </button>
+                <Link to="/teacher/grading" className="btn-primary-action btn-primary-action--ghost">
+                  Grading workspace
+                </Link>
+              </div>
               <section aria-label="Classroom snapshot">
                 <div className="dashboard-grid">
                   <article className="dashboard-card dashboard-card--highlight">
