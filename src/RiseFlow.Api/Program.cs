@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Finbuckle.MultiTenant;
 using Finbuckle.MultiTenant.Extensions;
 using Finbuckle.MultiTenant.AspNetCore.Extensions;
@@ -37,7 +38,9 @@ builder.Services.AddDbContext<RiseFlowDbContext>(options =>
                 "Database:Provider requests PostgreSQL but no usable connection string was resolved from DATABASE_URL, DATABASE_PUBLIC_URL, or ConnectionStrings:DefaultConnection.");
         }
 
-        options.UseNpgsql(pg);
+        options
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+            .UseNpgsql(pg);
         return;
     }
 

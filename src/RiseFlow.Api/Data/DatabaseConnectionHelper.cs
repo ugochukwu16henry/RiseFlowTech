@@ -57,13 +57,17 @@ public static class DatabaseConnectionHelper
             $"Password={password}"
         };
 
-        // Prefer SSL when not localhost (e.g. Railway). Railway public proxy often needs explicit trust.
-        if (!host.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+        // Railway public proxy: strict SSL + trust (self-signed chain). Other remote hosts: Prefer SSL.
+        if (host.Contains("rlwy.net", StringComparison.OrdinalIgnoreCase)
+            || host.Contains("railway.app", StringComparison.OrdinalIgnoreCase))
         {
             parts.Add("SSL Mode=Require");
-            if (host.Contains("rlwy.net", StringComparison.OrdinalIgnoreCase)
-                || host.Contains("railway.app", StringComparison.OrdinalIgnoreCase))
-                parts.Add("Trust Server Certificate=true");
+            parts.Add("Trust Server Certificate=true");
+        }
+        else if (!host.Contains("localhost", StringComparison.OrdinalIgnoreCase)
+                 && !host.Contains("railway.internal", StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add("SSL Mode=Prefer");
         }
 
         parts.Add("Include Error Detail=true");

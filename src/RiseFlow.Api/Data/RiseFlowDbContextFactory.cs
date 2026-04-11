@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 
 namespace RiseFlow.Api.Data;
@@ -33,7 +34,9 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
-        optionsBuilder.UseNpgsql(pg);
+        optionsBuilder
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+            .UseNpgsql(pg);
         return new RiseFlowDbContext(optionsBuilder.Options);
     }
 }
