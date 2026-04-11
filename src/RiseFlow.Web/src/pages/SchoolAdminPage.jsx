@@ -48,23 +48,36 @@ export default function SchoolAdminPage() {
   const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.all([
+    Promise.allSettled([
       apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
       apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
     ])
-      .then(([dash, tList, sList, pList, bList]) => {
-        setDashboard(dash || null);
-        setTeachers(Array.isArray(tList) ? tList : []);
-        setStudents(Array.isArray(sList) ? sList : []);
-        setParents(Array.isArray(pList) ? pList : []);
-        setBilling(Array.isArray(bList) ? bList : []);
+      .then((results) => {
+        const [dashResult, teacherResult, studentResult, parentResult, billingResult] = results;
+        const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
+
+        if (!dash) {
+          const failure = results.find((result) => result.status === 'rejected');
+          throw new Error(failure?.reason?.message || 'Failed to load school dashboard.');
+        }
+
+        setDashboard(dash);
+        setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
+        setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
+        setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
+        setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
       })
-      .catch((err) => setError(err.message || 'Failed to load data'))
+      .catch((err) => {
+        const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
+          ? 'The live school dashboard is syncing right now. Please refresh again shortly.'
+          : (err.message || 'Failed to load data');
+        setError(message);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [readJsonOrThrow]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

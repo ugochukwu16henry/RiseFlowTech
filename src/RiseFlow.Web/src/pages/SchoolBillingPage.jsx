@@ -46,7 +46,10 @@ export default function SchoolBillingPage() {
       setBilling(Array.isArray(billingData) ? billingData : []);
       setGatewayStatus(gatewayData || null);
     } catch (e) {
-      setError(e.message || 'Failed to load billing');
+      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(e?.message || ''))
+        ? 'Billing information is syncing with the live API. Please refresh shortly.'
+        : (e.message || 'Failed to load billing');
+      setError(message);
     } finally {
       setLoading(false);
     }

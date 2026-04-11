@@ -27,35 +27,45 @@ export default function SchoolReportsPage() {
     setLoading(true);
     setError(null);
 
-    Promise.all([
+    Promise.allSettled([
       apiFetch('/api/schools/dashboard'),
       apiFetch('/api/students'),
       apiFetch('/api/teachers'),
       apiFetch('/api/parents'),
       apiFetch('/api/billing'),
     ])
-      .then(async ([dashRes, studentsRes, teachersRes, parentsRes, billingRes]) => {
-        const responses = [dashRes, studentsRes, teachersRes, parentsRes, billingRes];
-        const forbidden = responses.find((res) => res.status === 401 || res.status === 403);
-        if (forbidden) {
-          throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
-        }
-        const failed = responses.find((res) => !res.ok);
-        if (failed) {
-          throw new Error(await failed.text().catch(() => 'Could not load school reports.'));
+      .then(async (results) => {
+        const fulfilled = await Promise.all(results.map(async (result) => {
+          if (result.status !== 'fulfilled') return { ok: false, data: null, status: 0, message: result.reason?.message || 'Request failed.' };
+          const response = result.value;
+          if (response.status === 401 || response.status === 403) {
+            return { ok: false, data: null, status: response.status, message: 'Your session expired or your school access is missing. Please sign in again as School Admin.' };
+          }
+          if (!response.ok) {
+            return { ok: false, data: null, status: response.status, message: await response.text().catch(() => 'Could not load school reports.') };
+          }
+          return { ok: true, data: await response.json(), status: response.status, message: null };
+        }));
+
+        const [dashRes, studentRes, teacherRes, parentRes, billingRes] = fulfilled;
+        if (!dashRes.ok) {
+          throw new Error(dashRes.message || 'Could not load school reports.');
         }
 
-        const [dash, studentList, teacherList, parentList, billingList] = await Promise.all(responses.map((res) => res.json()));
         if (cancelled) return;
-
-        setDashboard(dash || null);
-        setStudents(Array.isArray(studentList) ? studentList : []);
-        setTeachers(Array.isArray(teacherList) ? teacherList : []);
-        setParents(Array.isArray(parentList) ? parentList : []);
-        setBilling(Array.isArray(billingList) ? billingList : []);
+        setDashboard(dashRes.data || null);
+        setStudents(Array.isArray(studentRes.data) ? studentRes.data : []);
+        setTeachers(Array.isArray(teacherRes.data) ? teacherRes.data : []);
+        setParents(Array.isArray(parentRes.data) ? parentRes.data : []);
+        setBilling(Array.isArray(billingRes.data) ? billingRes.data : []);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message || 'Failed to load school reports.');
+        if (!cancelled) {
+          const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
+            ? 'The live reports view is syncing right now. Please refresh shortly.'
+            : (err.message || 'Failed to load school reports.');
+          setError(message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

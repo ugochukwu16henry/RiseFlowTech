@@ -40,7 +40,12 @@ export default function SchoolStudentsPage() {
         setClasses(Array.isArray(classesData) ? classesData : []);
       }
     } catch (e) {
-      if (!cancelledRef?.cancelled) setError(e.message || 'Failed to load students');
+      if (!cancelledRef?.cancelled) {
+        const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(e?.message || ''))
+          ? 'The student directory is syncing with the live API. Please refresh shortly.'
+          : (e.message || 'Failed to load students');
+        setError(message);
+      }
     } finally {
       if (!cancelledRef?.cancelled) setLoading(false);
     }
