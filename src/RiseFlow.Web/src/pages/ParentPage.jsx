@@ -52,18 +52,34 @@ export default function ParentPage() {
   const [selectedChildId, setSelectedChildId] = useState(null);
   const [results, setResults] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [portalAccesses, setPortalAccesses] = useState([]);
+  const [portalForm, setPortalForm] = useState(null);
+  const [passwordResetResult, setPasswordResetResult] = useState(null);
+  const [portalNotice, setPortalNotice] = useState(null);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [loadingResults, setLoadingResults] = useState(true);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [loadingPortalAccess, setLoadingPortalAccess] = useState(false);
+  const [savingPortalAccess, setSavingPortalAccess] = useState(false);
+  const [resettingPortalPassword, setResettingPortalPassword] = useState(false);
   const [errorChildren, setErrorChildren] = useState(null);
   const [errorResults, setErrorResults] = useState(null);
   const [errorTeachers, setErrorTeachers] = useState(null);
+  const [errorPortalAccess, setErrorPortalAccess] = useState(null);
   const [activeView, setActiveView] = useState('overview');
 
   const loadChildren = useCallback(async () => {
     const res = await apiFetch('/api/parents/my-children');
     if (res.status === 401) return [];
     if (!res.ok) throw new Error('Could not load children');
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }, []);
+
+  const loadPortalAccess = useCallback(async () => {
+    const res = await apiFetch('/api/parents/student-portal-access');
+    if (res.status === 401) return [];
+    if (!res.ok) throw new Error('Could not load student access details');
     const data = await res.json();
     return Array.isArray(data) ? data : [];
   }, []);
@@ -82,7 +98,24 @@ export default function ParentPage() {
       .catch((e) => { if (!cancelled) setErrorChildren(e.message); })
       .finally(() => { if (!cancelled) setLoadingChildren(false); });
     return () => { cancelled = true; };
-  }, [loadChildren]);
+  }, [loadChildren, selectedChildId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPortalAccess(true);
+    setErrorPortalAccess(null);
+    loadPortalAccess()
+      .then((data) => {
+        if (!cancelled) setPortalAccesses(data);
+      })
+      .catch((e) => {
+        if (!cancelled) setErrorPortalAccess(e.message || 'Could not load student access details');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPortalAccess(false);
+      });
+    return () => { cancelled = true; };
+  }, [loadPortalAccess]);
 
   useEffect(() => {
     if (children.length > 0 && !selectedChildId) setSelectedChildId(children[0].studentId);
@@ -111,7 +144,7 @@ export default function ParentPage() {
     if (!selectedChildId) {
       setTeachers([]);
       setLoadingTeachers(false);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setLoadingTeachers(true);
@@ -134,11 +167,94 @@ export default function ParentPage() {
   }, [selectedChildId]);
 
   const selectedChild = children.find((c) => c.studentId === selectedChildId);
+  const selectedPortalAccess = portalAccesses.find((item) => item.studentId === selectedChildId) || null;
+
+  useEffect(() => {
+    if (!selectedPortalAccess) {
+      setPortalForm(null);
+      return;
+    }
+    setPortalForm({
+      isEnabled: Boolean(selectedPortalAccess.isEnabled),
+      showDateOfBirth: Boolean(selectedPortalAccess.showDateOfBirth),
+      showLocationDetails: Boolean(selectedPortalAccess.showLocationDetails),
+      showHealthDetails: Boolean(selectedPortalAccess.showHealthDetails),
+      showEmergencyContacts: Boolean(selectedPortalAccess.showEmergencyContacts),
+      showParentContactDetails: Boolean(selectedPortalAccess.showParentContactDetails),
+      showPreviousSchoolDetails: Boolean(selectedPortalAccess.showPreviousSchoolDetails),
+    });
+  }, [selectedPortalAccess]);
+
   const resultsForChild = selectedChildId ? results.filter((r) => r.studentId === selectedChildId) : [];
   const progress = mapResultsToProgress(resultsForChild);
   const overallPct = progress.length
     ? Math.round(progress.reduce((s, p) => s + p.value, 0) / progress.length)
     : selectedChild?.termAverage ?? null;
+  const studentSignInUrl = typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login';
+  const visiblePassword = passwordResetResult?.studentId === selectedChildId
+    ? passwordResetResult.temporaryPassword
+    : (selectedPortalAccess?.temporaryPassword || null);
+
+  const handlePortalToggle = (key, value) => {
+    setPortalForm((current) => (current ? { ...current, [key]: value } : current));
+  };
+
+  const copyText = async (text, label) => {
+    if (!text || !navigator?.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setPortalNotice(`${label} copied.`);
+    } catch {
+      setPortalNotice(`Could not copy ${label.toLowerCase()} automatically.`);
+    }
+  };
+
+  const handleSavePortalSettings = async () => {
+    if (!selectedChildId || !portalForm) return;
+    setSavingPortalAccess(true);
+    setErrorPortalAccess(null);
+    setPortalNotice(null);
+    try {
+      const res = await apiFetch(`/api/parents/student-portal-access/${selectedChildId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(portalForm),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'Could not save student access settings.');
+      setPortalAccesses((current) => current.map((item) => (item.studentId === selectedChildId ? { ...item, ...data } : item)));
+      setPortalNotice('Student visibility settings saved.');
+    } catch (err) {
+      setErrorPortalAccess(err.message || 'Could not save student access settings.');
+    } finally {
+      setSavingPortalAccess(false);
+    }
+  };
+
+  const handleResetPortalPassword = async () => {
+    if (!selectedChildId) return;
+    setResettingPortalPassword(true);
+    setErrorPortalAccess(null);
+    setPortalNotice(null);
+    try {
+      const res = await apiFetch(`/api/parents/student-portal-access/${selectedChildId}/reset-password`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'Could not reset the student password.');
+      setPasswordResetResult({ ...data, studentId: selectedChildId });
+      setPortalAccesses((current) => current.map((item) => (
+        item.studentId === selectedChildId
+          ? { ...item, loginId: data.loginId, isEnabled: true }
+          : item
+      )));
+      setPortalNotice(data?.message || 'Student sign-in password reset.');
+    } catch (err) {
+      setErrorPortalAccess(err.message || 'Could not reset the student password.');
+    } finally {
+      setResettingPortalPassword(false);
+    }
+  };
 
   return (
     <PageLayout title="Family View — My children" role="parent">
@@ -152,6 +268,9 @@ export default function ParentPage() {
           </button>
           <button type="button" className={`school-admin-nav-btn ${activeView === 'teachers' ? 'is-active' : ''}`} onClick={() => setActiveView('teachers')} disabled={!selectedChild}>
             Teachers
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'access' ? 'is-active' : ''}`} onClick={() => setActiveView('access')} disabled={!selectedChild}>
+            Student access
           </button>
         </aside>
 
@@ -176,11 +295,15 @@ export default function ParentPage() {
                   <p className="dashboard-value">{progress.length || '—'}</p>
                   <p className="dashboard-sub">With published results this term.</p>
                 </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Student portal</p>
+                  <p className="dashboard-value">{selectedPortalAccess?.isEnabled ? 'On' : 'Off'}</p>
+                  <p className="dashboard-sub">Only parents can share this login with the child.</p>
+                </article>
               </div>
             </section>
           )}
 
-          {/* Top bar: My Children + child switcher + Add another child */}
           <div className="family-view-top">
             <h2 className="section-title">My Children</h2>
             <div className="family-view-actions">
@@ -231,7 +354,14 @@ export default function ParentPage() {
                 <dd>—</dd>
                 <dt>Current term average</dt>
                 <dd>{selectedChild.termAverage != null ? `${selectedChild.termAverage}%` : '—'}</dd>
+                <dt>Student sign-in</dt>
+                <dd>{selectedPortalAccess?.loginId || 'Generated once claimed'}</dd>
               </dl>
+              <div className="dashboard-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('access')}>
+                  Open student access controls
+                </button>
+              </div>
             </section>
           )}
 
@@ -312,6 +442,86 @@ export default function ParentPage() {
               <p className="card-desc" style={{ marginTop: '1rem' }}>
                 <button type="button" className="btn-download-pdf" disabled>Download PDF report (coming soon)</button>
               </p>
+            </section>
+          )}
+
+          {!loadingChildren && selectedChild && activeView === 'access' && (
+            <section className="family-view-results" aria-label="Student access controls">
+              <h3 className="card-title">Student access & privacy</h3>
+              <p className="card-desc">Only parents can share this sign-in with the child. Use these settings to decide what sensitive details appear on the student dashboard.</p>
+
+              {loadingPortalAccess && <p className="empty-state" aria-busy="true">Loading student access…</p>}
+              {errorPortalAccess && <p className="empty-state empty-state--error">{errorPortalAccess}</p>}
+              {portalNotice && <p className="card-desc" style={{ color: 'var(--color-primary)' }}>{portalNotice}</p>}
+
+              {visiblePassword && (
+                <div className="claim-success" role="status">
+                  <p className="claim-success-title">Temporary student password</p>
+                  <p className="claim-success-msg"><strong>{visiblePassword}</strong></p>
+                  <p className="card-desc">Share this only with {displayName(selectedChild)}. You can reset it again at any time.</p>
+                </div>
+              )}
+
+              {selectedPortalAccess && portalForm && (
+                <>
+                  <div className="dashboard-grid" style={{ marginTop: '0.75rem' }}>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Portal status</p>
+                      <p className="dashboard-value">{portalForm.isEnabled ? 'Enabled' : 'Paused'}</p>
+                      <p className="dashboard-sub">Pause access without deleting the child account.</p>
+                    </article>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Student login ID</p>
+                      <p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedPortalAccess.loginId}</p>
+                      <p className="dashboard-sub">Use this in the email field on the sign-in page.</p>
+                    </article>
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Student sign-in link</p>
+                      <p className="dashboard-value" style={{ fontSize: '1rem' }}>RiseFlow login</p>
+                      <p className="dashboard-sub">{studentSignInUrl}</p>
+                    </article>
+                  </div>
+
+                  <div className="dashboard-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => copyText(studentSignInUrl, 'Sign-in link')}>
+                      Copy sign-in link
+                    </button>
+                    <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => copyText(selectedPortalAccess.loginId, 'Login ID')}>
+                      Copy login ID
+                    </button>
+                    <button type="button" className="btn-primary-action" onClick={handleResetPortalPassword} disabled={resettingPortalPassword}>
+                      {resettingPortalPassword ? 'Resetting…' : 'Reset student password'}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+                    {[
+                      ['isEnabled', 'Allow this child to sign in to the student dashboard'],
+                      ['showDateOfBirth', 'Show date of birth'],
+                      ['showLocationDetails', 'Show nationality, state, and LGA'],
+                      ['showHealthDetails', 'Show blood group, genotype, and allergies'],
+                      ['showEmergencyContacts', 'Show emergency contact name and phone'],
+                      ['showParentContactDetails', 'Show parent/guardian contact details'],
+                      ['showPreviousSchoolDetails', 'Show previous school history'],
+                    ].map(([key, label]) => (
+                      <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(portalForm[key])}
+                          onChange={(e) => handlePortalToggle(key, e.target.checked)}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="dashboard-actions" style={{ marginTop: '1rem' }}>
+                    <button type="button" className="btn-primary-action" onClick={handleSavePortalSettings} disabled={savingPortalAccess}>
+                      {savingPortalAccess ? 'Saving…' : 'Save student privacy settings'}
+                    </button>
+                  </div>
+                </>
+              )}
             </section>
           )}
         </section>

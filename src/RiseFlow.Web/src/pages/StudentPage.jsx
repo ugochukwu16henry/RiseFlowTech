@@ -1,9 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import PageLayout from '../components/PageLayout';
+import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
+function formatValue(value) {
+  return value == null || value === '' ? '—' : value;
+}
+
 export default function StudentPage() {
+  const [dashboard, setDashboard] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,21 +17,51 @@ export default function StudentPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    apiFetch('/api/results')
-      .then((r) => {
-        if (cancelled) return null;
-        if (!r.ok) throw new Error('Could not load results');
-        return r.json();
+    setError(null);
+
+    Promise.allSettled([
+      apiFetch('/api/students/me/dashboard'),
+      apiFetch('/api/results'),
+    ])
+      .then(async ([dashboardResult, resultsResult]) => {
+        let dashboardData = null;
+        let resultsData = [];
+        let dashboardError = null;
+
+        if (dashboardResult.status === 'fulfilled') {
+          const response = dashboardResult.value;
+          if (!response.ok) {
+            dashboardError = response.status === 403
+              ? 'Your student portal is not enabled yet. Ask your parent to share or reactivate your access from the Parent dashboard.'
+              : 'Could not load your student dashboard.';
+          } else {
+            dashboardData = await response.json();
+          }
+        } else {
+          dashboardError = dashboardResult.reason?.message || 'Could not load your student dashboard.';
+        }
+
+        if (resultsResult.status === 'fulfilled') {
+          const response = resultsResult.value;
+          if (response.ok) {
+            const payload = await response.json();
+            resultsData = Array.isArray(payload) ? payload : [];
+          }
+        }
+
+        if (!cancelled) {
+          setDashboard(dashboardData);
+          setResults(resultsData);
+          if (dashboardError) setError(dashboardError);
+        }
       })
-      .then((data) => {
-        if (!cancelled) setResults(Array.isArray(data) ? data : []);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message);
+      .catch((err) => {
+        if (!cancelled) setError(err.message || 'Could not load your student dashboard.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -49,59 +85,169 @@ export default function StudentPage() {
     return { subjectCount: keys.length, averagePct: avg };
   }, [results]);
 
-  return (
-    <PageLayout title="Student — My results" role="student">
-      <section aria-label="Results snapshot">
-        <div className="dashboard-grid">
-          <article className="dashboard-card dashboard-card--highlight">
-            <p className="dashboard-label">Subjects</p>
-            <p className="dashboard-value">{loading ? '—' : subjectCount}</p>
-            <p className="dashboard-sub">With recorded assessments.</p>
-          </article>
-          <article className="dashboard-card">
-            <p className="dashboard-label">Overall (approx.)</p>
-            <p className="dashboard-value">
-              {loading ? '—' : (averagePct != null ? `${averagePct}%` : '—')}
-            </p>
-            <p className="dashboard-sub">Average across subjects with scores.</p>
-          </article>
-          <article className="dashboard-card">
-            <p className="dashboard-label">Records</p>
-            <p className="dashboard-value">{loading ? '—' : results.length}</p>
-            <p className="dashboard-sub">Assessment rows in your gradebook.</p>
-          </article>
-        </div>
-      </section>
+  const teachers = dashboard?.teachers || [];
+  const parents = dashboard?.parents || [];
+  const classmates = dashboard?.classmates || [];
 
-      <h2 className="section-title">My results (from database)</h2>
+  return (
+    <PageLayout title="Student — My dashboard" role="student">
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
-      {error && <p className="empty-state empty-state--error">{error}</p>}
-      {!loading && !error && results.length === 0 && (
-        <p className="empty-state">No results yet. Sign in as a student to see your grades when teachers upload them.</p>
-      )}
-      {!loading && results.length > 0 && (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Type</th>
-                <th>Score</th>
-                <th>Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.subject?.name || '—'}</td>
-                  <td>{r.assessmentType || '—'}</td>
-                  <td>{r.score != null ? `${r.score} / ${r.maxScore ?? ''}` : '—'}</td>
-                  <td>{r.gradeLetter || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {error && !dashboard && <p className="empty-state empty-state--error">{error}</p>}
+
+      {dashboard && (
+        <>
+          {error && <p className="empty-state empty-state--error">{error}</p>}
+
+          <section aria-label="Student snapshot">
+            <div className="dashboard-grid">
+              <article className="dashboard-card dashboard-card--highlight">
+                <p className="dashboard-label">School</p>
+                <p className="dashboard-value" style={{ fontSize: '1.25rem' }}>{dashboard.schoolName || '—'}</p>
+                <p className="dashboard-sub">Your current school.</p>
+              </article>
+              <article className="dashboard-card">
+                <p className="dashboard-label">Class</p>
+                <p className="dashboard-value">{dashboard.className || '—'}</p>
+                <p className="dashboard-sub">Grade: {dashboard.gradeName || '—'}</p>
+              </article>
+              <article className="dashboard-card">
+                <p className="dashboard-label">Teachers</p>
+                <p className="dashboard-value">{teachers.length}</p>
+                <p className="dashboard-sub">Assigned to your class.</p>
+              </article>
+              <article className="dashboard-card">
+                <p className="dashboard-label">Classmates</p>
+                <p className="dashboard-value">{classmates.length}</p>
+                <p className="dashboard-sub">Visible schoolmates in your class.</p>
+              </article>
+              <article className="dashboard-card">
+                <p className="dashboard-label">Subjects</p>
+                <p className="dashboard-value">{subjectCount}</p>
+                <p className="dashboard-sub">With recorded assessments.</p>
+              </article>
+              <article className="dashboard-card">
+                <p className="dashboard-label">Overall</p>
+                <p className="dashboard-value">{averagePct != null ? `${averagePct}%` : '—'}</p>
+                <p className="dashboard-sub">Average across your published scores.</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="dashboard-panel" aria-label="My information" style={{ marginTop: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <StudentPhoto studentId={dashboard.studentId} firstName={dashboard.fullName} lastName="" size={72} />
+              <div>
+                <h2 className="section-title" style={{ marginBottom: '0.25rem' }}>My information</h2>
+                <p className="card-desc" style={{ marginBottom: 0 }}>View-only details shared with you by your parent or guardian.</p>
+              </div>
+            </div>
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <tbody>
+                  <tr><th>Full name</th><td>{dashboard.fullName}</td></tr>
+                  <tr><th>Admission number</th><td>{formatValue(dashboard.admissionNumber)}</td></tr>
+                  <tr><th>Class</th><td>{formatValue(dashboard.className)}</td></tr>
+                  <tr><th>Grade</th><td>{formatValue(dashboard.gradeName)}</td></tr>
+                  <tr><th>Date of birth</th><td>{formatValue(dashboard.dateOfBirth)}</td></tr>
+                  <tr><th>Gender</th><td>{formatValue(dashboard.gender)}</td></tr>
+                  <tr><th>Nationality</th><td>{formatValue(dashboard.nationality)}</td></tr>
+                  <tr><th>State / LGA</th><td>{[dashboard.stateOfOrigin, dashboard.lga].filter(Boolean).join(' / ') || '—'}</td></tr>
+                  <tr><th>Previous school</th><td>{formatValue(dashboard.previousSchool)}</td></tr>
+                  <tr><th>Blood group / Genotype</th><td>{[dashboard.bloodGroup, dashboard.genotype].filter(Boolean).join(' / ') || '—'}</td></tr>
+                  <tr><th>Allergies</th><td>{formatValue(dashboard.allergies)}</td></tr>
+                  <tr><th>Emergency contact</th><td>{[dashboard.emergencyContactName, dashboard.emergencyContactPhone].filter(Boolean).join(' • ') || '—'}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="dashboard-grid" style={{ marginTop: '1rem' }}>
+            <article className="dashboard-card">
+              <h3 className="card-title">Parents who claimed me</h3>
+              {parents.length === 0 ? (
+                <p className="card-desc">No parent or guardian has been linked yet.</p>
+              ) : (
+                <ul className="student-record-list">
+                  {parents.map((parent) => (
+                    <li key={parent.parentId}>
+                      <strong>{parent.fullName}</strong>
+                      <span>
+                        {parent.relationship || 'Parent'}
+                        {parent.phone ? ` • ${parent.phone}` : ''}
+                        {parent.email ? ` • ${parent.email}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+
+            <article className="dashboard-card">
+              <h3 className="card-title">My teachers</h3>
+              {teachers.length === 0 ? (
+                <p className="card-desc">No teachers are linked to your class yet.</p>
+              ) : (
+                <ul className="student-record-list">
+                  {teachers.map((teacher) => (
+                    <li key={`${teacher.teacherId}-${teacher.roleOrSubject || ''}`}>
+                      <strong>{teacher.fullName}</strong>
+                      <span>{teacher.roleOrSubject || 'Teacher'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          </section>
+
+          <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="My classmates">
+            <h2 className="section-title">My classmates</h2>
+            {classmates.length === 0 ? (
+              <p className="empty-state">No classmates are visible in your class yet.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                {classmates.map((classmate) => (
+                  <div key={classmate.studentId} className="dashboard-card" style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                      <StudentPhoto studentId={classmate.studentId} firstName={classmate.fullName} lastName="" size={52} />
+                    </div>
+                    <strong style={{ display: 'block' }}>{classmate.fullName}</strong>
+                    <span className="dashboard-sub">Classmate</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section style={{ marginTop: '1rem' }}>
+            <h2 className="section-title">My results</h2>
+            {results.length === 0 ? (
+              <p className="empty-state">No results yet. Your grades will appear here when your teachers publish them.</p>
+            ) : (
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Type</th>
+                      <th>Score</th>
+                      <th>Grade</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.subject?.name || '—'}</td>
+                        <td>{r.assessmentType || '—'}</td>
+                        <td>{r.score != null ? `${r.score} / ${r.maxScore ?? ''}` : '—'}</td>
+                        <td>{r.gradeLetter || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
       )}
     </PageLayout>
   );

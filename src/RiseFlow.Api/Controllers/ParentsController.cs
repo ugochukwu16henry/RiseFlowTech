@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -64,8 +65,8 @@ public class ParentsController : ControllerBase
         if (existingUser != null)
             return BadRequest("An account with this email already exists. Please sign in and use 'Claim your child' with your access code.");
 
-        var firstName = (request.FirstName ?? "").Trim();
-        var lastName = (request.LastName ?? "").Trim();
+        var firstName = (request.FirstName ?? string.Empty).Trim();
+        var lastName = (request.LastName ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(firstName)) firstName = email.Split('@')[0];
 
         var user = new ApplicationUser
@@ -80,12 +81,12 @@ public class ParentsController : ControllerBase
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        var createResult = await _userManager.CreateAsync(user, request.Password ?? "");
+        var createResult = await _userManager.CreateAsync(user, request.Password ?? string.Empty);
         if (!createResult.Succeeded)
             return BadRequest(string.Join(" ", createResult.Errors.Select(e => e.Description)));
 
         await _userManager.AddToRoleAsync(user, Roles.Parent);
-        await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim("SchoolId", request.SchoolId.ToString()));
+        await _userManager.AddClaimAsync(user, new Claim("SchoolId", request.SchoolId.ToString()));
 
         var parent = new Parent
         {
@@ -132,30 +133,31 @@ public class ParentsController : ControllerBase
             return NotFound("Invalid or expired access code.");
 
         var alreadyLinked = await _db.StudentParents.AnyAsync(sp => sp.StudentId == student.Id && sp.ParentId == parent.Id, ct);
-        if (alreadyLinked)
+        if (!alreadyLinked)
         {
-            var linkedNames = await GetLinkedChildNamesAsync(parent.Id, ct);
-            return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Already linked.", linkedNames));
+            _db.StudentParents.Add(new StudentParent
+            {
+                StudentId = student.Id,
+                ParentId = parent.Id,
+                IsPrimaryContact = false,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(ct);
         }
 
-        _db.StudentParents.Add(new StudentParent
-        {
-            StudentId = student.Id,
-            ParentId = parent.Id,
-            IsPrimaryContact = false,
-            CreatedAtUtc = DateTime.UtcNow
-        });
-        await _db.SaveChangesAsync(ct);
-        var names = await GetLinkedChildNamesAsync(parent.Id, ct);
-        return Ok(new LinkByCodeResult(true, student.Id, $"{student.FirstName} {student.LastName}", "Linked successfully.", names));
-    }
+        var portalAccess = await EnsureStudentPortalAccessForResponseAsync(student, ct);
+        var linkedNames = await GetLinkedChildNamesAsync(parent.Id, ct);
+        var message = alreadyLinked
+            ? "Already linked. Student sign-in details are available from your Parent dashboard."
+            : "Linked successfully. Student sign-in details have been generated on your Parent dashboard.";
 
-    private async Task<List<string>> GetLinkedChildNamesAsync(Guid parentId, CancellationToken ct)
-    {
-        var linkedIds = await _db.StudentParents.Where(sp => sp.ParentId == parentId).Select(sp => sp.StudentId).ToListAsync(ct);
-        if (linkedIds.Count == 0) return new List<string>();
-        var students = await _db.Students.AsNoTracking().Where(s => linkedIds.Contains(s.Id)).OrderBy(s => s.FirstName).ThenBy(s => s.LastName).ToListAsync(ct);
-        return students.Select(s => $"{s.FirstName} {s.LastName}".Trim()).ToList();
+        return Ok(new LinkByCodeResult(
+            true,
+            student.Id,
+            $"{student.FirstName} {student.LastName}".Trim(),
+            message,
+            linkedNames,
+            portalAccess));
     }
 
     /// <summary>
@@ -221,6 +223,262 @@ public class ParentsController : ControllerBase
         return Ok(list);
     }
 
+    /// <summary>
+    /// Parent dashboard helper: returns each linked child's generated student portal login and visibility settings.
+    /// If the student login was missing, it is recreated automatically here.
+    /// </summary>
+    [HttpGet("student-portal-access")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(List<StudentPortalAccessSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<StudentPortalAccessSummaryDto>>> GetStudentPortalAccesses(CancellationToken ct)
+    {
+        var parent = await GetCurrentParentAsync(ct);
+        if (parent == null)
+            return Ok(new List<StudentPortalAccessSummaryDto>());
+
+        var linkedStudents = await _db.StudentParents
+            .AsNoTracking()
+            .Where(sp => sp.ParentId == parent.Id)
+            .Select(sp => sp.Student)
+            .Include(s => s.Class)
+            .OrderBy(s => s.FirstName)
+            .ThenBy(s => s.LastName)
+            .ToListAsync(ct);
+
+        var list = new List<StudentPortalAccessSummaryDto>();
+        foreach (var student in linkedStudents)
+        {
+            list.Add(await EnsureStudentPortalAccessForResponseAsync(student, ct));
+        }
+
+        return Ok(list);
+    }
+
+    [HttpPut("student-portal-access/{studentId:guid}")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(StudentPortalAccessSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<StudentPortalAccessSummaryDto>> UpdateStudentPortalAccess(Guid studentId, [FromBody] UpdateStudentPortalAccessRequest request, CancellationToken ct)
+    {
+        var student = await GetAuthorizedParentStudentAsync(studentId, ct);
+        if (student == null)
+            return Forbid();
+
+        var (portalAccess, _) = await GetOrCreateStudentPortalAccessAsync(student, ct);
+        portalAccess.IsEnabled = request.IsEnabled;
+        portalAccess.ShowDateOfBirth = request.ShowDateOfBirth;
+        portalAccess.ShowLocationDetails = request.ShowLocationDetails;
+        portalAccess.ShowHealthDetails = request.ShowHealthDetails;
+        portalAccess.ShowEmergencyContacts = request.ShowEmergencyContacts;
+        portalAccess.ShowParentContactDetails = request.ShowParentContactDetails;
+        portalAccess.ShowPreviousSchoolDetails = request.ShowPreviousSchoolDetails;
+        portalAccess.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(MapStudentPortalAccessSummary(student, portalAccess));
+    }
+
+    [HttpPost("student-portal-access/{studentId:guid}/reset-password")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(ResetStudentPortalPasswordResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<ResetStudentPortalPasswordResult>> ResetStudentPortalPassword(Guid studentId, CancellationToken ct)
+    {
+        var student = await GetAuthorizedParentStudentAsync(studentId, ct);
+        if (student == null)
+            return Forbid();
+
+        var (portalAccess, _) = await GetOrCreateStudentPortalAccessAsync(student, ct);
+        var user = await _userManager.FindByIdAsync(portalAccess.UserId.ToString());
+        if (user == null)
+            return NotFound("Student sign-in could not be found.");
+
+        var temporaryPassword = GenerateTemporaryPassword();
+        var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var resetResult = await _userManager.ResetPasswordAsync(user, resetToken, temporaryPassword);
+        if (!resetResult.Succeeded)
+            return BadRequest(string.Join(" ", resetResult.Errors.Select(e => e.Description)));
+
+        portalAccess.IsEnabled = true;
+        portalAccess.CredentialsSharedAtUtc = DateTime.UtcNow;
+        portalAccess.LastPasswordResetAtUtc = DateTime.UtcNow;
+        portalAccess.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new ResetStudentPortalPasswordResult(
+            true,
+            portalAccess.LoginId,
+            temporaryPassword,
+            "Student sign-in password reset. Share it only with your child."));
+    }
+
+    private async Task<Student?> GetAuthorizedParentStudentAsync(Guid studentId, CancellationToken ct)
+    {
+        var parent = await GetCurrentParentAsync(ct);
+        if (parent == null)
+            return null;
+
+        var isLinked = await _db.StudentParents.AnyAsync(sp => sp.ParentId == parent.Id && sp.StudentId == studentId, ct);
+        if (!isLinked)
+            return null;
+
+        return await _db.Students
+            .AsNoTracking()
+            .Include(s => s.Class)
+            .FirstOrDefaultAsync(s => s.Id == studentId && s.SchoolId == parent.SchoolId, ct);
+    }
+
+    private async Task<StudentPortalAccessSummaryDto> EnsureStudentPortalAccessForResponseAsync(Student student, CancellationToken ct)
+    {
+        var (portalAccess, temporaryPassword) = await GetOrCreateStudentPortalAccessAsync(student, ct);
+        return MapStudentPortalAccessSummary(student, portalAccess, temporaryPassword);
+    }
+
+    private async Task<(StudentPortalAccess PortalAccess, string? TemporaryPassword)> GetOrCreateStudentPortalAccessAsync(Student student, CancellationToken ct)
+    {
+        var portalAccess = await _db.StudentPortalAccesses
+            .FirstOrDefaultAsync(spa => spa.StudentId == student.Id && spa.SchoolId == student.SchoolId, ct);
+
+        if (portalAccess != null)
+        {
+            var existingUser = await _userManager.FindByIdAsync(portalAccess.UserId.ToString());
+            if (existingUser != null)
+                await EnsureStudentUserRoleAndClaimAsync(existingUser, student.SchoolId);
+            return (portalAccess, null);
+        }
+
+        var loginId = await GenerateUniqueStudentLoginIdAsync(student, ct);
+        var temporaryPassword = GenerateTemporaryPassword();
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = loginId,
+            Email = loginId,
+            EmailConfirmed = true,
+            SchoolId = student.SchoolId,
+            FullName = $"{student.FirstName} {student.LastName}".Trim(),
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        var createResult = await _userManager.CreateAsync(user, temporaryPassword);
+        if (!createResult.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", createResult.Errors.Select(e => e.Description)));
+
+        await EnsureStudentUserRoleAndClaimAsync(user, student.SchoolId);
+
+        portalAccess = new StudentPortalAccess
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = student.SchoolId,
+            StudentId = student.Id,
+            UserId = user.Id,
+            LoginId = loginId,
+            IsEnabled = true,
+            ShowDateOfBirth = true,
+            ShowLocationDetails = true,
+            ShowHealthDetails = false,
+            ShowEmergencyContacts = false,
+            ShowParentContactDetails = false,
+            ShowPreviousSchoolDetails = false,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow,
+            CredentialsSharedAtUtc = DateTime.UtcNow,
+            LastPasswordResetAtUtc = DateTime.UtcNow
+        };
+
+        _db.StudentPortalAccesses.Add(portalAccess);
+        await _db.SaveChangesAsync(ct);
+        return (portalAccess, temporaryPassword);
+    }
+
+    private async Task EnsureStudentUserRoleAndClaimAsync(ApplicationUser user, Guid schoolId)
+    {
+        if (!await _userManager.IsInRoleAsync(user, Roles.Student))
+            await _userManager.AddToRoleAsync(user, Roles.Student);
+
+        var schoolIdText = schoolId.ToString();
+        var claims = await _userManager.GetClaimsAsync(user);
+        if (!claims.Any(c => c.Type == "SchoolId" && string.Equals(c.Value, schoolIdText, StringComparison.OrdinalIgnoreCase)))
+            await _userManager.AddClaimAsync(user, new Claim("SchoolId", schoolIdText));
+
+        if (user.SchoolId != schoolId)
+        {
+            user.SchoolId = schoolId;
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+        }
+    }
+
+    private async Task<string> GenerateUniqueStudentLoginIdAsync(Student student, CancellationToken ct)
+    {
+        var first = CleanLoginPart(student.FirstName);
+        var last = CleanLoginPart(student.LastName);
+        var admission = CleanLoginPart(student.AdmissionNumber);
+        var schoolTag = student.SchoolId.ToString("N")[..6].ToLowerInvariant();
+
+        var pieces = new List<string> { first, last, admission }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
+        var stem = pieces.Count > 0
+            ? string.Join('.', pieces)
+            : $"student.{student.Id.ToString("N")[..6].ToLowerInvariant()}";
+        if (stem.Length > 40)
+            stem = stem[..40].Trim('.');
+
+        for (var suffix = 0; suffix < 100; suffix++)
+        {
+            var candidateStem = suffix == 0 ? stem : $"{stem}{suffix}";
+            var candidate = $"{candidateStem}.{schoolTag}@student.riseflow.app";
+            var exists = await _db.StudentPortalAccesses
+                .AsNoTracking()
+                .AnyAsync(spa => spa.LoginId == candidate, ct);
+            if (!exists)
+                return candidate;
+        }
+
+        return $"student.{student.Id.ToString("N")[..8].ToLowerInvariant()}@student.riseflow.app";
+    }
+
+    private static string CleanLoginPart(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var cleaned = new string(value.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+        if (cleaned.Length > 16)
+            cleaned = cleaned[..16];
+        return cleaned;
+    }
+
+    private static string GenerateTemporaryPassword()
+        => $"RiseFlow@{Random.Shared.Next(100000, 999999)}Aa";
+
+    private static StudentPortalAccessSummaryDto MapStudentPortalAccessSummary(Student student, StudentPortalAccess portalAccess, string? temporaryPassword = null)
+        => new(
+            student.Id,
+            $"{student.FirstName} {student.LastName}".Trim(),
+            student.Class?.Name,
+            portalAccess.IsEnabled,
+            portalAccess.LoginId,
+            portalAccess.ShowDateOfBirth,
+            portalAccess.ShowLocationDetails,
+            portalAccess.ShowHealthDetails,
+            portalAccess.ShowEmergencyContacts,
+            portalAccess.ShowParentContactDetails,
+            portalAccess.ShowPreviousSchoolDetails,
+            portalAccess.CredentialsSharedAtUtc,
+            portalAccess.LastPasswordResetAtUtc,
+            temporaryPassword);
+
+    private async Task<List<string>> GetLinkedChildNamesAsync(Guid parentId, CancellationToken ct)
+    {
+        var linkedIds = await _db.StudentParents.Where(sp => sp.ParentId == parentId).Select(sp => sp.StudentId).ToListAsync(ct);
+        if (linkedIds.Count == 0) return new List<string>();
+        var students = await _db.Students.AsNoTracking().Where(s => linkedIds.Contains(s.Id)).OrderBy(s => s.FirstName).ThenBy(s => s.LastName).ToListAsync(ct);
+        return students.Select(s => $"{s.FirstName} {s.LastName}".Trim()).ToList();
+    }
+
     private async Task<Parent?> GetCurrentParentAsync(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue || string.IsNullOrEmpty(_tenant.CurrentUserEmail))
@@ -237,4 +495,31 @@ public record ParentSignupRequest(Guid SchoolId, string Email, string? Password,
 public record ParentSignupResult(bool Success, string Message);
 
 public record LinkByCodeRequest(string Code);
-public record LinkByCodeResult(bool Success, Guid StudentId, string StudentName, string Message, List<string>? LinkedChildNames = null);
+public record LinkByCodeResult(bool Success, Guid StudentId, string StudentName, string Message, List<string>? LinkedChildNames = null, StudentPortalAccessSummaryDto? StudentPortalAccess = null);
+
+public record StudentPortalAccessSummaryDto(
+    Guid StudentId,
+    string StudentName,
+    string? ClassName,
+    bool IsEnabled,
+    string LoginId,
+    bool ShowDateOfBirth,
+    bool ShowLocationDetails,
+    bool ShowHealthDetails,
+    bool ShowEmergencyContacts,
+    bool ShowParentContactDetails,
+    bool ShowPreviousSchoolDetails,
+    DateTime? CredentialsSharedAtUtc,
+    DateTime? LastPasswordResetAtUtc,
+    string? TemporaryPassword = null);
+
+public record UpdateStudentPortalAccessRequest(
+    bool IsEnabled,
+    bool ShowDateOfBirth,
+    bool ShowLocationDetails,
+    bool ShowHealthDetails,
+    bool ShowEmergencyContacts,
+    bool ShowParentContactDetails,
+    bool ShowPreviousSchoolDetails);
+
+public record ResetStudentPortalPasswordResult(bool Success, string LoginId, string TemporaryPassword, string Message);

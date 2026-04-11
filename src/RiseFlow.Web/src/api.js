@@ -3,24 +3,19 @@
  * - Base URL from VITE_API_URL (set in Vercel / .env)
  * - Sends credentials (cookies) and X-Tenant-Id when set (required for tenant-scoped endpoints)
  *
- * Dev note: With `npm run dev`, the page is on :5173. If VITE_API_URL is http://localhost:5221, the browser
- * calls the API cross-origin; auth cookies stay on :5173, so requests appear unauthenticated. Prefer an empty
- * base (same origin) so Vite proxies /api → 5221. Set VITE_API_URL_FORCE=1 only when intentionally hitting
- * a direct URL from the browser.
+ * Dev note: `npm run dev` serves on :5173. Any non-empty VITE_API_URL (including your Railway URL) makes the
+ * browser call that host directly → cross-origin, cookies on :5173 won’t go to Railway, and CORS can fail
+ * (“Could not reach the API”). In development we therefore ignore VITE_API_URL and use same-origin + Vite
+ * proxy to http://127.0.0.1:5221. Set VITE_API_URL_FORCE=1 only to test the deployed API from localhost.
  */
 
 function resolveApiBase() {
   const raw = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
-  if (!import.meta.env.DEV || typeof window === 'undefined') return raw;
-  const force = import.meta.env.VITE_API_URL_FORCE === '1' || import.meta.env.VITE_API_URL_FORCE === 'true';
-  if (force) return raw;
-  if (!raw) return '';
-  try {
-    const u = new URL(raw);
-    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
-    if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && String(port) === '5221') return '';
-  } catch {
-    return raw;
+  if (typeof window === 'undefined') return raw;
+  const forceRemote =
+    import.meta.env.VITE_API_URL_FORCE === '1' || import.meta.env.VITE_API_URL_FORCE === 'true';
+  if (import.meta.env.DEV && !forceRemote) {
+    return '';
   }
   return raw;
 }

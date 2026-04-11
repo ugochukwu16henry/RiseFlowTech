@@ -170,7 +170,129 @@ public class StudentsController : ControllerBase
         return Ok(vm);
     }
 
+    [HttpGet("me/dashboard")]
+    [Authorize(Roles = Roles.Student)]
+    [ProducesResponseType(typeof(StudentSelfDashboardDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<StudentSelfDashboardDto>> GetMyDashboard(CancellationToken ct)
+    {
+        var portalAccess = await GetCurrentStudentPortalAccessAsync(ct);
+        if (portalAccess == null || !portalAccess.IsEnabled)
+            return Forbid();
+
+        var student = await _db.Students
+            .AsNoTracking()
+            .Include(s => s.School)
+            .Include(s => s.Class)
+                .ThenInclude(c => c!.Grade)
+            .Include(s => s.Grade)
+            .Include(s => s.StudentParents)
+                .ThenInclude(sp => sp.Parent)
+            .FirstOrDefaultAsync(s => s.Id == portalAccess.StudentId && s.SchoolId == portalAccess.SchoolId, ct);
+
+        if (student == null)
+            return NotFound();
+
+        List<StudentDashboardTeacherDto> teachers;
+        if (student.ClassId.HasValue)
+        {
+            var subjectTeachers = await _db.Set<TeacherClassSubject>()
+                .AsNoTracking()
+                .Include(tcs => tcs.Teacher)
+                .Include(tcs => tcs.Subject)
+                .Where(tcs => tcs.ClassId == student.ClassId.Value && tcs.Teacher.IsActive)
+                .Select(tcs => new StudentDashboardTeacherDto(
+                    tcs.TeacherId,
+                    $"{tcs.Teacher.FirstName} {tcs.Teacher.LastName}".Trim(),
+                    tcs.Subject.Name,
+                    tcs.Teacher.Email,
+                    tcs.Teacher.Phone,
+                    tcs.Teacher.WhatsAppNumber ?? tcs.Teacher.Phone))
+                .ToListAsync(ct);
+
+            if (subjectTeachers.Count > 0)
+            {
+                teachers = subjectTeachers
+                    .GroupBy(t => new { t.TeacherId, t.FullName, t.RoleOrSubject, t.Email, t.Phone, t.WhatsAppNumber })
+                    .Select(g => g.First())
+                    .OrderBy(t => t.FullName)
+                    .ToList();
+            }
+            else
+            {
+                teachers = await _db.TeacherClasses
+                    .AsNoTracking()
+                    .Include(tc => tc.Teacher)
+                    .Where(tc => tc.ClassId == student.ClassId.Value && tc.Teacher.IsActive)
+                    .Select(tc => new StudentDashboardTeacherDto(
+                        tc.TeacherId,
+                        $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim(),
+                        tc.RoleInClass,
+                        tc.Teacher.Email,
+                        tc.Teacher.Phone,
+                        tc.Teacher.WhatsAppNumber ?? tc.Teacher.Phone))
+                    .OrderBy(t => t.FullName)
+                    .ToListAsync(ct);
+            }
+        }
+        else
+        {
+            teachers = new List<StudentDashboardTeacherDto>();
+        }
+
+        var parents = student.StudentParents
+            .OrderByDescending(sp => sp.IsPrimaryContact)
+            .ThenBy(sp => sp.Parent.FirstName)
+            .Select(sp => new StudentDashboardParentDto(
+                sp.ParentId,
+                $"{sp.Parent.FirstName} {sp.Parent.LastName}".Trim(),
+                sp.RelationshipToStudent ?? sp.Parent.Relationship,
+                portalAccess.ShowParentContactDetails ? sp.Parent.Phone : null,
+                portalAccess.ShowParentContactDetails ? sp.Parent.WhatsAppNumber : null,
+                portalAccess.ShowParentContactDetails ? sp.Parent.Email : null))
+            .ToList();
+
+        var classmates = student.ClassId.HasValue
+            ? await _db.Students
+                .AsNoTracking()
+                .Where(s => s.SchoolId == student.SchoolId && s.ClassId == student.ClassId && s.Id != student.Id && s.IsActive)
+                .OrderBy(s => s.FirstName)
+                .ThenBy(s => s.LastName)
+                .Select(s => new StudentDashboardClassmateDto(
+                    s.Id,
+                    $"{s.FirstName} {s.LastName}".Trim(),
+                    s.ProfilePhotoFileName))
+                .ToListAsync(ct)
+            : new List<StudentDashboardClassmateDto>();
+
+        var dto = new StudentSelfDashboardDto(
+            student.Id,
+            fullName,
+            student.School.Name,
+            student.Class?.Name,
+            student.Grade?.Name,
+            student.AdmissionNumber,
+            student.ProfilePhotoFileName,
+            portalAccess.ShowDateOfBirth ? student.DateOfBirth : null,
+            student.Gender,
+            portalAccess.ShowLocationDetails ? student.Nationality : null,
+            portalAccess.ShowLocationDetails ? student.StateOfOrigin : null,
+            portalAccess.ShowLocationDetails ? student.LGA : null,
+            portalAccess.ShowPreviousSchoolDetails ? student.PreviousSchool : null,
+            portalAccess.ShowHealthDetails ? student.BloodGroup : null,
+            portalAccess.ShowHealthDetails ? student.Genotype : null,
+            portalAccess.ShowHealthDetails ? student.Allergies : null,
+            portalAccess.ShowEmergencyContacts ? student.EmergencyContactName : null,
+            portalAccess.ShowEmergencyContacts ? student.EmergencyContactPhone : null,
+            parents,
+            teachers,
+            classmates);
+
+        return Ok(dto);
+    }
+
     [HttpGet]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     [ProducesResponseType(typeof(List<Student>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<Student>>> List(CancellationToken ct)
     {
@@ -218,6 +340,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Student>> GetById(Guid id, CancellationToken ct)
@@ -607,6 +730,20 @@ public class StudentsController : ControllerBase
         return Ok(new { message = "Photo uploaded.", profilePhotoFileName = relativePath });
     }
 
+    private async Task<StudentPortalAccess?> GetCurrentStudentPortalAccessAsync(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return null;
+
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return null;
+
+        return await _db.StudentPortalAccesses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(spa => spa.SchoolId == _tenant.CurrentSchoolId.Value && spa.UserId == userId, ct);
+    }
+
     private async Task<bool> CanViewStudentAsync(Guid studentId, CancellationToken ct)
     {
         if (_tenant.CurrentSchoolId.HasValue)
@@ -642,3 +779,28 @@ public class StudentsController : ControllerBase
 public record AccessCodeDto(string Code);
 public record GenerateAccessCodesResult(int GeneratedCount, int TotalStudents, int StudentsWithCode);
 public record StudentWithAccessCodeDto(Guid Id, string FirstName, string LastName, string? MiddleName, string? AdmissionNumber, string? ClassName, string? ParentAccessCode);
+public record StudentSelfDashboardDto(
+    Guid StudentId,
+    string FullName,
+    string SchoolName,
+    string? ClassName,
+    string? GradeName,
+    string? AdmissionNumber,
+    string? ProfilePhotoFileName,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string? Nationality,
+    string? StateOfOrigin,
+    string? Lga,
+    string? PreviousSchool,
+    string? BloodGroup,
+    string? Genotype,
+    string? Allergies,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
+    IReadOnlyList<StudentDashboardParentDto> Parents,
+    IReadOnlyList<StudentDashboardTeacherDto> Teachers,
+    IReadOnlyList<StudentDashboardClassmateDto> Classmates);
+public record StudentDashboardParentDto(Guid ParentId, string FullName, string? Relationship, string? Phone, string? WhatsAppNumber, string? Email);
+public record StudentDashboardTeacherDto(Guid TeacherId, string FullName, string? RoleOrSubject, string? Email, string? Phone, string? WhatsAppNumber);
+public record StudentDashboardClassmateDto(Guid StudentId, string FullName, string? ProfilePhotoFileName);
