@@ -92,7 +92,13 @@ export default function SuperAdminPage() {
       {error && <p className="empty-state empty-state--error" style={{ marginBottom: '1rem' }}>{error}</p>}
 
       <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
-        <Link to="/super-admin/affiliates" className="btn-primary-action">
+        <Link to="/super-admin/schools" className="btn-primary-action">
+          School directory
+        </Link>
+        <Link to="/super-admin/revenue" className="btn-primary-action btn-primary-action--ghost">
+          Revenue hub
+        </Link>
+        <Link to="/super-admin/affiliates" className="btn-primary-action btn-primary-action--ghost">
           Open affiliate manager
         </Link>
         <Link to="/super-admin/affiliate-requests" className="btn-primary-action btn-primary-action--ghost">
@@ -176,9 +182,9 @@ export default function SuperAdminPage() {
               <div className="sa-revenue-table-header">
                 <h4>Highest revenue schools</h4>
                 {/* Future: link to full schools list / filters */}
-                <button type="button" className="sa-revenue-view-all">
+                <Link to="/super-admin/schools" className="sa-revenue-view-all">
                   View all schools
-                </button>
+                </Link>
               </div>
               <div className="data-table-wrap">
                 <table className="data-table">
@@ -289,6 +295,7 @@ export default function SuperAdminPage() {
                     <th>Teachers</th>
                     <th>Parents</th>
                     <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -306,6 +313,11 @@ export default function SuperAdminPage() {
                           <span className={isActive ? 'pill pill--success' : 'pill pill--muted'}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
+                        </td>
+                        <td>
+                          <Link to={`/super-admin/schools?schoolId=${s.id}`} className="btn-primary-action btn-primary-action--ghost">
+                            View details
+                          </Link>
                         </td>
                       </tr>
                     );
