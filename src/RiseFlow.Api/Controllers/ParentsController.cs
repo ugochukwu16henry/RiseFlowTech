@@ -240,11 +240,17 @@ public class ParentsController : ControllerBase
 
         try
         {
-            var linkedStudents = await _db.StudentParents
+            var linkedStudentIds = await _db.StudentParents
                 .AsNoTracking()
                 .Where(sp => sp.ParentId == parent.Id)
-                .Select(sp => sp.Student)
+                .Select(sp => sp.StudentId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            var linkedStudents = await _db.Students
+                .AsNoTracking()
                 .Include(s => s.Class)
+                .Where(s => linkedStudentIds.Contains(s.Id))
                 .OrderBy(s => s.FirstName)
                 .ThenBy(s => s.LastName)
                 .ToListAsync(ct);
