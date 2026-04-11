@@ -17,13 +17,15 @@ public class SchoolsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly SchoolDashboardService _dashboard;
+    private readonly ILogger<SchoolsController> _logger;
 
-    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant, SchoolDashboardService dashboard)
+    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant, SchoolDashboardService dashboard, ILogger<SchoolsController> logger)
     {
         _onboarding = onboarding;
         _db = db;
         _tenant = tenant;
         _dashboard = dashboard;
+        _logger = logger;
     }
 
     /// <summary>
@@ -51,14 +53,31 @@ public class SchoolsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var list = await _db.Classes
-            .AsNoTracking()
-            .Where(c => c.SchoolId == schoolId)
-            .OrderBy(c => c.Grade.LevelOrder)
-            .ThenBy(c => c.Name)
-            .Select(c => new SchoolClassDto(c.Id, c.Name, c.GradeId, c.Grade.Name, c.AcademicYear))
-            .ToListAsync(ct);
-        return Ok(list);
+
+        try
+        {
+            var list = await _db.Classes
+                .AsNoTracking()
+                .Where(c => c.SchoolId == schoolId)
+                .OrderBy(c => c.Grade.LevelOrder)
+                .ThenBy(c => c.Name)
+                .Select(c => new SchoolClassDto(c.Id, c.Name, c.GradeId, c.Grade.Name, c.AcademicYear))
+                .ToListAsync(ct);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Class list could not be loaded for school {SchoolId}. Returning minimal fallback rows.", schoolId);
+
+            var fallback = await _db.Classes
+                .AsNoTracking()
+                .Where(c => c.SchoolId == schoolId)
+                .OrderBy(c => c.Name)
+                .Select(c => new SchoolClassDto(c.Id, c.Name, c.GradeId, string.Empty, null))
+                .ToListAsync(ct);
+
+            return Ok(fallback);
+        }
     }
 
     /// <summary>List grade levels for the current school (Nursery, Primary 1, JSS1, SS1, etc.). SchoolAdmin.</summary>

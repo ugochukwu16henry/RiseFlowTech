@@ -633,6 +633,11 @@ ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "Created
 ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "ReadAtUtc" timestamp with time zone NULL;
 CREATE INDEX IF NOT EXISTS "IX_AffiliateNotifications_AffiliateId" ON "AffiliateNotifications" ("AffiliateId");
 
+ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "LevelOrder" integer NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "Classes" ADD COLUMN IF NOT EXISTS "AcademicYear" text NULL;
+ALTER TABLE IF EXISTS "Classes" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+
 ALTER TABLE IF EXISTS "Students" ADD COLUMN IF NOT EXISTS "MiddleName" text NULL;
 ALTER TABLE IF EXISTS "Students" ADD COLUMN IF NOT EXISTS "DateOfBirth" date NULL;
 ALTER TABLE IF EXISTS "Students" ADD COLUMN IF NOT EXISTS "Gender" text NULL;

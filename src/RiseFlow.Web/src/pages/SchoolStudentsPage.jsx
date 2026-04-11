@@ -15,6 +15,7 @@ export default function SchoolStudentsPage() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [classesUnavailable, setClassesUnavailable] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
@@ -33,17 +34,53 @@ export default function SchoolStudentsPage() {
       setLoading(true);
     }
     setError(null);
+    setClassesUnavailable(false);
     try {
-      const [studentsRes, classesRes] = await Promise.all([
+      const [studentsResult, classesResult] = await Promise.allSettled([
         apiFetch('/api/students'),
         apiFetch('/api/schools/classes'),
       ]);
-      if (!studentsRes.ok) throw new Error('Could not load students');
-      const studentsData = await studentsRes.json();
-      const classesData = classesRes.ok ? await classesRes.json() : [];
+
+      let nextStudents = [];
+      let nextClasses = [];
+      let studentFailure = null;
+      let classesFailed = false;
+
+      if (studentsResult.status === 'fulfilled') {
+        const studentsRes = studentsResult.value;
+        if (!studentsRes.ok) {
+          studentFailure = 'Could not load students';
+        } else {
+          const studentsData = await studentsRes.json();
+          nextStudents = Array.isArray(studentsData) ? studentsData : [];
+        }
+      } else {
+        studentFailure = studentsResult.reason?.message || 'Failed to load students';
+      }
+
+      if (classesResult.status === 'fulfilled') {
+        const classesRes = classesResult.value;
+        if (classesRes.ok) {
+          const classesData = await classesRes.json();
+          nextClasses = Array.isArray(classesData) ? classesData : [];
+        } else {
+          classesFailed = true;
+        }
+      } else {
+        classesFailed = true;
+      }
+
       if (!cancelledRef?.cancelled) {
-        setStudents(Array.isArray(studentsData) ? studentsData : []);
-        setClasses(Array.isArray(classesData) ? classesData : []);
+        setStudents(nextStudents);
+        setClasses(nextClasses);
+        setClassesUnavailable(classesFailed);
+
+        if (studentFailure) {
+          const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(studentFailure || ''))
+            ? 'The student directory is syncing with the live API. Please refresh shortly.'
+            : studentFailure;
+          setError(message);
+        }
       }
     } catch (e) {
       if (!cancelledRef?.cancelled) {
@@ -189,6 +226,9 @@ export default function SchoolStudentsPage() {
       </div>
       {!loading && !error && students.length > 0 && (
         <p className="card-desc">Showing {filteredStudents.length} of {students.length} students. Use the quick class dropdown for one-by-one changes, or select multiple students below and bulk assign them to a class.</p>
+      )}
+      {!loading && !error && filteredStudents.length > 0 && classesUnavailable && (
+        <p className="card-desc">Student records are available. Class filters and quick assignment are reconnecting and will appear again automatically.</p>
       )}
       {!loading && !error && filteredStudents.length > 0 && classes.length > 0 && (
         <div className="form-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
