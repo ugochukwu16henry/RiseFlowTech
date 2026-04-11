@@ -17,12 +17,14 @@ public class ParentsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ILogger<ParentsController> _logger;
 
-    public ParentsController(RiseFlowDbContext db, ITenantContext tenant, UserManager<ApplicationUser> userManager)
+    public ParentsController(RiseFlowDbContext db, ITenantContext tenant, UserManager<ApplicationUser> userManager, ILogger<ParentsController> logger)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -236,22 +238,38 @@ public class ParentsController : ControllerBase
         if (parent == null)
             return Ok(new List<StudentPortalAccessSummaryDto>());
 
-        var linkedStudents = await _db.StudentParents
-            .AsNoTracking()
-            .Where(sp => sp.ParentId == parent.Id)
-            .Select(sp => sp.Student)
-            .Include(s => s.Class)
-            .OrderBy(s => s.FirstName)
-            .ThenBy(s => s.LastName)
-            .ToListAsync(ct);
-
-        var list = new List<StudentPortalAccessSummaryDto>();
-        foreach (var student in linkedStudents)
+        try
         {
-            list.Add(await EnsureStudentPortalAccessForResponseAsync(student, ct));
-        }
+            var linkedStudents = await _db.StudentParents
+                .AsNoTracking()
+                .Where(sp => sp.ParentId == parent.Id)
+                .Select(sp => sp.Student)
+                .Include(s => s.Class)
+                .OrderBy(s => s.FirstName)
+                .ThenBy(s => s.LastName)
+                .ToListAsync(ct);
 
-        return Ok(list);
+            var list = new List<StudentPortalAccessSummaryDto>();
+            foreach (var student in linkedStudents)
+            {
+                try
+                {
+                    list.Add(await EnsureStudentPortalAccessForResponseAsync(student, ct));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Student portal access repair failed for parent {ParentId} and student {StudentId}. Returning a safe fallback row.", parent.Id, student.Id);
+                    list.Add(CreateFallbackStudentPortalAccessSummary(student));
+                }
+            }
+
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Student portal access list could not be loaded for parent {ParentId}. Returning an empty list instead.", parent.Id);
+            return Ok(new List<StudentPortalAccessSummaryDto>());
+        }
     }
 
     [HttpPut("student-portal-access/{studentId:guid}")]
@@ -343,8 +361,47 @@ public class ParentsController : ControllerBase
         {
             var existingUser = await _userManager.FindByIdAsync(portalAccess.UserId.ToString());
             if (existingUser != null)
+            {
                 await EnsureStudentUserRoleAndClaimAsync(existingUser, student.SchoolId);
-            return (portalAccess, null);
+
+                if (string.IsNullOrWhiteSpace(portalAccess.LoginId))
+                {
+                    portalAccess.LoginId = await GenerateUniqueStudentLoginIdAsync(student, ct);
+                    portalAccess.UpdatedAtUtc = DateTime.UtcNow;
+                    await _db.SaveChangesAsync(ct);
+                }
+
+                return (portalAccess, null);
+            }
+
+            var repairedLoginId = await GenerateUniqueStudentLoginIdAsync(student, ct, portalAccess.LoginId);
+            var repairedPassword = GenerateTemporaryPassword();
+            var repairedUser = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = repairedLoginId,
+                Email = repairedLoginId,
+                EmailConfirmed = true,
+                SchoolId = student.SchoolId,
+                FullName = $"{student.FirstName} {student.LastName}".Trim(),
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            var repairedCreateResult = await _userManager.CreateAsync(repairedUser, repairedPassword);
+            if (!repairedCreateResult.Succeeded)
+                throw new InvalidOperationException(string.Join(" ", repairedCreateResult.Errors.Select(e => e.Description)));
+
+            await EnsureStudentUserRoleAndClaimAsync(repairedUser, student.SchoolId);
+
+            portalAccess.UserId = repairedUser.Id;
+            portalAccess.LoginId = repairedLoginId;
+            portalAccess.IsEnabled = true;
+            portalAccess.CredentialsSharedAtUtc ??= DateTime.UtcNow;
+            portalAccess.LastPasswordResetAtUtc = DateTime.UtcNow;
+            portalAccess.UpdatedAtUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            return (portalAccess, repairedPassword);
         }
 
         var loginId = await GenerateUniqueStudentLoginIdAsync(student, ct);
@@ -410,12 +467,26 @@ public class ParentsController : ControllerBase
         }
     }
 
-    private async Task<string> GenerateUniqueStudentLoginIdAsync(Student student, CancellationToken ct)
+    private async Task<string> GenerateUniqueStudentLoginIdAsync(Student student, CancellationToken ct, string? preferredLoginId = null)
     {
+        var schoolTag = student.SchoolId.ToString("N")[..6].ToLowerInvariant();
+
+        if (!string.IsNullOrWhiteSpace(preferredLoginId))
+        {
+            var normalizedPreferred = preferredLoginId.Trim().ToLowerInvariant();
+            var preferredExists = await _db.StudentPortalAccesses
+                .AsNoTracking()
+                .AnyAsync(spa => spa.LoginId == normalizedPreferred, ct);
+            var preferredUserExists = await _userManager.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.UserName == normalizedPreferred || u.Email == normalizedPreferred, ct);
+            if (!preferredExists && !preferredUserExists)
+                return normalizedPreferred;
+        }
+
         var first = CleanLoginPart(student.FirstName);
         var last = CleanLoginPart(student.LastName);
         var admission = CleanLoginPart(student.AdmissionNumber);
-        var schoolTag = student.SchoolId.ToString("N")[..6].ToLowerInvariant();
 
         var pieces = new List<string> { first, last, admission }
             .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -433,7 +504,10 @@ public class ParentsController : ControllerBase
             var exists = await _db.StudentPortalAccesses
                 .AsNoTracking()
                 .AnyAsync(spa => spa.LoginId == candidate, ct);
-            if (!exists)
+            var userExists = await _userManager.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.UserName == candidate || u.Email == candidate, ct);
+            if (!exists && !userExists)
                 return candidate;
         }
 
@@ -453,6 +527,23 @@ public class ParentsController : ControllerBase
 
     private static string GenerateTemporaryPassword()
         => $"RiseFlow@{Random.Shared.Next(100000, 999999)}Aa";
+
+    private static StudentPortalAccessSummaryDto CreateFallbackStudentPortalAccessSummary(Student student)
+        => new(
+            student.Id,
+            $"{student.FirstName} {student.LastName}".Trim(),
+            student.Class?.Name,
+            false,
+            "Pending sync",
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            null,
+            null,
+            null);
 
     private static StudentPortalAccessSummaryDto MapStudentPortalAccessSummary(Student student, StudentPortalAccess portalAccess, string? temporaryPassword = null)
         => new(
