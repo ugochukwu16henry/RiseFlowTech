@@ -19,6 +19,7 @@ export default function SchoolAdminPage() {
   const [parents, setParents] = useState([]);
   const [billing, setBilling] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
@@ -50,8 +51,13 @@ export default function SchoolAdminPage() {
     return response.json();
   }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  const loadData = useCallback((options = {}) => {
+    const { background = false } = options;
+    if (background) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     return Promise.allSettled([
       apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
@@ -83,7 +89,13 @@ export default function SchoolAdminPage() {
           : (err.message || 'Failed to load data');
         setError(message);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (background) {
+          setRefreshing(false);
+        } else {
+          setLoading(false);
+        }
+      });
   }, [readJsonOrThrow]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -177,7 +189,7 @@ export default function SchoolAdminPage() {
     form.append('file', file);
     try {
       const res = await apiFetch(`/api/students/${studentId}/photo`, { method: 'POST', body: form });
-      if (res.ok) loadData();
+      if (res.ok) loadData({ background: true });
     } finally {
       setUploadingId(null);
       e.target.value = '';
@@ -200,7 +212,7 @@ export default function SchoolAdminPage() {
     setError(null);
     try {
       await saveStudentClassAssignment(studentId, nextClassId);
-      await loadData();
+      await loadData({ background: true });
     } catch (e) {
       setError(e.message || 'Failed to assign class.');
     } finally {
@@ -244,7 +256,7 @@ export default function SchoolAdminPage() {
       }
       setSelectedStudentIds([]);
       setBulkClassId('');
-      await loadData();
+      await loadData({ background: true });
     } catch (e) {
       setError(e.message || 'Failed to bulk assign class.');
     } finally {
@@ -252,8 +264,8 @@ export default function SchoolAdminPage() {
     }
   };
 
-  if (loading) return <PageLayout title="School Admin" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="School Admin" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (loading && !dashboard) return <PageLayout title="School Admin" role="school"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
+  if (!loading && error && !dashboard) return <PageLayout title="School Admin" role="school"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
   const activeStudents = dashboard?.studentCount ?? dashboard?.activeStudentCount ?? students.length;
@@ -294,6 +306,12 @@ export default function SchoolAdminPage() {
         </aside>
 
         <section className="school-admin-view">
+      {error && (
+        <p className="empty-state empty-state--error" style={{ marginBottom: '1rem' }}>{error}</p>
+      )}
+      {refreshing && !error && (
+        <p className="card-desc" aria-live="polite" style={{ marginBottom: '0.75rem' }}>Refreshing school data…</p>
+      )}
       {onboardingSummary?.schoolName && (
         <section className="school-welcome-panel" aria-label="School setup complete">
           <button type="button" className="school-welcome-close" onClick={dismissOnboardingSummary} aria-label="Dismiss welcome panel">×</button>

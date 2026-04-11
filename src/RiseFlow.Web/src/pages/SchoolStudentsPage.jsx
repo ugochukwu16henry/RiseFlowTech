@@ -14,6 +14,7 @@ export default function SchoolStudentsPage() {
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
@@ -24,8 +25,13 @@ export default function SchoolStudentsPage() {
   const [bulkClassId, setBulkClassId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
 
-  const loadStudents = async (cancelledRef) => {
-    setLoading(true);
+  const loadStudents = async (cancelledRef, options = {}) => {
+    const { background = false } = options;
+    if (background) {
+      if (!cancelledRef?.cancelled) setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [studentsRes, classesRes] = await Promise.all([
@@ -47,7 +53,10 @@ export default function SchoolStudentsPage() {
         setError(message);
       }
     } finally {
-      if (!cancelledRef?.cancelled) setLoading(false);
+      if (!cancelledRef?.cancelled) {
+        if (!background) setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -120,7 +129,7 @@ export default function SchoolStudentsPage() {
 
     try {
       await saveStudentClassAssignment(student.id, nextClassId);
-      await loadStudents();
+      await loadStudents(undefined, { background: true });
     } catch (e) {
       setError(e.message || 'Failed to assign class.');
     } finally {
@@ -146,7 +155,7 @@ export default function SchoolStudentsPage() {
       }
       setSelectedStudentIds([]);
       setBulkClassId('');
-      await loadStudents();
+      await loadStudents(undefined, { background: true });
     } catch (e) {
       setError(e.message || 'Failed to bulk assign class.');
     } finally {
@@ -217,6 +226,7 @@ export default function SchoolStudentsPage() {
         </div>
       )}
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
+      {refreshing && !loading && !error && <p className="card-desc" aria-live="polite">Refreshing student directory…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
       {!loading && !error && students.length === 0 && <p className="empty-state">No students found.</p>}
       {!loading && !error && students.length > 0 && filteredStudents.length === 0 && (
