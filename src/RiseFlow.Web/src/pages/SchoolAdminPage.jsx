@@ -15,12 +15,17 @@ export default function SchoolAdminPage() {
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [parents, setParents] = useState([]);
   const [billing, setBilling] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
+  const [savingClassId, setSavingClassId] = useState(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [bulkClassId, setBulkClassId] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
@@ -34,7 +39,7 @@ export default function SchoolAdminPage() {
     }
   });
 
-  const readJsonOrThrow = async (response, fallbackMessage) => {
+  const readJsonOrThrow = useCallback(async (response, fallbackMessage) => {
     if (response.status === 401 || response.status === 403) {
       throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
     }
@@ -43,20 +48,21 @@ export default function SchoolAdminPage() {
       throw new Error(text || fallbackMessage);
     }
     return response.json();
-  };
+  }, []);
 
   const loadData = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.allSettled([
+    return Promise.allSettled([
       apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
       apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
+      apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
     ])
       .then((results) => {
-        const [dashResult, teacherResult, studentResult, parentResult, billingResult] = results;
+        const [dashResult, teacherResult, studentResult, classResult, parentResult, billingResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
 
         if (!dash) {
@@ -67,6 +73,7 @@ export default function SchoolAdminPage() {
         setDashboard(dash);
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
         setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
+        setClasses(classResult.status === 'fulfilled' && Array.isArray(classResult.value) ? classResult.value : []);
         setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
         setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
       })
@@ -174,6 +181,74 @@ export default function SchoolAdminPage() {
     } finally {
       setUploadingId(null);
       e.target.value = '';
+    }
+  };
+
+  const saveStudentClassAssignment = async (studentId, nextClassId) => {
+    const res = await apiFetch(`/api/students/${studentId}/class-assignment`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: nextClassId || null }),
+    });
+    const text = await res.text().catch(() => '');
+    if (!res.ok) throw new Error(text || 'Could not assign class.');
+  };
+
+  const handleQuickAssignClass = async (studentId, nextClassId) => {
+    if (!studentId || savingClassId === studentId) return;
+    setSavingClassId(studentId);
+    setError(null);
+    try {
+      await saveStudentClassAssignment(studentId, nextClassId);
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'Failed to assign class.');
+    } finally {
+      setSavingClassId(null);
+    }
+  };
+
+  const toggleStudentSelection = (studentId, isChecked) => {
+    setSelectedStudentIds((current) => {
+      if (isChecked) return current.includes(studentId) ? current : [...current, studentId];
+      return current.filter((id) => id !== studentId);
+    });
+  };
+
+  const visibleStudents = students.slice(0, 50);
+  const visibleStudentIds = visibleStudents.map((student) => student.id);
+  const allVisibleSelected = visibleStudentIds.length > 0 && visibleStudentIds.every((id) => selectedStudentIds.includes(id));
+
+  const toggleSelectAllVisible = (isChecked) => {
+    setSelectedStudentIds((current) => {
+      if (isChecked) return Array.from(new Set([...current, ...visibleStudentIds]));
+      return current.filter((id) => !visibleStudentIds.includes(id));
+    });
+  };
+
+  const handleBulkAssignClass = async () => {
+    if (!bulkClassId) {
+      setError('Select a class first for bulk assignment.');
+      return;
+    }
+    if (selectedStudentIds.length === 0) {
+      setError('Select at least one student first.');
+      return;
+    }
+
+    setBulkAssigning(true);
+    setError(null);
+    try {
+      for (const studentId of selectedStudentIds) {
+        await saveStudentClassAssignment(studentId, bulkClassId);
+      }
+      setSelectedStudentIds([]);
+      setBulkClassId('');
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'Failed to bulk assign class.');
+    } finally {
+      setBulkAssigning(false);
     }
   };
 
@@ -394,7 +469,7 @@ export default function SchoolAdminPage() {
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Students</h2>
-      <p className="card-desc">Register students one at a time or import many from Excel — whichever you prefer.</p>
+      <p className="card-desc">Register students one at a time, assign them to classes quickly, or bulk upload many from Excel.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem', marginBottom: '0.75rem' }}>
         <Link to="/school/students/add" className="btn-excel btn-download" style={{ display: 'inline-flex' }}>
           Add one student
@@ -402,7 +477,51 @@ export default function SchoolAdminPage() {
         <Link to="/school/import" className="btn-excel btn-download" style={{ display: 'inline-flex', background: 'var(--color-neutral-border)', color: 'var(--color-neutral-text)' }}>
           Bulk upload (Excel)
         </Link>
+        <Link to="/school/students" className="btn-excel btn-download" style={{ display: 'inline-flex', background: 'var(--color-neutral-bg)', color: 'var(--color-primary)' }}>
+          Open full students manager
+        </Link>
       </div>
+
+      {students.length > 0 && classes.length > 0 && (
+        <div className="form-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          <span className="card-desc"><strong>{selectedStudentIds.length}</strong> selected</span>
+          <select
+            className="form-input"
+            style={{ minWidth: '220px' }}
+            value={bulkClassId}
+            onChange={(e) => setBulkClassId(e.target.value)}
+            disabled={bulkAssigning}
+          >
+            <option value="">— Bulk assign to class —</option>
+            {classes.map((schoolClass) => (
+              <option key={schoolClass.id} value={schoolClass.id}>
+                {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-primary-action"
+            onClick={handleBulkAssignClass}
+            disabled={bulkAssigning || !bulkClassId || selectedStudentIds.length === 0}
+          >
+            {bulkAssigning ? 'Assigning…' : `Assign selected (${selectedStudentIds.length})`}
+          </button>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={() => toggleSelectAllVisible(!allVisibleSelected)}
+            disabled={bulkAssigning}
+          >
+            {allVisibleSelected ? 'Clear selection' : 'Select all shown'}
+          </button>
+        </div>
+      )}
+
+      {students.length > 0 && classes.length === 0 && (
+        <p className="empty-state">Create at least one class in <strong>Grades &amp; classes</strong> to enable quick and bulk student assignment.</p>
+      )}
+
       {students.length === 0 ? (
         <p className="empty-state">No students yet. Add one student or bulk upload from Excel.</p>
       ) : (
@@ -410,22 +529,58 @@ export default function SchoolAdminPage() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '36px' }}>
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(e) => toggleSelectAllVisible(e.target.checked)}
+                    aria-label="Select all visible students"
+                    disabled={bulkAssigning}
+                  />
+                </th>
                 <th style={{ width: '56px' }}>Photo</th>
                 <th>Name</th>
                 <th>Admission #</th>
                 <th>Class</th>
-                <th></th>
+                <th>Quick assign class</th>
+                <th>Photo</th>
               </tr>
             </thead>
             <tbody>
-              {students.slice(0, 50).map((s) => (
+              {visibleStudents.map((s) => (
                 <tr key={s.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedStudentIds.includes(s.id)}
+                      onChange={(e) => toggleStudentSelection(s.id, e.target.checked)}
+                      aria-label={`Select ${[s.firstName, s.lastName].filter(Boolean).join(' ')}`}
+                      disabled={bulkAssigning}
+                    />
+                  </td>
                   <td>
                     <StudentPhoto studentId={s.id} firstName={s.firstName} lastName={s.lastName} size={40} />
                   </td>
                   <td>{[s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')}</td>
                   <td>{s.admissionNumber || '—'}</td>
                   <td>{s.class?.name || '—'}</td>
+                  <td>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '180px' }}
+                      value={s.class?.id || ''}
+                      onChange={(e) => handleQuickAssignClass(s.id, e.target.value)}
+                      disabled={savingClassId === s.id || bulkAssigning || classes.length === 0}
+                    >
+                      <option value="">— No class —</option>
+                      {classes.map((schoolClass) => (
+                        <option key={schoolClass.id} value={schoolClass.id}>
+                          {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {savingClassId === s.id && <span className="form-hint">Saving…</span>}
+                  </td>
                   <td>
                     <input
                       type="file"
