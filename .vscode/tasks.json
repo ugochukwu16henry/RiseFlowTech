@@ -53,6 +53,20 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "RiseFlow Web Build Verify",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--prefix",
+				"src/RiseFlow.Web"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }
