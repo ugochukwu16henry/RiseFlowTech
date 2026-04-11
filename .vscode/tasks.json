@@ -37,6 +37,22 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "RiseFlow API Release Build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj",
+				"-c",
+				"Release"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }
