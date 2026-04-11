@@ -33,9 +33,24 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            return Unauthorized(new LoginResponse(false, "Email and password are required.", null, null));
+            return Unauthorized(new LoginResponse(false, "Email or login ID and password are required.", null, null));
 
-        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
+        var loginId = request.Email.Trim();
+        ApplicationUser? user = null;
+
+        if (loginId.Contains('@'))
+            user = await _userManager.FindByEmailAsync(loginId);
+
+        user ??= await _userManager.FindByNameAsync(loginId);
+
+        if (user == null)
+        {
+            var normalizedLoginId = _userManager.NormalizeName(loginId);
+            user = await _userManager.Users.FirstOrDefaultAsync(u =>
+                u.NormalizedUserName == normalizedLoginId ||
+                (!string.IsNullOrEmpty(u.Email) && u.NormalizedEmail == normalizedLoginId));
+        }
+
         if (user == null || !user.IsActive)
             return Unauthorized(new LoginResponse(false, "Invalid credentials.", null, null));
 

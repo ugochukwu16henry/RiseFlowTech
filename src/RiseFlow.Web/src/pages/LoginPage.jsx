@@ -23,7 +23,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      setError('Enter your email and password.');
+      setError('Enter your email or login ID and password.');
       return;
     }
     setSubmitting(true);
@@ -35,7 +35,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (res.status === 401) {
-        setError('Incorrect email or password.');
+        setError('Incorrect email/login ID or password.');
         return;
       }
       if (!res.ok) {
@@ -44,7 +44,7 @@ export default function LoginPage() {
       }
       const data = await res.json();
       if (!data?.success) {
-        setError(data?.message || 'Incorrect email or password.');
+        setError(data?.message || 'Incorrect email/login ID or password.');
         return;
       }
       try {
@@ -99,13 +99,13 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="login-field">
-            <span>Email</span>
+            <span>Email or login ID</span>
             <input
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@schoolname.com"
+              placeholder="you@schoolname.com or stu-hen20260015"
               required
             />
           </label>
