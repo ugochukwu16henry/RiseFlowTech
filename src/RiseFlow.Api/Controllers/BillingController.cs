@@ -16,18 +16,14 @@ public class BillingController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
     private readonly ITenantContext _tenant;
-    private readonly PaymentService _payments;
-    private readonly BillingReceiptPdfService _receipts;
     private readonly IConfiguration _config;
     private readonly ILogger<BillingController> _logger;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts, IConfiguration config, ILogger<BillingController> logger)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, IConfiguration config, ILogger<BillingController> logger)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
-        _payments = payments;
-        _receipts = receipts;
         _config = config;
         _logger = logger;
     }
@@ -184,7 +180,7 @@ public class BillingController : ControllerBase
     [ProducesResponseType(typeof(InitiatePaymentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<InitiatePaymentResult>> InitiatePayment([FromBody] InitiatePaymentRequest request, CancellationToken ct)
+    public async Task<ActionResult<InitiatePaymentResult>> InitiatePayment([FromBody] InitiatePaymentRequest request, [FromServices] PaymentService payments, CancellationToken ct)
     {
         var record = await _db.BillingRecords.Include(b => b.School).FirstOrDefaultAsync(b => b.Id == request.BillingRecordId, ct);
         if (record == null) return NotFound();
@@ -192,7 +188,7 @@ public class BillingController : ControllerBase
             return Forbid();
         if (record.AmountDue <= 0)
             return BadRequest("No amount due for this billing record.");
-        var (authorizationUrl, reference) = await _payments.InitializePaystackPaymentAsync(record.Id, ct);
+        var (authorizationUrl, reference) = await payments.InitializePaystackPaymentAsync(record.Id, ct);
         return Ok(new InitiatePaymentResult("Paystack", authorizationUrl, reference, record.AmountDue, record.CurrencyCode));
     }
 
@@ -203,7 +199,7 @@ public class BillingController : ControllerBase
     [HttpGet("{id:guid}/receipt")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetReceipt(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetReceipt(Guid id, [FromServices] BillingReceiptPdfService receipts, CancellationToken ct)
     {
         var record = await _db.BillingRecords.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
         if (record == null)
@@ -215,7 +211,7 @@ public class BillingController : ControllerBase
         byte[] pdf;
         try
         {
-            pdf = await _receipts.GenerateReceiptAsync(id, ct);
+            pdf = await receipts.GenerateReceiptAsync(id, ct);
         }
         catch (InvalidOperationException)
         {

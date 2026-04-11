@@ -16,6 +16,7 @@ export default function SchoolBillingPage() {
   const [gatewayStatus, setGatewayStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [warning, setWarning] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
 
@@ -30,34 +31,69 @@ export default function SchoolBillingPage() {
     return response.json();
   }, []);
 
+  const formatLoadMessage = useCallback((message, fallbackMessage) => {
+    const raw = String(message || '').trim();
+    if (/session expired|school access is missing/i.test(raw)) {
+      return raw;
+    }
+    if (/blocked or unreachable|failed to fetch|networkerror/i.test(raw)) {
+      return import.meta.env.DEV
+        ? 'Could not reach the API. Run RiseFlow.Api on port 5221, leave VITE_API_URL empty for local dev (Vite proxy), then sign in again.'
+        : 'Billing is reconnecting with the live API. Please retry shortly.';
+    }
+    if (!raw) {
+      return fallbackMessage;
+    }
+    if (!import.meta.env.DEV && /could not load billing records|could not load paystack status/i.test(raw)) {
+      return 'Billing is reconnecting with the live API. Please retry shortly.';
+    }
+    return raw;
+  }, []);
+
   const loadBilling = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setWarning(null);
     try {
       await apiFetch('/api/billing/ensure-current', { method: 'POST' }).catch(() => null);
       const [billingRes, gatewayRes] = await Promise.all([
         apiFetch('/api/billing'),
         apiFetch('/api/billing/gateway-status'),
       ]);
-      const [billingData, gatewayData] = await Promise.all([
+      const [billingResult, gatewayResult] = await Promise.allSettled([
         readJsonOrThrow(billingRes, 'Could not load billing records.'),
         readJsonOrThrow(gatewayRes, 'Could not load Paystack status.'),
       ]);
-      setBilling(Array.isArray(billingData) ? billingData : []);
-      setGatewayStatus(gatewayData || null);
+
+      const notices = [];
+
+      if (billingResult.status === 'fulfilled') {
+        setBilling(Array.isArray(billingResult.value) ? billingResult.value : []);
+      } else {
+        setBilling([]);
+        notices.push(formatLoadMessage(billingResult.reason?.message, 'Billing is reconnecting with the live API. Please retry shortly.'));
+      }
+
+      if (gatewayResult.status === 'fulfilled') {
+        setGatewayStatus(gatewayResult.value || null);
+      } else {
+        setGatewayStatus(null);
+        notices.push(formatLoadMessage(gatewayResult.reason?.message, 'Paystack status is reconnecting with the live API. Please retry shortly.'));
+      }
+
+      const authNotice = notices.find((item) => /session expired|school access is missing/i.test(String(item)));
+      if (authNotice) {
+        setError(authNotice);
+      } else if (notices.length) {
+        setWarning(notices[0]);
+      }
     } catch (e) {
-      const raw = String(e?.message || '');
-      const message =
-        import.meta.env.DEV && raw.length > 20
-          ? raw
-          : /blocked or unreachable|failed to fetch|networkerror/i.test(raw)
-            ? 'Could not reach the API. Run RiseFlow.Api on port 5221, leave VITE_API_URL empty for local dev (Vite proxy), then sign in again.'
-            : (e.message || 'Failed to load billing');
+      const message = formatLoadMessage(e?.message, 'Billing is reconnecting with the live API. Please retry shortly.');
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [readJsonOrThrow]);
+  }, [formatLoadMessage, readJsonOrThrow]);
 
   useEffect(() => {
     loadBilling();
@@ -144,7 +180,18 @@ export default function SchoolBillingPage() {
       )}
 
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
-      {error && <p className="empty-state empty-state--error">{error}</p>}
+      {error && (
+        <div className="access-codes-result access-codes-result--error" style={{ marginBottom: '1rem' }}>
+          <p style={{ margin: 0 }}>{error}</p>
+          <button type="button" className="btn-excel btn-link" style={{ marginTop: '0.5rem' }} onClick={loadBilling}>Retry billing</button>
+        </div>
+      )}
+      {warning && !error && (
+        <div className="access-codes-result" style={{ marginBottom: '1rem' }}>
+          <p style={{ margin: 0 }}>{warning}</p>
+          <button type="button" className="btn-excel btn-link" style={{ marginTop: '0.5rem' }} onClick={loadBilling}>Retry billing</button>
+        </div>
+      )}
 
       {!loading && !error && (
         <>
