@@ -226,6 +226,8 @@ public class StudentsController : ControllerBase
                     .AsNoTracking()
                     .Include(tc => tc.Teacher)
                     .Where(tc => tc.ClassId == student.ClassId.Value && tc.Teacher.IsActive)
+                    .OrderBy(tc => tc.Teacher.FirstName)
+                    .ThenBy(tc => tc.Teacher.LastName)
                     .Select(tc => new StudentDashboardTeacherDto(
                         tc.TeacherId,
                         $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim(),
@@ -233,7 +235,6 @@ public class StudentsController : ControllerBase
                         tc.Teacher.Email,
                         tc.Teacher.Phone,
                         tc.Teacher.WhatsAppNumber ?? tc.Teacher.Phone))
-                    .OrderBy(t => t.FullName)
                     .ToListAsync(ct);
             }
         }
