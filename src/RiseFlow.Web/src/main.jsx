@@ -46,6 +46,10 @@ createRoot(document.getElementById('root')).render(
         <Route path="/affiliate-program" element={<AffiliateProgramPage />} />
         <Route path="/affiliate/signup" element={<AffiliateSignupPage />} />
         <Route path="/affiliate" element={<AffiliatePage />} />
+        <Route path="/affiliate/dashboard" element={<AffiliatePage />} />
+        <Route path="/affiliate/schools" element={<AffiliatePage />} />
+        <Route path="/affiliate/payouts" element={<AffiliatePage />} />
+        <Route path="/affiliate/training" element={<AffiliatePage />} />
         <Route path="/super-admin" element={<SuperAdminPage />} />
         <Route path="/super-admin/dashboard" element={<SuperAdminPage />} />
         <Route path="/super-admin/schools" element={<SuperAdminSchoolsPage />} />

@@ -33,6 +33,31 @@ export default function AffiliatePage() {
     return 'dashboard';
   }, [location.pathname]);
 
+  const pageMeta = useMemo(() => {
+    switch (view) {
+      case 'schools':
+        return {
+          title: 'My referred schools',
+          subtitle: 'Track each school, student count, and commission performance.',
+        };
+      case 'payouts':
+        return {
+          title: 'Affiliate payouts',
+          subtitle: 'Manage your bank details and review payout history.',
+        };
+      case 'training':
+        return {
+          title: 'Training academy',
+          subtitle: 'Watch affiliate onboarding and growth videos from RiseFlow.',
+        };
+      default:
+        return {
+          title: 'Affiliate partner dashboard',
+          subtitle: 'Monitor referrals, earnings, and your latest partner activity at a glance.',
+        };
+    }
+  }, [view]);
+
   const loadDashboard = async () => {
     setLoading(true);
     setError(null);
@@ -133,75 +158,77 @@ export default function AffiliatePage() {
   const headshotUrl = buildPublicUrl(dashboard?.headshotPath || dashboard?.payoutSettings?.headshotPath);
 
   return (
-    <PageLayout title="Affiliate Partner Dashboard" role="affiliate">
-      <h2 className="section-title">Affiliate partner dashboard</h2>
+    <PageLayout title={pageMeta.title} role="affiliate">
+      <section className="progress-section">
+        <h2 className="section-title">{pageMeta.title}</h2>
+        <p className="card-desc">{pageMeta.subtitle}</p>
+      </section>
+
       {loading && <p className="empty-state" aria-busy="true">Loading…</p>}
       {error && <p className="empty-state empty-state--error">{error}</p>}
 
       {!loading && dashboard && (
         <>
-          <div className="affiliate-profile-hero progress-section">
-            <div className="affiliate-profile-identity">
-              {headshotUrl ? (
-                <img className="affiliate-headshot" src={headshotUrl} alt={dashboard.fullName} loading="lazy" />
-              ) : (
-                <div className="affiliate-headshot affiliate-headshot--placeholder" aria-hidden="true">
-                  {(dashboard.fullName || 'A').trim().charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <p className="dashboard-label">Affiliate ID</p>
-                <h3 className="card-title">{dashboard.fullName}</h3>
-                <p className="card-desc">{dashboard.email} • {dashboard.uniqueCode}</p>
-              </div>
-            </div>
-            <label className="btn-primary-action btn-primary-action--ghost affiliate-upload-label">
-              Upload headshot
-              <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleHeadshotUpload} hidden />
-            </label>
-          </div>
-
-          <div className="summary-cards">
-            <div className="summary-card">
-              <span className="summary-value">{dashboard.totalReferredSchools}</span>
-              <span className="summary-label">Referred schools</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{dashboard.totalBillableStudents}</span>
-              <span className="summary-label">Billable students</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{formatMoney(dashboard.currentMonthEarnings)}</span>
-              <span className="summary-label">Current month earnings</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-value">{formatMoney(dashboard.pendingPayoutAmount)}</span>
-              <span className="summary-label">Pending payout</span>
-            </div>
-          </div>
-
           {saveState.message && (
             <p className={saveState.type === 'error' ? 'empty-state empty-state--error' : 'affiliate-note'}>
               {saveState.message}
             </p>
           )}
 
-          {(view === 'dashboard' || view === 'schools') && (
-            <section className="progress-section">
-              <div className="affiliate-link-box">
-                <div>
-                  <p className="dashboard-label">My referral link</p>
-                  <p className="affiliate-link-value">{dashboard.referralUrl}</p>
-                </div>
-                <button type="button" className="btn-primary-action" onClick={copyLink}>
-                  Copy link
-                </button>
-              </div>
-            </section>
-          )}
-
           {view === 'dashboard' && (
             <>
+              <div className="affiliate-profile-hero progress-section">
+                <div className="affiliate-profile-identity">
+                  {headshotUrl ? (
+                    <img className="affiliate-headshot" src={headshotUrl} alt={dashboard.fullName} loading="lazy" />
+                  ) : (
+                    <div className="affiliate-headshot affiliate-headshot--placeholder" aria-hidden="true">
+                      {(dashboard.fullName || 'A').trim().charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <p className="dashboard-label">Affiliate ID</p>
+                    <h3 className="card-title">{dashboard.fullName}</h3>
+                    <p className="card-desc">{dashboard.email} • {dashboard.uniqueCode}</p>
+                  </div>
+                </div>
+                <label className="btn-primary-action btn-primary-action--ghost affiliate-upload-label">
+                  Upload headshot
+                  <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleHeadshotUpload} hidden />
+                </label>
+              </div>
+
+              <div className="summary-cards">
+                <div className="summary-card">
+                  <span className="summary-value">{dashboard.totalReferredSchools}</span>
+                  <span className="summary-label">Referred schools</span>
+                </div>
+                <div className="summary-card">
+                  <span className="summary-value">{dashboard.totalBillableStudents}</span>
+                  <span className="summary-label">Billable students</span>
+                </div>
+                <div className="summary-card">
+                  <span className="summary-value">{formatMoney(dashboard.currentMonthEarnings)}</span>
+                  <span className="summary-label">Current month earnings</span>
+                </div>
+                <div className="summary-card">
+                  <span className="summary-value">{formatMoney(dashboard.pendingPayoutAmount)}</span>
+                  <span className="summary-label">Pending payout</span>
+                </div>
+              </div>
+
+              <section className="progress-section">
+                <div className="affiliate-link-box">
+                  <div>
+                    <p className="dashboard-label">My referral link</p>
+                    <p className="affiliate-link-value">{dashboard.referralUrl}</p>
+                  </div>
+                  <button type="button" className="btn-primary-action" onClick={copyLink}>
+                    Copy link
+                  </button>
+                </div>
+              </section>
+
               <section className="progress-section">
                 <h3 className="section-title">Referred schools overview</h3>
                 <div className="data-table-wrap">
@@ -249,33 +276,51 @@ export default function AffiliatePage() {
           )}
 
           {view === 'schools' && (
-            <section className="progress-section">
-              <h3 className="section-title">All referred schools</h3>
-              <div className="data-table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>School</th>
-                      <th>Total students</th>
-                      <th>Billable students</th>
-                      <th>Pending</th>
-                      <th>Paid to date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dashboard.referredSchools.map((school) => (
-                      <tr key={school.schoolId}>
-                        <td>{school.schoolName}</td>
-                        <td>{school.totalStudents}</td>
-                        <td>{school.billableStudents}</td>
-                        <td>{formatMoney(school.pendingCommission)}</td>
-                        <td>{formatMoney(school.paidCommission)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <>
+              <section className="progress-section">
+                <div className="affiliate-link-box">
+                  <div>
+                    <p className="dashboard-label">Referral link</p>
+                    <p className="affiliate-link-value">{dashboard.referralUrl}</p>
+                  </div>
+                  <button type="button" className="btn-primary-action" onClick={copyLink}>
+                    Copy link
+                  </button>
+                </div>
+              </section>
+
+              <section className="progress-section">
+                <h3 className="section-title">All referred schools</h3>
+                {dashboard.referredSchools.length === 0 ? (
+                  <p className="empty-state">You have not referred any schools yet.</p>
+                ) : (
+                  <div className="data-table-wrap">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>School</th>
+                          <th>Total students</th>
+                          <th>Billable students</th>
+                          <th>Pending</th>
+                          <th>Paid to date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dashboard.referredSchools.map((school) => (
+                          <tr key={school.schoolId}>
+                            <td>{school.schoolName}</td>
+                            <td>{school.totalStudents}</td>
+                            <td>{school.billableStudents}</td>
+                            <td>{formatMoney(school.pendingCommission)}</td>
+                            <td>{formatMoney(school.paidCommission)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </>
           )}
 
           {view === 'payouts' && (
@@ -311,28 +356,32 @@ export default function AffiliatePage() {
 
               <section className="progress-section">
                 <h3 className="section-title">Payout history</h3>
-                <div className="data-table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Period</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Reference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.payoutHistory.map((payout) => (
-                        <tr key={payout.id}>
-                          <td>{new Date(payout.periodStartUtc).toLocaleDateString()} – {new Date(payout.periodEndUtc).toLocaleDateString()}</td>
-                          <td>{formatMoney(payout.amount, payout.currencyCode)}</td>
-                          <td>{payout.status}</td>
-                          <td>{payout.paystackTransferReference || '—'}</td>
+                {dashboard.payoutHistory.length === 0 ? (
+                  <p className="empty-state">No payouts have been created yet.</p>
+                ) : (
+                  <div className="data-table-wrap">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Period</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Reference</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {dashboard.payoutHistory.map((payout) => (
+                          <tr key={payout.id}>
+                            <td>{new Date(payout.periodStartUtc).toLocaleDateString()} – {new Date(payout.periodEndUtc).toLocaleDateString()}</td>
+                            <td>{formatMoney(payout.amount, payout.currencyCode)}</td>
+                            <td>{payout.status}</td>
+                            <td>{payout.paystackTransferReference || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             </>
           )}
