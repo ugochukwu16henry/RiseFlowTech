@@ -172,7 +172,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "http://localhost:3000",
                 "https://rise-flow-tech.vercel.app",
-                "https://www.riseflow.com"
+                "https://www.riseflow.com",
+                "https://riseflow.com"
             };
 
         var normalizedOrigins = new HashSet<string>(allowedOrigins, StringComparer.OrdinalIgnoreCase);
@@ -186,8 +187,10 @@ builder.Services.AddCors(options =>
                 if (normalizedOrigins.Contains(origin))
                     return true;
 
+                // Preview/staging hosts (Vercel + Railway frontends). Production custom domains: set Cors:AllowedOrigins.
                 return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase);
+                    && (uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
+                        || uri.Host.EndsWith(".railway.app", StringComparison.OrdinalIgnoreCase));
             })
             .AllowAnyMethod()
             .AllowAnyHeader()

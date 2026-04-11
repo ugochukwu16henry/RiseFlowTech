@@ -31,5 +31,15 @@ export function apiFetch(path, options = {}) {
   if (skipTenantHeader) {
     delete headers[TENANT_HEADER];
   }
-  return fetch(url, { credentials: 'include', ...rest, headers });
+  return fetch(url, { credentials: 'include', ...rest, headers }).catch((err) => {
+    // Browser uses "Failed to fetch" / "Load failed" when CORS blocks, TLS/DNS fails, or mixed content.
+    if (err instanceof TypeError && /failed to fetch|load failed|networkerror/i.test(String(err.message))) {
+      const hint =
+        API_BASE
+          ? `Request to ${url} was blocked or unreachable. Confirm the API is up, uses HTTPS if the site does, and that Cors:AllowedOrigins on the API includes this page’s exact origin.`
+          : `Request to ${url} failed. For production builds set VITE_API_URL to your API base URL (e.g. https://your-api.up.railway.app). Empty VITE_API_URL only works when the API is served on the same origin or via dev proxy.`;
+      throw new Error(hint);
+    }
+    throw err;
+  });
 }
