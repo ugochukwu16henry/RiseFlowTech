@@ -18,6 +18,35 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
 }
 
+function formatDayName(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { weekday: 'long' });
+}
+
+function formatYear(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : String(date.getFullYear());
+}
+
+function buildMailtoLink(email, schoolName) {
+  if (!email) return null;
+  const subject = encodeURIComponent(`RiseFlow support for ${schoolName || 'your school'}`);
+  return `mailto:${email}?subject=${subject}`;
+}
+
+function buildWhatsAppLink(phone, countryCode) {
+  if (!phone) return null;
+  let normalized = String(phone).replace(/[^\d+]/g, '');
+  if (!normalized) return null;
+  if (normalized.startsWith('+')) normalized = normalized.slice(1);
+  if (normalized.startsWith('0') && String(countryCode || '').toUpperCase() === 'NG') {
+    normalized = `234${normalized.slice(1)}`;
+  }
+  return normalized ? `https://wa.me/${normalized}` : null;
+}
+
 export default function SuperAdminSchoolsPage() {
   const [searchParams] = useSearchParams();
   const requestedSchoolId = searchParams.get('schoolId');
@@ -62,6 +91,10 @@ export default function SuperAdminSchoolsPage() {
     parents: summary.parents + Number(school.parentCount || 0),
     active: summary.active + (school.isActive ? 1 : 0),
   }), { students: 0, teachers: 0, parents: 0, active: 0 }), [schools]);
+
+  const selectedSchoolEmail = selectedSchool?.ownerEmail || selectedSchool?.schoolEmail || null;
+  const selectedSchoolPhone = selectedSchool?.phone || selectedSchool?.whatsAppNumber || null;
+  const selectedSchoolWhatsAppLink = buildWhatsAppLink(selectedSchool?.whatsAppNumber || selectedSchool?.phone, selectedSchool?.countryCode);
 
   return (
     <PageLayout title="Super Admin — School Management" role="super">
@@ -111,15 +144,35 @@ export default function SuperAdminSchoolsPage() {
               <div className="dashboard-actions" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <h3 className="card-title">School detail information</h3>
-                  <p className="card-desc">Full profile for <strong>{selectedSchool.name}</strong>.</p>
+                  <p className="card-desc">Full profile for <strong>{selectedSchool.name}</strong>, including direct contact and compliance files.</p>
                 </div>
                 <div className="dashboard-actions" style={{ flexWrap: 'wrap' }}>
                   <Link className="btn-primary-action" to={`/super-admin/data-offboarding?schoolId=${selectedSchool.id}`}>
                     Open offboarding
                   </Link>
+                  {selectedSchoolEmail && (
+                    <a className="btn-primary-action btn-primary-action--ghost" href={buildMailtoLink(selectedSchoolEmail, selectedSchool.name)}>
+                      Email school
+                    </a>
+                  )}
+                  {selectedSchoolWhatsAppLink && (
+                    <a className="btn-primary-action btn-primary-action--ghost" href={selectedSchoolWhatsAppLink} target="_blank" rel="noopener noreferrer">
+                      WhatsApp school
+                    </a>
+                  )}
+                  {selectedSchoolPhone && (
+                    <a className="btn-primary-action btn-primary-action--ghost" href={`tel:${selectedSchoolPhone}`}>
+                      Call school
+                    </a>
+                  )}
                   {selectedSchool.logoPath && (
                     <a className="btn-primary-action btn-primary-action--ghost" href={buildPublicUrl(selectedSchool.logoPath)} target="_blank" rel="noopener noreferrer">
                       View logo
+                    </a>
+                  )}
+                  {selectedSchool.registrationDocumentPath && (
+                    <a className="btn-primary-action btn-primary-action--ghost" href={buildPublicUrl(selectedSchool.registrationDocumentPath)} target="_blank" rel="noopener noreferrer">
+                      View registration doc
                     </a>
                   )}
                 </div>
@@ -127,12 +180,35 @@ export default function SuperAdminSchoolsPage() {
 
               <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
                 <article className="dashboard-card"><p className="dashboard-label">School</p><p className="dashboard-value" style={{ fontSize: '1.1rem' }}>{selectedSchool.name}</p><p className="dashboard-sub">{selectedSchool.countryName || selectedSchool.countryCode || '—'} • {selectedSchool.currencyCode || 'NGN'}</p></article>
-                <article className="dashboard-card"><p className="dashboard-label">Owner email</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.ownerEmail || '—'}</p><p className="dashboard-sub">School email: {selectedSchool.schoolEmail || '—'}</p></article>
-                <article className="dashboard-card"><p className="dashboard-label">Principal</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.principalName || selectedSchool.ownerName || '—'}</p><p className="dashboard-sub">Phone: {selectedSchool.phone || '—'}</p></article>
-                <article className="dashboard-card"><p className="dashboard-label">Address</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.address || '—'}</p><p className="dashboard-sub">WhatsApp: {selectedSchool.whatsAppNumber || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Owner / principal</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.principalName || selectedSchool.ownerName || '—'}</p><p className="dashboard-sub">Owner email: {selectedSchool.ownerEmail || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Contact channels</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.schoolEmail || selectedSchool.ownerEmail || '—'}</p><p className="dashboard-sub">Phone: {selectedSchool.phone || '—'} • WhatsApp: {selectedSchool.whatsAppNumber || selectedSchool.phone || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Address</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.address || '—'}</p><p className="dashboard-sub">Country: {selectedSchool.countryName || selectedSchool.countryCode || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Students / Teachers / Parents</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.studentCount ?? 0} / {selectedSchool.teacherCount ?? 0} / {selectedSchool.parentCount ?? 0}</p><p className="dashboard-sub">Live counts from the database.</p></article>
-                <article className="dashboard-card"><p className="dashboard-label">Created</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{formatDate(selectedSchool.createdAtUtc)}</p><p className="dashboard-sub">CAC: {selectedSchool.cacNumber || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Onboarded</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{formatDate(selectedSchool.createdAtUtc)}</p><p className="dashboard-sub">Day: {formatDayName(selectedSchool.createdAtUtc)} • Year: {formatYear(selectedSchool.createdAtUtc)}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Compliance</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedSchool.cacNumber || 'No CAC number'}</p><p className="dashboard-sub">Registration file: {selectedSchool.registrationDocumentPath ? 'Available' : 'Not uploaded yet'}</p></article>
               </div>
+
+              {(selectedSchool.logoPath || selectedSchool.registrationDocumentPath) && (
+                <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
+                  {selectedSchool.logoPath && (
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">School logo</p>
+                      <a href={buildPublicUrl(selectedSchool.logoPath)} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+                        <img src={buildPublicUrl(selectedSchool.logoPath)} alt={`${selectedSchool.name} logo`} style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '12px', objectFit: 'cover' }} />
+                      </a>
+                    </article>
+                  )}
+                  {selectedSchool.registrationDocumentPath && (
+                    <article className="dashboard-card">
+                      <p className="dashboard-label">Government registration</p>
+                      <p className="dashboard-sub">Open the uploaded CAC / registration document for this school.</p>
+                      <a className="btn-primary-action btn-primary-action--ghost" href={buildPublicUrl(selectedSchool.registrationDocumentPath)} target="_blank" rel="noopener noreferrer" style={{ marginTop: '0.75rem' }}>
+                        Open document
+                      </a>
+                    </article>
+                  )}
+                </div>
+              )}
             </section>
           )}
 

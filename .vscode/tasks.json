@@ -67,6 +67,22 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "RiseFlow API Release Verify 2",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj",
+				"-c",
+				"Release"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }

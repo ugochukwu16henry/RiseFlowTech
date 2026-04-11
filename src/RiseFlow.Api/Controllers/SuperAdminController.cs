@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Constants;
@@ -17,13 +18,15 @@ public class SuperAdminController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly BillingService _billing;
     private readonly SchoolOffboardingService _offboarding;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<SuperAdminController> _logger;
 
-    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding, ILogger<SuperAdminController> logger)
+    public SuperAdminController(RiseFlowDbContext db, BillingService billing, SchoolOffboardingService offboarding, IWebHostEnvironment env, ILogger<SuperAdminController> logger)
     {
         _db = db;
         _billing = billing;
         _offboarding = offboarding;
+        _env = env;
         _logger = logger;
     }
 
@@ -42,6 +45,27 @@ public class SuperAdminController : ControllerBase
         ["RW"] = "Rwanda",
         ["ZM"] = "Zambia",
     };
+
+    private string? ResolveRegistrationDocumentPath(Guid schoolId)
+    {
+        try
+        {
+            var root = _env.WebRootPath ?? _env.ContentRootPath;
+            var cacDirectory = Path.Combine(root, "cac");
+            if (!Directory.Exists(cacDirectory))
+                return null;
+
+            var file = Directory.EnumerateFiles(cacDirectory, $"{schoolId:N}.*", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
+
+            return string.IsNullOrWhiteSpace(file) ? null : $"cac/{file}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     /// <summary>Control room dashboard: schools by country (map data), total and monthly revenue.</summary>
     [HttpGet("dashboard")]
@@ -179,7 +203,7 @@ public class SuperAdminController : ControllerBase
                     PrincipalName: x.PrincipalName,
                     LogoPath: x.LogoFileName,
                     CacNumber: x.CacNumber,
-                    RegistrationDocumentPath: null))
+                    RegistrationDocumentPath: ResolveRegistrationDocumentPath(x.Id)))
                 .ToList();
 
             return Ok(rows);
@@ -225,7 +249,7 @@ public class SuperAdminController : ControllerBase
                     PrincipalName: null,
                     LogoPath: null,
                     CacNumber: null,
-                    RegistrationDocumentPath: null))
+                    RegistrationDocumentPath: ResolveRegistrationDocumentPath(x.Id)))
                 .ToList();
 
             return Ok(fallbackRows);

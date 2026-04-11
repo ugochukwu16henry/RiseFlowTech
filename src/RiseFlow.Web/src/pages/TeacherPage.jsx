@@ -17,6 +17,7 @@ export default function TeacherPage() {
   const [attendance, setAttendance] = useState({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [activeView, setActiveView] = useState('overview');
+  const [showProfileDetails, setShowProfileDetails] = useState(false);
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -185,12 +186,25 @@ export default function TeacherPage() {
                     <TeacherPhoto teacherId={me.id} fullName={`${me.firstName} ${me.lastName}`} size={56} />
                     <div>
                       <h3 className="card-title" style={{ margin: 0 }}>{[me.firstName, me.middleName, me.lastName].filter(Boolean).join(' ')}</h3>
-                      <p className="card-desc">Email: {me.email || '—'} • Phone: {me.phone || '—'}</p>
                       <p className="card-desc">Role: {me.roleTitle || 'Teacher'} • Department: {me.department || '—'}</p>
-                      <p className="card-desc">Highest qualification: {me.highestQualification || '—'}</p>
+                      {!showProfileDetails ? (
+                        <p className="card-desc">Your personal contact details are hidden until you click <strong>View details</strong>.</p>
+                      ) : (
+                        <>
+                          <p className="card-desc">Email: {me.email || '—'} • Phone: {me.phone || '—'}</p>
+                          <p className="card-desc">Highest qualification: {me.highestQualification || '—'}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="form-actions" style={{ marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn-primary-action btn-primary-action--ghost"
+                      onClick={() => setShowProfileDetails((current) => !current)}
+                    >
+                      {showProfileDetails ? 'Hide details' : 'View details'}
+                    </button>
                     <input
                       type="file"
                       accept=".jpg,.jpeg,.png,.gif,.webp"

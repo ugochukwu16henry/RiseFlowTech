@@ -27,6 +27,7 @@ export default function SchoolAdminPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [bulkClassId, setBulkClassId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
@@ -133,6 +134,7 @@ export default function SchoolAdminPage() {
 
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
+  const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
 
   const handlePayWithPaystack = async () => {
     if (!currentBilling || outstanding <= 0 || paying) return;
@@ -438,26 +440,56 @@ export default function SchoolAdminPage() {
       {teachers.length === 0 ? (
         <p className="empty-state">No teachers yet.</p>
       ) : (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.map((t) => (
-                <tr key={t.id}>
-                  <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
-                  <td>{t.email || '—'}</td>
-                  <td>{t.phone || '—'}</td>
+        <>
+          <p className="card-desc" style={{ marginBottom: '0.75rem' }}>
+            Teacher contact details stay hidden here until you click <strong>View details</strong>.
+          </p>
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {teachers.map((t) => (
+                  <tr key={t.id}>
+                    <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
+                    <td>{t.roleTitle || 'Teacher'}</td>
+                    <td>{t.department || t.subjectSpecialization || '—'}</td>
+                    <td>{t.isActive ? 'Active' : 'Inactive'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => setSelectedTeacherId((current) => (current === t.id ? null : t.id))}
+                      >
+                        {selectedTeacherId === t.id ? 'Hide details' : 'View details'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedTeacher && (
+            <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="Teacher details">
+              <h3 className="card-title">Teacher details</h3>
+              <p className="card-desc">Sensitive teacher details are only shown after explicit review.</p>
+              <div className="dashboard-grid" style={{ marginTop: '0.75rem' }}>
+                <article className="dashboard-card"><p className="dashboard-label">Name</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{[selectedTeacher.firstName, selectedTeacher.middleName, selectedTeacher.lastName].filter(Boolean).join(' ')}</p><p className="dashboard-sub">Staff ID: {selectedTeacher.staffId || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Contact</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.email || '—'}</p><p className="dashboard-sub">Phone: {selectedTeacher.phone || '—'} • WhatsApp: {selectedTeacher.whatsAppNumber || selectedTeacher.phone || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Role</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.roleTitle || 'Teacher'}</p><p className="dashboard-sub">Department: {selectedTeacher.department || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Professional summary</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.highestQualification || selectedTeacher.subjectSpecialization || '—'}</p><p className="dashboard-sub">Experience: {selectedTeacher.yearsOfExperience ?? '—'} years</p></article>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Parents</h2>
