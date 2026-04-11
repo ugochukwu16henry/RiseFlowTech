@@ -18,14 +18,18 @@ public class BillingController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly PaymentService _payments;
     private readonly BillingReceiptPdfService _receipts;
+    private readonly IConfiguration _config;
+    private readonly ILogger<BillingController> _logger;
 
-    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts)
+    public BillingController(RiseFlowDbContext db, BillingService billing, ITenantContext tenant, PaymentService payments, BillingReceiptPdfService receipts, IConfiguration config, ILogger<BillingController> logger)
     {
         _db = db;
         _billing = billing;
         _tenant = tenant;
         _payments = payments;
         _receipts = receipts;
+        _config = config;
+        _logger = logger;
     }
 
     /// <summary>SuperAdmin: generate billing for a period for all schools or one school.</summary>
@@ -56,19 +60,98 @@ public class BillingController : ControllerBase
     [ProducesResponseType(typeof(List<BillingRecordDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<BillingRecordDto>>> List([FromQuery] Guid? schoolId, CancellationToken ct)
     {
-        IQueryable<BillingRecord> query = _db.BillingRecords.Include(b => b.School);
-        if (User.IsInRole(Roles.SuperAdmin))
+        try
         {
-            if (schoolId.HasValue) query = query.Where(b => b.SchoolId == schoolId.Value);
+            IQueryable<BillingRecord> query = _db.BillingRecords.Include(b => b.School);
+            if (User.IsInRole(Roles.SuperAdmin))
+            {
+                if (schoolId.HasValue) query = query.Where(b => b.SchoolId == schoolId.Value);
+            }
+            else if (_tenant.CurrentSchoolId.HasValue)
+                query = query.Where(b => b.SchoolId == _tenant.CurrentSchoolId.Value);
+            else
+                return Forbid();
+
+            var list = await query.OrderByDescending(b => b.PeriodStart).Select(b => new BillingRecordDto(
+                b.Id,
+                b.SchoolId,
+                b.School.Name,
+                b.PeriodLabel,
+                b.PeriodStart,
+                b.PeriodEnd,
+                b.StudentCount,
+                Math.Max(0, b.StudentCount - CountryBillingConfig.FreeTierStudentCount),
+                b.MonthlyAmountDue,
+                b.ActivationAmountDue,
+                b.AmountDue,
+                b.AmountPaid,
+                b.CurrencyCode,
+                b.PaidAtUtc)).ToListAsync(ct);
+            return Ok(list);
         }
-        else if (_tenant.CurrentSchoolId.HasValue)
-            query = query.Where(b => b.SchoolId == _tenant.CurrentSchoolId.Value);
-        else
-            return Forbid();
-        var list = await query.OrderByDescending(b => b.PeriodStart).Select(b => new BillingRecordDto(
-            b.Id, b.SchoolId, b.School.Name, b.PeriodLabel, b.PeriodStart, b.PeriodEnd,
-            b.StudentCount, b.AmountDue, b.AmountPaid, b.CurrencyCode, b.PaidAtUtc)).ToListAsync(ct);
-        return Ok(list);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Billing records could not be loaded for school {SchoolId}. Returning an empty list instead.", schoolId ?? _tenant.CurrentSchoolId);
+            return Ok(new List<BillingRecordDto>());
+        }
+    }
+
+    [HttpPost("ensure-current")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> EnsureCurrent([FromQuery] Guid? schoolId, CancellationToken ct)
+    {
+        try
+        {
+            Guid resolvedSchoolId;
+            if (User.IsInRole(Roles.SuperAdmin))
+            {
+                if (!schoolId.HasValue)
+                    return BadRequest("schoolId is required for SuperAdmin ensure-current operations.");
+                resolvedSchoolId = schoolId.Value;
+            }
+            else if (_tenant.CurrentSchoolId.HasValue)
+            {
+                resolvedSchoolId = _tenant.CurrentSchoolId.Value;
+            }
+            else
+            {
+                return Forbid();
+            }
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var periodStart = new DateOnly(today.Year, today.Month, 1);
+            var periodEnd = periodStart.AddMonths(1).AddDays(-1);
+            var periodLabel = $"{periodStart:yyyy-MM}";
+
+            var existing = await _db.BillingRecords
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.SchoolId == resolvedSchoolId && b.PeriodLabel == periodLabel, ct);
+
+            if (existing != null)
+                return Ok(new { created = false, billingRecordId = existing.Id, periodLabel });
+
+            var record = await _billing.CreateBillingRecordAsync(resolvedSchoolId, periodLabel, periodStart, periodEnd, ct);
+            return Ok(new { created = true, billingRecordId = record.Id, periodLabel });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ensuring the current billing record failed for school {SchoolId}.", schoolId ?? _tenant.CurrentSchoolId);
+            return Ok(new { created = false });
+        }
+    }
+
+    [HttpGet("gateway-status")]
+    [ProducesResponseType(typeof(BillingGatewayStatusDto), StatusCodes.Status200OK)]
+    public ActionResult<BillingGatewayStatusDto> GetGatewayStatus()
+    {
+        var callbackUrl = _config["Paystack:CallbackUrl"] ?? "https://riseflow.com/payment-success";
+        var secretKey = _config["Paystack:SecretKey"] ?? _config["PAYSTACK_SECRET_KEY"];
+        var isConfigured = !string.IsNullOrWhiteSpace(secretKey);
+        var message = isConfigured
+            ? "Paystack checkout is configured and ready for school billing."
+            : "Paystack secret key is not configured yet.";
+
+        return Ok(new BillingGatewayStatusDto("Paystack", isConfigured, message, callbackUrl));
     }
 
     /// <summary>SuperAdmin: record payment for a billing record.</summary>
@@ -152,4 +235,5 @@ public record ConvertedAmountsDto(decimal OriginalAmount, string OriginalCurrenc
 
 public record GenerateBillingRequest(DateOnly PeriodStart, DateOnly PeriodEnd, string? PeriodLabel, Guid? SchoolId);
 public record RecordPaymentRequest(decimal AmountPaid);
-public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, decimal AmountDue, decimal? AmountPaid, string CurrencyCode, DateTime? PaidAtUtc);
+public record BillingRecordDto(Guid Id, Guid SchoolId, string SchoolName, string PeriodLabel, DateOnly PeriodStart, DateOnly PeriodEnd, int StudentCount, int BillableStudents, decimal MonthlyAmountDue, decimal ActivationAmountDue, decimal AmountDue, decimal? AmountPaid, string CurrencyCode, DateTime? PaidAtUtc);
+public record BillingGatewayStatusDto(string GatewayName, bool IsConfigured, string Message, string CallbackUrl);

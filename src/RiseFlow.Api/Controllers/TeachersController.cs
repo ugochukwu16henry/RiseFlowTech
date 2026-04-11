@@ -19,13 +19,15 @@ public class TeachersController : ControllerBase
     private readonly Services.ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly ILogger<TeachersController> _logger;
 
-    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env)
+    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, ILogger<TeachersController> logger)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
         _env = env;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -35,15 +37,42 @@ public class TeachersController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var list = await _db.Teachers
-            .AsNoTracking()
-            .Include(t => t.TeacherClasses)
-            .ThenInclude(tc => tc.Class)
-            .Where(t => t.SchoolId == schoolId)
-            .OrderBy(t => t.LastName)
-            .ThenBy(t => t.FirstName)
-            .ToListAsync(ct);
-        return Ok(list);
+
+        try
+        {
+            var list = await _db.Teachers
+                .AsNoTracking()
+                .Include(t => t.TeacherClasses)
+                .ThenInclude(tc => tc.Class)
+                .Where(t => t.SchoolId == schoolId)
+                .OrderBy(t => t.LastName)
+                .ThenBy(t => t.FirstName)
+                .ToListAsync(ct);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Teacher list could not be loaded for school {SchoolId}. Returning minimal fallback rows.", schoolId);
+
+            var fallback = await _db.Teachers
+                .AsNoTracking()
+                .Where(t => t.SchoolId == schoolId)
+                .OrderBy(t => t.LastName)
+                .ThenBy(t => t.FirstName)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.FirstName,
+                    t.LastName,
+                    MiddleName = (string?)null,
+                    Email = (string?)null,
+                    TeacherClasses = Array.Empty<object>(),
+                    t.IsActive
+                })
+                .ToListAsync(ct);
+
+            return Ok(fallback);
+        }
     }
 
     [HttpGet("{id:guid}")]

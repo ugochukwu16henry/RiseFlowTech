@@ -24,8 +24,9 @@ public class StudentsController : ControllerBase
     private readonly ExcelService _excelService;
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
     private readonly BillingService _billing;
+    private readonly ILogger<StudentsController> _logger;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, ILogger<StudentsController> logger)
     {
         _db = db;
         _tenant = tenant;
@@ -34,6 +35,7 @@ public class StudentsController : ControllerBase
         _excelService = excelService;
         _parentLetterPdf = parentLetterPdf;
         _billing = billing;
+        _logger = logger;
     }
 
     /// <summary>
@@ -175,15 +177,44 @@ public class StudentsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var list = await _db.Students
-            .AsNoTracking()
-            .Include(s => s.Class)
-            .Include(s => s.Grade)
-            .Where(s => s.SchoolId == schoolId)
-            .OrderBy(s => s.LastName)
-            .ThenBy(s => s.FirstName)
-            .ToListAsync(ct);
-        return Ok(list);
+
+        try
+        {
+            var list = await _db.Students
+                .AsNoTracking()
+                .Include(s => s.Class)
+                .Include(s => s.Grade)
+                .Where(s => s.SchoolId == schoolId)
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.FirstName)
+                .ToListAsync(ct);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Student list could not be loaded for school {SchoolId}. Returning minimal fallback rows.", schoolId);
+
+            var fallback = await _db.Students
+                .AsNoTracking()
+                .Where(s => s.SchoolId == schoolId)
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.FirstName)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.FirstName,
+                    s.LastName,
+                    MiddleName = (string?)null,
+                    AdmissionNumber = (string?)null,
+                    Class = (object?)null,
+                    Grade = (object?)null,
+                    s.IsActive,
+                    ProfilePhotoFileName = (string?)null
+                })
+                .ToListAsync(ct);
+
+            return Ok(fallback);
+        }
     }
 
     [HttpGet("{id:guid}")]
