@@ -44,6 +44,12 @@ public class AuthController : ControllerBase
             return Unauthorized(new LoginResponse(false, "Invalid credentials.", null, null));
 
         var roles = await _userManager.GetRolesAsync(user);
+        if (roles.Contains(Roles.Student) && !await IsStudentPortalEnabledAsync(user.Id))
+        {
+            await _signInManager.SignOutAsync();
+            return Unauthorized(new LoginResponse(false, "Student sign-in is disabled. Ask your parent to reactivate your access from the Parent dashboard.", Roles.Student, user.SchoolId));
+        }
+
         var primaryRole = roles.FirstOrDefault();
         var schoolId = await EnsureSchoolContextAsync(user, roles);
         return Ok(new LoginResponse(true, "Signed in.", primaryRole, schoolId));
@@ -103,6 +109,15 @@ public class AuthController : ControllerBase
                         .Select(p => (Guid?)p.SchoolId)
                         .FirstOrDefaultAsync();
                 }
+
+                if (!schoolId.HasValue && roles.Contains(Roles.Student))
+                {
+                    schoolId = await _db.StudentPortalAccesses
+                        .AsNoTracking()
+                        .Where(spa => spa.UserId == user.Id)
+                        .Select(spa => (Guid?)spa.SchoolId)
+                        .FirstOrDefaultAsync();
+                }
             }
         }
 
@@ -127,6 +142,15 @@ public class AuthController : ControllerBase
 
         await _signInManager.RefreshSignInAsync(user);
         return schoolId;
+    }
+
+    private async Task<bool> IsStudentPortalEnabledAsync(Guid userId)
+    {
+        return await _db.StudentPortalAccesses
+            .AsNoTracking()
+            .Where(spa => spa.UserId == userId)
+            .Select(spa => spa.IsEnabled)
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>Request password reset (rate limited). When implemented, sends email; for now returns 200 to avoid email enumeration.</summary>

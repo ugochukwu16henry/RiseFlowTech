@@ -450,7 +450,31 @@ CREATE INDEX IF NOT EXISTS "IX_AffiliateNotifications_AffiliateId" ON "Affiliate
 
         await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Schools_AffiliateId\" ON \"Schools\" (\"AffiliateId\");");
 
-        logger.LogInformation("SQLite development schema verified for Super Admin and affiliate features.");
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "StudentPortalAccesses" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_StudentPortalAccesses" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "StudentId" TEXT NOT NULL,
+    "UserId" TEXT NOT NULL,
+    "LoginId" TEXT NOT NULL,
+    "IsEnabled" INTEGER NOT NULL DEFAULT 1,
+    "ShowDateOfBirth" INTEGER NOT NULL DEFAULT 1,
+    "ShowLocationDetails" INTEGER NOT NULL DEFAULT 1,
+    "ShowHealthDetails" INTEGER NOT NULL DEFAULT 0,
+    "ShowEmergencyContacts" INTEGER NOT NULL DEFAULT 0,
+    "ShowParentContactDetails" INTEGER NOT NULL DEFAULT 0,
+    "ShowPreviousSchoolDetails" INTEGER NOT NULL DEFAULT 0,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL,
+    "CredentialsSharedAtUtc" TEXT NULL,
+    "LastPasswordResetAtUtc" TEXT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_SchoolId_LoginId" ON "StudentPortalAccesses" ("SchoolId", "LoginId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_StudentId" ON "StudentPortalAccesses" ("StudentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_UserId" ON "StudentPortalAccesses" ("UserId");
+""");
+
+        logger.LogInformation("SQLite development schema verified for Super Admin, affiliate features, and student portal access.");
     }
     finally
     {
@@ -632,6 +656,40 @@ ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "IsRead"
 ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
 ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "ReadAtUtc" timestamp with time zone NULL;
 CREATE INDEX IF NOT EXISTS "IX_AffiliateNotifications_AffiliateId" ON "AffiliateNotifications" ("AffiliateId");
+
+CREATE TABLE IF NOT EXISTS "StudentPortalAccesses" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "StudentId" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "LoginId" text NOT NULL,
+    "IsEnabled" boolean NOT NULL DEFAULT TRUE,
+    "ShowDateOfBirth" boolean NOT NULL DEFAULT TRUE,
+    "ShowLocationDetails" boolean NOT NULL DEFAULT TRUE,
+    "ShowHealthDetails" boolean NOT NULL DEFAULT FALSE,
+    "ShowEmergencyContacts" boolean NOT NULL DEFAULT FALSE,
+    "ShowParentContactDetails" boolean NOT NULL DEFAULT FALSE,
+    "ShowPreviousSchoolDetails" boolean NOT NULL DEFAULT FALSE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL,
+    "CredentialsSharedAtUtc" timestamp with time zone NULL,
+    "LastPasswordResetAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "LoginId" text NOT NULL DEFAULT '';
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "IsEnabled" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowDateOfBirth" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowLocationDetails" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowHealthDetails" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowEmergencyContacts" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowParentContactDetails" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "ShowPreviousSchoolDetails" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "CredentialsSharedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "LastPasswordResetAtUtc" timestamp with time zone NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_SchoolId_LoginId" ON "StudentPortalAccesses" ("SchoolId", "LoginId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_StudentId" ON "StudentPortalAccesses" ("StudentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_UserId" ON "StudentPortalAccesses" ("UserId");
 
 ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "LevelOrder" integer NOT NULL DEFAULT 0;
 ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;

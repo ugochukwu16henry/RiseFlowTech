@@ -24,6 +24,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<Parent> Parents => Set<Parent>();
+    public DbSet<StudentPortalAccess> StudentPortalAccesses => Set<StudentPortalAccess>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Class> Classes => Set<Class>();
     public DbSet<StudentParent> StudentParents => Set<StudentParent>();
@@ -181,6 +182,19 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.ResidentialAddress).HasMaxLength(512);
             e.Property(x => x.Occupation).HasMaxLength(128);
             e.HasOne(x => x.School).WithMany(s => s.Parents).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Student portal access (parent-managed student login + privacy settings)
+        builder.Entity<StudentPortalAccess>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.LoginId).IsRequired().HasMaxLength(256);
+            e.HasIndex(x => new { x.SchoolId, x.LoginId }).IsUnique();
+            e.HasIndex(x => x.StudentId).IsUnique();
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // StudentParent (many-to-many)

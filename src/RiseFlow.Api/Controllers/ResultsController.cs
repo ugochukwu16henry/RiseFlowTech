@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -83,6 +84,8 @@ public class ResultsController : ControllerBase
             return NotFound();
         if (User.IsInRole(Roles.Parent) && !await CanParentAccessStudentAsync(result.StudentId, ct))
             return Forbid();
+        if (User.IsInRole(Roles.Student) && !await CanStudentAccessStudentAsync(result.StudentId, ct))
+            return Forbid();
         return Ok(result);
     }
 
@@ -162,6 +165,13 @@ public class ResultsController : ControllerBase
         if (User.IsInRole(Roles.Parent))
         {
             var allowedStudentIds = await GetParentLinkedStudentIdsAsync(ct);
+            if (allowedStudentIds.Count == 0)
+                return Ok(new List<StudentResult>());
+            query = query.Where(r => allowedStudentIds.Contains(r.StudentId));
+        }
+        else if (User.IsInRole(Roles.Student))
+        {
+            var allowedStudentIds = await GetStudentLinkedStudentIdsAsync(ct);
             if (allowedStudentIds.Count == 0)
                 return Ok(new List<StudentResult>());
             query = query.Where(r => allowedStudentIds.Contains(r.StudentId));
@@ -267,9 +277,29 @@ public class ResultsController : ControllerBase
             .ToListAsync(ct);
     }
 
+    private async Task<List<Guid>> GetStudentLinkedStudentIdsAsync(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return new List<Guid>();
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdValue, out var userId))
+            return new List<Guid>();
+        return await _db.StudentPortalAccesses
+            .AsNoTracking()
+            .Where(spa => spa.SchoolId == _tenant.CurrentSchoolId.Value && spa.UserId == userId && spa.IsEnabled)
+            .Select(spa => spa.StudentId)
+            .ToListAsync(ct);
+    }
+
     private async Task<bool> CanParentAccessStudentAsync(Guid studentId, CancellationToken ct)
     {
         var ids = await GetParentLinkedStudentIdsAsync(ct);
+        return ids.Contains(studentId);
+    }
+
+    private async Task<bool> CanStudentAccessStudentAsync(Guid studentId, CancellationToken ct)
+    {
+        var ids = await GetStudentLinkedStudentIdsAsync(ct);
         return ids.Contains(studentId);
     }
 }
