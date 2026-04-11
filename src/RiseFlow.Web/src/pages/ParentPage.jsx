@@ -60,6 +60,7 @@ export default function ParentPage() {
   const [loadingResults, setLoadingResults] = useState(true);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
   const [loadingPortalAccess, setLoadingPortalAccess] = useState(false);
+  const [portalAccessLoaded, setPortalAccessLoaded] = useState(false);
   const [savingPortalAccess, setSavingPortalAccess] = useState(false);
   const [resettingPortalPassword, setResettingPortalPassword] = useState(false);
   const [errorChildren, setErrorChildren] = useState(null);
@@ -78,7 +79,7 @@ export default function ParentPage() {
 
   const loadPortalAccess = useCallback(async () => {
     const res = await apiFetch('/api/parents/student-portal-access');
-    if (res.status === 401) return [];
+    if (res.status === 401 || res.status === 403) return [];
     if (!res.ok) throw new Error('Could not load student access details');
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -101,21 +102,33 @@ export default function ParentPage() {
   }, [loadChildren, selectedChildId]);
 
   useEffect(() => {
+    if (activeView !== 'access' || children.length === 0 || portalAccessLoaded) {
+      return undefined;
+    }
+
     let cancelled = false;
     setLoadingPortalAccess(true);
     setErrorPortalAccess(null);
     loadPortalAccess()
       .then((data) => {
-        if (!cancelled) setPortalAccesses(data);
+        if (!cancelled) {
+          setPortalAccesses(data);
+          setPortalAccessLoaded(true);
+        }
       })
       .catch((e) => {
-        if (!cancelled) setErrorPortalAccess(e.message || 'Could not load student access details');
+        if (!cancelled) {
+          const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(e?.message || ''))
+            ? 'Student access controls are syncing with the live API. Please retry shortly.'
+            : (e.message || 'Could not load student access details');
+          setErrorPortalAccess(message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingPortalAccess(false);
       });
     return () => { cancelled = true; };
-  }, [loadPortalAccess]);
+  }, [activeView, children.length, loadPortalAccess, portalAccessLoaded]);
 
   useEffect(() => {
     if (children.length > 0 && !selectedChildId) setSelectedChildId(children[0].studentId);
@@ -225,7 +238,10 @@ export default function ParentPage() {
       setPortalAccesses((current) => current.map((item) => (item.studentId === selectedChildId ? { ...item, ...data } : item)));
       setPortalNotice('Student visibility settings saved.');
     } catch (err) {
-      setErrorPortalAccess(err.message || 'Could not save student access settings.');
+      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
+        ? 'Student access controls are syncing with the live API. Please retry shortly.'
+        : (err.message || 'Could not save student access settings.');
+      setErrorPortalAccess(message);
     } finally {
       setSavingPortalAccess(false);
     }
@@ -250,7 +266,10 @@ export default function ParentPage() {
       )));
       setPortalNotice(data?.message || 'Student sign-in password reset.');
     } catch (err) {
-      setErrorPortalAccess(err.message || 'Could not reset the student password.');
+      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
+        ? 'Student access controls are syncing with the live API. Please retry shortly.'
+        : (err.message || 'Could not reset the student password.');
+      setErrorPortalAccess(message);
     } finally {
       setResettingPortalPassword(false);
     }
@@ -451,7 +470,21 @@ export default function ParentPage() {
               <p className="card-desc">Only parents can share this sign-in with the child. Use these settings to decide what sensitive details appear on the student dashboard.</p>
 
               {loadingPortalAccess && <p className="empty-state" aria-busy="true">Loading student access…</p>}
-              {errorPortalAccess && <p className="empty-state empty-state--error">{errorPortalAccess}</p>}
+              {errorPortalAccess && (
+                <div>
+                  <p className="empty-state empty-state--error">{errorPortalAccess}</p>
+                  <button
+                    type="button"
+                    className="btn-primary-action btn-primary-action--ghost"
+                    onClick={() => {
+                      setPortalAccessLoaded(false);
+                      setErrorPortalAccess(null);
+                    }}
+                  >
+                    Retry student access sync
+                  </button>
+                </div>
+              )}
               {portalNotice && <p className="card-desc" style={{ color: 'var(--color-primary)' }}>{portalNotice}</p>}
 
               {visiblePassword && (
