@@ -27,7 +27,7 @@ public class RiseFlowTenantStrategy : IMultiTenantStrategy
             if (!string.IsNullOrWhiteSpace(headerTenantId))
             {
                 if (isAuthenticated && !isSuperAdmin)
-                    return Task.FromResult(claimTenantId);
+                    return Task.FromResult<string?>(string.IsNullOrWhiteSpace(claimTenantId) ? headerTenantId : claimTenantId);
 
                 return Task.FromResult<string?>(headerTenantId);
             }

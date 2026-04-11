@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Middleware;
@@ -29,17 +30,18 @@ public class TenantService : ITenantService
             var isSuperAdmin = context.User?.IsInRole(Roles.SuperAdmin) ?? false;
 
             Guid? claimTenantId = null;
-            var schoolIdClaim = context.User?.FindFirst("SchoolId")?.Value;
+            var schoolIdClaim = context.User?.FindFirst("SchoolId")?.Value
+                ?? context.User?.FindFirst(ClaimTypes.GroupSid)?.Value;
             if (!string.IsNullOrEmpty(schoolIdClaim) && Guid.TryParse(schoolIdClaim, out var parsedClaimTenantId))
                 claimTenantId = parsedClaimTenantId;
 
             // 1. Header set by TenantMiddleware (X-Tenant-Id)
             if (context.Items.TryGetValue(TenantMiddleware.TenantIdItemKey, out var item) && item is Guid headerTenantId)
             {
-                // Security: authenticated school users must be scoped to their own claim tenant only.
-                // Only SuperAdmin can switch tenant using X-Tenant-Id header.
+                // Authenticated tenant-scoped users should prefer their own claim.
+                // Backward compatibility: if older accounts are missing the claim, fall back to the saved tenant header.
                 if (isAuthenticated && !isSuperAdmin)
-                    return claimTenantId;
+                    return claimTenantId ?? headerTenantId;
 
                 return headerTenantId;
             }
