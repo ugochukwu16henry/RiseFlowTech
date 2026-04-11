@@ -2,9 +2,30 @@
  * Shared API client for RiseFlow backend.
  * - Base URL from VITE_API_URL (set in Vercel / .env)
  * - Sends credentials (cookies) and X-Tenant-Id when set (required for tenant-scoped endpoints)
+ *
+ * Dev note: With `npm run dev`, the page is on :5173. If VITE_API_URL is http://localhost:5221, the browser
+ * calls the API cross-origin; auth cookies stay on :5173, so requests appear unauthenticated. Prefer an empty
+ * base (same origin) so Vite proxies /api → 5221. Set VITE_API_URL_FORCE=1 only when intentionally hitting
+ * a direct URL from the browser.
  */
 
-export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+function resolveApiBase() {
+  const raw = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+  if (!import.meta.env.DEV || typeof window === 'undefined') return raw;
+  const force = import.meta.env.VITE_API_URL_FORCE === '1' || import.meta.env.VITE_API_URL_FORCE === 'true';
+  if (force) return raw;
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+    if ((u.hostname === 'localhost' || u.hostname === '127.0.0.1') && String(port) === '5221') return '';
+  } catch {
+    return raw;
+  }
+  return raw;
+}
+
+export const API_BASE = resolveApiBase();
 export const TENANT_HEADER = 'X-Tenant-Id';
 export const STORAGE_TENANT_KEY = 'riseflow-tenant-id';
 export const STORAGE_ONBOARDING_KEY = 'riseflow-onboarding-school';

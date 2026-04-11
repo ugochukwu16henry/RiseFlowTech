@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': { target: 'http://localhost:5221', changeOrigin: true },
-      '/verify': { target: 'http://localhost:5221', changeOrigin: true },
+      // 127.0.0.1 avoids occasional IPv6 localhost resolution issues on Windows.
+      '/api': { target: 'http://127.0.0.1:5221', changeOrigin: true, secure: false },
+      '/verify': { target: 'http://127.0.0.1:5221', changeOrigin: true, secure: false },
     },
   },
 })

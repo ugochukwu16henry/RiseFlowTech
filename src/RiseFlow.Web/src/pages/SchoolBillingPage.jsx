@@ -46,9 +46,13 @@ export default function SchoolBillingPage() {
       setBilling(Array.isArray(billingData) ? billingData : []);
       setGatewayStatus(gatewayData || null);
     } catch (e) {
-      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(e?.message || ''))
-        ? 'Billing information is syncing with the live API. Please refresh shortly.'
-        : (e.message || 'Failed to load billing');
+      const raw = String(e?.message || '');
+      const message =
+        import.meta.env.DEV && raw.length > 20
+          ? raw
+          : /blocked or unreachable|failed to fetch|networkerror/i.test(raw)
+            ? 'Could not reach the API. Run RiseFlow.Api on port 5221, leave VITE_API_URL empty for local dev (Vite proxy), then sign in again.'
+            : (e.message || 'Failed to load billing');
       setError(message);
     } finally {
       setLoading(false);

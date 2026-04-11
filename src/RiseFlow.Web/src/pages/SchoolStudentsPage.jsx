@@ -10,6 +10,32 @@ function getGradeName(student) {
   return student?.grade?.name || student?.class?.grade?.name || '—';
 }
 
+function studentListHttpError(status, bodySnippet) {
+  if (status === 401) {
+    return 'Not signed in or session expired. Sign in again, then open Students.';
+  }
+  if (status === 403) {
+    return 'Access denied (no school context). Sign out and sign in again as a school admin, or contact support if your account should be linked to a school.';
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return 'The API is not reachable. For local dev: run RiseFlow.Api on port 5221 and use the Vite dev server with an empty VITE_API_URL so /api is proxied.';
+  }
+  if (status >= 500) {
+    return `Server error (${status}) while loading students. Check API logs.`;
+  }
+  const hint = (bodySnippet || '').trim().slice(0, 200);
+  return hint ? `Could not load students: ${hint}` : `Could not load students (HTTP ${status}).`;
+}
+
+function studentListNetworkError(raw) {
+  const s = String(raw || '');
+  if (import.meta.env.DEV && s.length > 20) return s;
+  if (/blocked or unreachable|failed to fetch|networkerror/i.test(s)) {
+    return 'Could not reach the API. For local dev: run RiseFlow.Api on port 5221, leave VITE_API_URL empty (use the Vite proxy), restart the dev server, and sign in from this same origin.';
+  }
+  return s || 'Failed to load students.';
+}
+
 export default function SchoolStudentsPage() {
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -49,13 +75,18 @@ export default function SchoolStudentsPage() {
       if (studentsResult.status === 'fulfilled') {
         const studentsRes = studentsResult.value;
         if (!studentsRes.ok) {
-          studentFailure = 'Could not load students';
+          const errBody = await studentsRes.text().catch(() => '');
+          studentFailure = studentListHttpError(studentsRes.status, errBody);
         } else {
-          const studentsData = await studentsRes.json();
-          nextStudents = Array.isArray(studentsData) ? studentsData : [];
+          try {
+            const studentsData = await studentsRes.json();
+            nextStudents = Array.isArray(studentsData) ? studentsData : [];
+          } catch {
+            studentFailure = 'Invalid response when loading students (not JSON). Check that the API is RiseFlow.Api.';
+          }
         }
       } else {
-        studentFailure = studentsResult.reason?.message || 'Failed to load students';
+        studentFailure = studentListNetworkError(studentsResult.reason?.message || 'Failed to load students');
       }
 
       if (classesResult.status === 'fulfilled') {
@@ -76,18 +107,12 @@ export default function SchoolStudentsPage() {
         setClassesUnavailable(classesFailed);
 
         if (studentFailure) {
-          const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(studentFailure || ''))
-            ? 'The student directory is syncing with the live API. Please refresh shortly.'
-            : studentFailure;
-          setError(message);
+          setError(studentFailure);
         }
       }
     } catch (e) {
       if (!cancelledRef?.cancelled) {
-        const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(e?.message || ''))
-          ? 'The student directory is syncing with the live API. Please refresh shortly.'
-          : (e.message || 'Failed to load students');
-        setError(message);
+        setError(studentListNetworkError(e?.message || e));
       }
     } finally {
       if (!cancelledRef?.cancelled) {
