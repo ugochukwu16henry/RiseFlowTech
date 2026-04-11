@@ -23,6 +23,20 @@
 				"src/RiseFlow.Web"
 			],
 			"isBackground": true
+		},
+		{
+			"label": "RiseFlow API Build Verify",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }

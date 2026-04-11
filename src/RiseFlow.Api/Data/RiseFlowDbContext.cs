@@ -56,6 +56,11 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     {
         base.OnModelCreating(builder);
 
+        // SQLite stores Guid values as case-sensitive TEXT in the local dev database.
+        // Normalize every Guid/Guid? property to uppercase text so tenant- and id-based lookups
+        // continue to match the rows we just inserted during local verification flows.
+        ApplySqliteGuidTextNormalization(builder);
+
         // Global query filter: every entity implementing ITenantEntity is filtered by current tenant (Where(x => x.TenantId == _currentTenantId)).
         ApplyTenantQueryFilters(builder);
 
@@ -472,6 +477,37 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.DataProtectionOfficerEmail).HasMaxLength(256);
             e.Property(x => x.DpiaDocumentUrl).HasMaxLength(512);
         });
+    }
+
+    private void ApplySqliteGuidTextNormalization(ModelBuilder builder)
+    {
+        if (!Database.IsSqlite())
+            return;
+
+        var guidConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<Guid, string>(
+            value => value.ToString().ToUpperInvariant(),
+            value => Guid.Parse(value));
+
+        var nullableGuidConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<Guid?, string?>(
+            value => value.HasValue ? value.Value.ToString().ToUpperInvariant() : null,
+            value => string.IsNullOrWhiteSpace(value) ? null : Guid.Parse(value));
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(Guid))
+                {
+                    property.SetValueConverter(guidConverter);
+                    property.SetColumnType("TEXT");
+                }
+                else if (property.ClrType == typeof(Guid?))
+                {
+                    property.SetValueConverter(nullableGuidConverter);
+                    property.SetColumnType("TEXT");
+                }
+            }
+        }
     }
 
     /// <summary>
