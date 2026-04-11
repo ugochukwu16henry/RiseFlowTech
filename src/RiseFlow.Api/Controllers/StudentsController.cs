@@ -193,6 +193,8 @@ public class StudentsController : ControllerBase
         if (student == null)
             return NotFound();
 
+        var fullName = $"{student.FirstName} {student.LastName}".Trim();
+
         List<StudentDashboardTeacherDto> teachers;
         if (student.ClassId.HasValue)
         {
