@@ -6,9 +6,8 @@ namespace RiseFlow.Api.Data;
 
 /// <summary>
 /// Used by EF Core tools at design time (e.g. migrations) when no HTTP context exists.
-/// This project keeps a single Npgsql-shaped migration chain; design-time always uses PostgreSQL
-/// so snapshots never drift to SQLite types (env vars like Database__Provider must not affect scaffolding).
-/// Runtime provider remains configurable in <see cref="Program.cs"/>.
+/// Uses the same resolution as runtime: <c>DATABASE_URL</c>, <c>DATABASE_PUBLIC_URL</c>, then
+/// <c>ConnectionStrings:DefaultConnection</c> (see <see cref="DatabaseConnectionHelper"/>).
 /// </summary>
 public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbContext>
 {
@@ -25,12 +24,12 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
             .AddEnvironmentVariables()
             .Build();
 
-        var pg = config.GetConnectionString("DefaultConnection");
+        var pg = DatabaseConnectionHelper.GetConnectionString(config);
         if (string.IsNullOrWhiteSpace(pg))
         {
             throw new InvalidOperationException(
-                "Design-time: ConnectionStrings:DefaultConnection is required for EF migrations (Npgsql). " +
-                "Set it in appsettings.Development.json or environment.");
+                "Design-time: set DATABASE_URL, DATABASE_PUBLIC_URL, or ConnectionStrings:DefaultConnection for EF migrations. " +
+                "See docs/RAILWAY_POSTGRES.md.");
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();

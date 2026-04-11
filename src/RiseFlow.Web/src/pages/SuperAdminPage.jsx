@@ -33,19 +33,26 @@ export default function SuperAdminPage() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    Promise.all([
+    Promise.allSettled([
       apiFetch('/api/superadmin/dashboard', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load dashboard.')),
       apiFetch('/api/superadmin/revenue', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load revenue.')),
       apiFetch('/api/superadmin/schools', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load schools.')),
       apiFetch('/api/superadmin/audit?limit=50', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load audit log.')),
     ])
-      .then(([dash, revenueStats, list, auditLog]) => {
-        setDashboard(dash || null);
-        setRevenue(revenueStats || null);
-        setSchools(Array.isArray(list) ? list : []);
-        setAudit(Array.isArray(auditLog) ? auditLog : []);
+      .then(([dashResult, revenueResult, schoolsResult, auditResult]) => {
+        setDashboard(dashResult.status === 'fulfilled' ? (dashResult.value || null) : null);
+        setRevenue(revenueResult.status === 'fulfilled' ? (revenueResult.value || null) : null);
+        setSchools(schoolsResult.status === 'fulfilled' && Array.isArray(schoolsResult.value) ? schoolsResult.value : []);
+        setAudit(auditResult.status === 'fulfilled' && Array.isArray(auditResult.value) ? auditResult.value : []);
+
+        const failures = [dashResult, revenueResult, schoolsResult, auditResult]
+          .filter((result) => result.status === 'rejected')
+          .map((result) => result.reason?.message || 'A section failed to load');
+
+        if (failures.length > 0) {
+          setError(`Some Super Admin data could not load yet: ${failures.join(' ')}`);
+        }
       })
-      .catch((err) => setError(err.message || 'Failed to load data'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -64,7 +71,9 @@ export default function SuperAdminPage() {
   }
 
   if (loading) return <PageLayout title="Super Admin" role="super"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
-  if (error) return <PageLayout title="Super Admin" role="super"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  if (error && !dashboard && !revenue && schools.length === 0 && audit.length === 0) {
+    return <PageLayout title="Super Admin" role="super"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
+  }
 
   const totalActiveSchools = dashboard?.activeSchools ?? 0;
   const totalStudents = dashboard?.totalStudents ?? dashboard?.activeStudents ?? 0;
@@ -79,6 +88,8 @@ export default function SuperAdminPage() {
         As the RiseFlow SuperAdmin, this dashboard is your mission control. It gives you a bird&apos;s‑eye view of every school,
         their students, and the revenue flowing through activations and subscriptions. Use the sidebar for schools, revenue, affiliates, compliance, and offboarding.
       </p>
+
+      {error && <p className="empty-state empty-state--error" style={{ marginBottom: '1rem' }}>{error}</p>}
 
       <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
         <Link to="/super-admin/affiliates" className="btn-primary-action">

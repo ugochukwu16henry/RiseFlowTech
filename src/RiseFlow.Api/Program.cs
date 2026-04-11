@@ -158,7 +158,34 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(builder.Configuration["Cors:AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? new[] { "http://localhost:5173", "http://localhost:3000" })
+        var configuredOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? Array.Empty<string>();
+
+        var allowedOrigins = configuredOrigins.Length > 0
+            ? configuredOrigins
+            : new[]
+            {
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://rise-flow-tech.vercel.app",
+                "https://www.riseflow.com"
+            };
+
+        var normalizedOrigins = new HashSet<string>(allowedOrigins, StringComparer.OrdinalIgnoreCase);
+
+        policy
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
+
+                if (normalizedOrigins.Contains(origin))
+                    return true;
+
+                return Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase);
+            })
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -211,6 +238,9 @@ using (var scope = app.Services.CreateScope())
             else
             {
                 await context.Database.MigrateAsync();
+
+                if (context.Database.IsNpgsql())
+                    await EnsurePostgresHostedSchemaAsync(context, logger);
             }
         }
         catch (InvalidOperationException ex) when (
@@ -220,6 +250,11 @@ using (var scope = app.Services.CreateScope())
             logger.LogWarning(ex, "SQLite startup migration hit pending model changes; creating the local development database from the current model instead.");
             await context.Database.EnsureCreatedAsync();
             await EnsureSqliteDevelopmentSchemaAsync(context, logger);
+        }
+        catch (Exception ex) when (context.Database.IsNpgsql())
+        {
+            logger.LogWarning(ex, "PostgreSQL startup migration hit an error; attempting idempotent hosted schema verification.");
+            await EnsurePostgresHostedSchemaAsync(context, logger);
         }
 
         await IdentitySeeder.SeedAdminUserAsync(services);
@@ -416,4 +451,182 @@ CREATE INDEX IF NOT EXISTS "IX_AffiliateNotifications_AffiliateId" ON "Affiliate
         if (shouldClose)
             await connection.CloseAsync();
     }
+}
+
+static async Task EnsurePostgresHostedSchemaAsync(RiseFlowDbContext context, ILogger logger)
+{
+    if (!context.Database.IsNpgsql())
+        return;
+
+    await context.Database.ExecuteSqlRawAsync("""
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "Email" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "Phone" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "Address" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "PrincipalName" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "LogoFileName" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "CacNumber" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateId" uuid NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateReferralCodeUsed" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "DataConsentFormReceivedAt" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_Schools_AffiliateId" ON "Schools" ("AffiliateId");
+
+CREATE TABLE IF NOT EXISTS "Affiliates" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "UserId" uuid NOT NULL,
+    "UniqueCode" text NOT NULL,
+    "HeadshotPath" text NULL,
+    "PhoneNumber" text NULL,
+    "CountryCode" text NULL,
+    "BankName" text NULL,
+    "AccountNumber" text NULL,
+    "AccountName" text NULL,
+    "PaystackRecipientCode" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT TRUE,
+    "ApprovedAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "HeadshotPath" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "PhoneNumber" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "CountryCode" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "BankName" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "AccountNumber" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "AccountName" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "PaystackRecipientCode" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "ApprovedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_Affiliates_UniqueCode" ON "Affiliates" ("UniqueCode");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_Affiliates_UserId" ON "Affiliates" ("UserId");
+
+CREATE TABLE IF NOT EXISTS "AffiliateLeadRequests" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "FullName" text NOT NULL,
+    "Email" text NOT NULL,
+    "PhoneNumber" text NULL,
+    "CountryCode" text NULL,
+    "Note" text NULL,
+    "Status" text NOT NULL,
+    "InviteSentAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL
+);
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "PhoneNumber" text NULL;
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "CountryCode" text NULL;
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "Note" text NULL;
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "Status" text NOT NULL DEFAULT 'Pending';
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "InviteSentAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "AffiliateLeadRequests" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS "IX_AffiliateLeadRequests_Email" ON "AffiliateLeadRequests" ("Email");
+
+CREATE TABLE IF NOT EXISTS "AffiliateInvites" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "AffiliateLeadRequestId" uuid NOT NULL,
+    "Email" text NOT NULL,
+    "InviteToken" text NOT NULL,
+    "ExpiresAtUtc" timestamp with time zone NOT NULL,
+    "UsedAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL
+);
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "AffiliateLeadRequestId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "Email" text NOT NULL DEFAULT '';
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "InviteToken" text NOT NULL DEFAULT '';
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "ExpiresAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "UsedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "AffiliateInvites" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS "IX_AffiliateInvites_AffiliateLeadRequestId" ON "AffiliateInvites" ("AffiliateLeadRequestId");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AffiliateInvites_InviteToken" ON "AffiliateInvites" ("InviteToken");
+
+CREATE TABLE IF NOT EXISTS "AffiliateTrainingVideos" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "Title" text NOT NULL,
+    "Topic" text NULL,
+    "Description" text NULL,
+    "YoutubeUrl" text NOT NULL,
+    "IsPublished" boolean NOT NULL DEFAULT TRUE,
+    "SortOrder" integer NOT NULL DEFAULT 0,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "Topic" text NULL;
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "Description" text NULL;
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "YoutubeUrl" text NOT NULL DEFAULT '';
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "IsPublished" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "SortOrder" integer NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+
+CREATE TABLE IF NOT EXISTS "AffiliatePayouts" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "AffiliateId" uuid NOT NULL,
+    "Amount" numeric NOT NULL,
+    "CurrencyCode" text NOT NULL,
+    "PayoutType" text NOT NULL,
+    "PaystackTransferReference" text NULL,
+    "Status" text NOT NULL,
+    "PeriodStartUtc" timestamp with time zone NOT NULL,
+    "PeriodEndUtc" timestamp with time zone NOT NULL,
+    "PaidAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL,
+    "FailureReason" text NULL
+);
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "PaystackTransferReference" text NULL;
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "Status" text NOT NULL DEFAULT 'Pending';
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "PeriodStartUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "PeriodEndUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "PaidAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "AffiliatePayouts" ADD COLUMN IF NOT EXISTS "FailureReason" text NULL;
+CREATE INDEX IF NOT EXISTS "IX_AffiliatePayouts_AffiliateId" ON "AffiliatePayouts" ("AffiliateId");
+
+CREATE TABLE IF NOT EXISTS "AffiliateCommissionLedgers" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "AffiliateId" uuid NOT NULL,
+    "SchoolId" uuid NOT NULL,
+    "BillingRecordId" uuid NULL,
+    "AffiliatePayoutId" uuid NULL,
+    "StudentCount" integer NOT NULL DEFAULT 0,
+    "BillableStudentCount" integer NOT NULL DEFAULT 0,
+    "ActivationCommissionAmount" numeric NOT NULL DEFAULT 0,
+    "MonthlyCommissionAmount" numeric NOT NULL DEFAULT 0,
+    "TotalCommissionAmount" numeric NOT NULL DEFAULT 0,
+    "CommissionType" text NOT NULL,
+    "Status" text NOT NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL
+);
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "BillingRecordId" uuid NULL;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "AffiliatePayoutId" uuid NULL;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "StudentCount" integer NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "BillableStudentCount" integer NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "ActivationCommissionAmount" numeric NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "MonthlyCommissionAmount" numeric NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "TotalCommissionAmount" numeric NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "CommissionType" text NOT NULL DEFAULT 'Monthly';
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "Status" text NOT NULL DEFAULT 'Pending';
+ALTER TABLE IF EXISTS "AffiliateCommissionLedgers" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS "IX_AffiliateCommissionLedgers_AffiliateId" ON "AffiliateCommissionLedgers" ("AffiliateId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateCommissionLedgers_SchoolId" ON "AffiliateCommissionLedgers" ("SchoolId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateCommissionLedgers_BillingRecordId" ON "AffiliateCommissionLedgers" ("BillingRecordId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateCommissionLedgers_AffiliatePayoutId" ON "AffiliateCommissionLedgers" ("AffiliatePayoutId");
+
+CREATE TABLE IF NOT EXISTS "AffiliateNotifications" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "AffiliateId" uuid NOT NULL,
+    "Title" text NOT NULL,
+    "Message" text NOT NULL,
+    "Type" text NOT NULL,
+    "IsRead" boolean NOT NULL DEFAULT FALSE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "ReadAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "Type" text NOT NULL DEFAULT 'Info';
+ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "IsRead" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliateNotifications" ADD COLUMN IF NOT EXISTS "ReadAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_AffiliateNotifications_AffiliateId" ON "AffiliateNotifications" ("AffiliateId");
+""");
+
+    logger.LogInformation("PostgreSQL hosted schema verified for Super Admin and affiliate features.");
 }
