@@ -102,7 +102,9 @@ const DASHBOARD_BY_ROLE = {
     card('pay', '/parent/dashboard', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
   ],
   [ROLES.Teacher]: [
-    card('upload', '/teacher/dashboard', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
+    card('upload', '/teacher/grading', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
+    card('grading', '/teacher/grading', 'Grading Workspace', 'Create exams and submit marks', IconResults, 'card--results'),
+    card('assignments', '/teacher/assignments', 'Assignments', 'Create and manage class assignments', IconBook, 'card--message'),
     card('classes', '/teacher/dashboard', 'My Classes', 'View and manage your classes', IconBook, 'card--message'),
     card('students', '/teacher/dashboard', 'My Students', 'See student lists by class', IconUsers, 'card--pay'),
     card('parents', '/teacher/dashboard', 'Contact Parents', 'Message parents and guardians', IconMessage, 'card--message'),
