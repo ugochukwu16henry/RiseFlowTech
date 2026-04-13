@@ -408,15 +408,16 @@ public class StudentsController : ControllerBase
 
         if (isParent)
         {
+            var currentParentId = currentParent!.Id;
             var linked = await _db.StudentParents
                 .AsNoTracking()
-                .AnyAsync(sp => sp.StudentId == id && sp.ParentId == currentParent!.Id, ct);
+                .AnyAsync(sp => sp.StudentId == id && sp.ParentId == currentParentId, ct);
             if (!linked)
                 return Forbid();
 
             var lockWindow = await _db.StudentParentEditWindows
                 .AsNoTracking()
-                .FirstOrDefaultAsync(w => w.StudentId == id && w.ParentId == currentParent.Id, ct);
+                .FirstOrDefaultAsync(w => w.StudentId == id && w.ParentId == currentParentId, ct);
             var now = DateTime.UtcNow;
             canParentEdit = lockWindow == null || lockWindow.NextEditableAtUtc <= now;
             parentEditLockedUntilUtc = lockWindow?.NextEditableAtUtc;
@@ -985,27 +986,22 @@ public class StudentsController : ControllerBase
         return classTeachers.Select(t => (object)t).ToList();
     }
 
-    private static List<object> BuildTermResults(Student student)
+    private static List<StudentTermResultGroupDto> BuildTermResults(Student student)
     {
         return student.Results
             .GroupBy(r => r.TermId)
-            .Select(group => new
-            {
-                term = $"{group.First().Term.Name} {group.First().Term.AcademicYear}".Trim(),
-                averagePercentage = Math.Round(group.Average(r => r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m), 1),
-                results = group
+            .Select(group => new StudentTermResultGroupDto(
+                Term: $"{group.First().Term.Name} {group.First().Term.AcademicYear}".Trim(),
+                AveragePercentage: Math.Round(group.Average(r => r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m), 1),
+                Results: group
                     .OrderBy(r => r.Subject.Name)
-                    .Select(r => new
-                    {
-                        resultId = r.Id,
-                        subject = r.Subject.Name,
-                        percentage = Math.Round(r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m, 1),
-                        gradeLetter = r.GradeLetter
-                    })
-                    .ToList()
-            })
-            .OrderByDescending(t => t.term)
-            .Select(t => (object)t)
+                    .Select(r => new StudentTermResultItemDto(
+                        ResultId: r.Id,
+                        Subject: r.Subject.Name,
+                        Percentage: Math.Round(r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m, 1),
+                        GradeLetter: r.GradeLetter))
+                    .ToList()))
+            .OrderByDescending(t => t.Term)
             .ToList();
     }
 
@@ -1095,3 +1091,5 @@ public record StudentSelfDashboardDto(
 public record StudentDashboardParentDto(Guid ParentId, string FullName, string? Relationship, string? Phone, string? WhatsAppNumber, string? Email);
 public record StudentDashboardTeacherDto(Guid TeacherId, string FullName, string? RoleOrSubject, string? Email, string? Phone, string? WhatsAppNumber);
 public record StudentDashboardClassmateDto(Guid StudentId, string FullName, string? ProfilePhotoFileName);
+public record StudentTermResultGroupDto(string Term, decimal AveragePercentage, List<StudentTermResultItemDto> Results);
+public record StudentTermResultItemDto(Guid ResultId, string Subject, decimal Percentage, string? GradeLetter);
