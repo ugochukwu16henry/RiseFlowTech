@@ -25,6 +25,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<Parent> Parents => Set<Parent>();
     public DbSet<StudentPortalAccess> StudentPortalAccesses => Set<StudentPortalAccess>();
+    public DbSet<StudentParentEditWindow> StudentParentEditWindows => Set<StudentParentEditWindow>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Class> Classes => Set<Class>();
     public DbSet<StudentParent> StudentParents => Set<StudentParent>();
@@ -221,6 +222,17 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Parent student profile edit cooldown windows
+        builder.Entity<StudentParentEditWindow>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ParentId, x.StudentId }).IsUnique();
+            e.HasIndex(x => new { x.SchoolId, x.StudentId });
+            e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // StudentParent (many-to-many)

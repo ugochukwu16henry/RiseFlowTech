@@ -363,24 +363,124 @@ public class StudentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
-    [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<Student>> GetById(Guid id, CancellationToken ct)
+    public async Task<ActionResult<object>> GetById(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
+
+        var isParent = User.IsInRole(Roles.Parent);
+        Parent? currentParent = null;
+        var canParentEdit = false;
+        DateTime? parentEditLockedUntilUtc = null;
+        string? parentEditMessage = null;
+
+        if (isParent)
+        {
+            var email = _tenant.CurrentUserEmail;
+            if (string.IsNullOrWhiteSpace(email))
+                return Unauthorized();
+
+            currentParent = await _db.Parents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.SchoolId == schoolId && p.Email == email, ct);
+            if (currentParent == null)
+                return Forbid();
+        }
+
         var student = await _db.Students
             .AsNoTracking()
             .Include(s => s.Class)
+                .ThenInclude(c => c!.Grade)
             .Include(s => s.Grade)
             .Include(s => s.StudentParents)
-            .ThenInclude(sp => sp.Parent)
+                .ThenInclude(sp => sp.Parent)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Term)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Subject)
             .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
         if (student == null)
             return NotFound();
-        return Ok(student);
+
+        if (isParent)
+        {
+            var linked = await _db.StudentParents
+                .AsNoTracking()
+                .AnyAsync(sp => sp.StudentId == id && sp.ParentId == currentParent!.Id, ct);
+            if (!linked)
+                return Forbid();
+
+            var lockWindow = await _db.StudentParentEditWindows
+                .AsNoTracking()
+                .FirstOrDefaultAsync(w => w.StudentId == id && w.ParentId == currentParent.Id, ct);
+            var now = DateTime.UtcNow;
+            canParentEdit = lockWindow == null || lockWindow.NextEditableAtUtc <= now;
+            parentEditLockedUntilUtc = lockWindow?.NextEditableAtUtc;
+            parentEditMessage = canParentEdit
+                ? "You can update your child\'s full details now."
+                : $"Parent edits are locked until {lockWindow!.NextEditableAtUtc:dd MMM yyyy}.";
+        }
+
+        var assignedTeachers = await GetAssignedTeachersAsync(student, ct);
+        var termResults = BuildTermResults(student);
+
+        return Ok(new
+        {
+            student.Id,
+            student.FirstName,
+            student.LastName,
+            student.MiddleName,
+            student.DateOfBirth,
+            student.Gender,
+            student.Nationality,
+            stateOfOrigin = student.StateOfOrigin,
+            lga = student.LGA,
+            nin = student.NIN,
+            student.NationalIdType,
+            student.NationalIdNumber,
+            student.AdmissionNumber,
+            student.DateOfAdmission,
+            student.PreviousSchool,
+            student.BloodGroup,
+            student.Genotype,
+            student.Allergies,
+            student.EmergencyContactName,
+            student.EmergencyContactPhone,
+            student.ParentAccessCode,
+            student.ProfilePhotoFileName,
+            student.IsActive,
+            Class = student.Class == null ? null : new
+            {
+                student.Class.Id,
+                student.Class.Name,
+                Grade = student.Class.Grade == null ? null : new { student.Class.Grade.Id, student.Class.Grade.Name }
+            },
+            Grade = student.Grade == null ? null : new { student.Grade.Id, student.Grade.Name },
+            studentParents = student.StudentParents
+                .OrderByDescending(sp => sp.IsPrimaryContact)
+                .Select(sp => new
+                {
+                    parentId = sp.ParentId,
+                    firstName = sp.Parent.FirstName,
+                    lastName = sp.Parent.LastName,
+                    relationshipToStudent = sp.RelationshipToStudent,
+                    phone = sp.Parent.Phone,
+                    email = sp.Parent.Email
+                })
+                .ToList(),
+            assignedTeachers,
+            termResults,
+            currentAveragePercentage = termResults.Count == 0 ? (decimal?)null : Math.Round(termResults.Average(t => t.AveragePercentage), 1),
+            canParentEdit,
+            parentEditLockedUntilUtc,
+            parentEditMessage,
+            canManageTeacherVisibility = User.IsInRole(Roles.SchoolAdmin),
+            teacherVisibilitySettings = (object?)null
+        });
     }
 
     /// <summary>Register a single student. SchoolAdmin only. Use this to add new students one-by-one; use bulk upload for many at once.</summary>
@@ -528,6 +628,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Student>> Update(Guid id, [FromBody] UpdateStudentRequest request, CancellationToken ct)
@@ -564,6 +665,94 @@ public class StudentsController : ControllerBase
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(student);
+    }
+
+    [HttpPut("{id:guid}/parent-corrections")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<object>> ParentCorrections(Guid id, [FromBody] ParentStudentCorrectionRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var email = _tenant.CurrentUserEmail;
+        if (string.IsNullOrWhiteSpace(email))
+            return Unauthorized();
+
+        var parent = await _db.Parents
+            .FirstOrDefaultAsync(p => p.SchoolId == schoolId && p.Email == email, ct);
+        if (parent == null)
+            return Forbid();
+
+        var linked = await _db.StudentParents
+            .AnyAsync(sp => sp.StudentId == id && sp.ParentId == parent.Id, ct);
+        if (!linked)
+            return Forbid();
+
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+        if (student == null)
+            return NotFound();
+
+        var now = DateTime.UtcNow;
+        var editWindow = await _db.StudentParentEditWindows
+            .FirstOrDefaultAsync(w => w.ParentId == parent.Id && w.StudentId == student.Id, ct);
+
+        if (editWindow != null && editWindow.NextEditableAtUtc > now)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                message = $"Parent edits are locked until {editWindow.NextEditableAtUtc:dd MMM yyyy}.",
+                lockedUntilUtc = editWindow.NextEditableAtUtc
+            });
+        }
+
+        student.FirstName = request.FirstName;
+        student.LastName = request.LastName;
+        student.MiddleName = request.MiddleName;
+        student.DateOfBirth = request.DateOfBirth;
+        student.Gender = request.Gender;
+        student.Nationality = request.Nationality;
+        student.StateOfOrigin = request.StateOfOrigin;
+        student.LGA = request.LGA;
+        student.NIN = request.NIN;
+        student.NationalIdType = request.NationalIdType;
+        student.NationalIdNumber = request.NationalIdNumber;
+        student.AdmissionNumber = request.AdmissionNumber;
+        student.DateOfAdmission = request.DateOfAdmission;
+        student.ClassId = request.ClassId;
+        student.GradeId = request.GradeId;
+        student.PreviousSchool = request.PreviousSchool;
+        student.BloodGroup = request.BloodGroup;
+        student.Genotype = request.Genotype;
+        student.Allergies = request.Allergies;
+        student.EmergencyContactName = request.EmergencyContactName;
+        student.EmergencyContactPhone = request.EmergencyContactPhone;
+        student.UpdatedAtUtc = now;
+
+        if (editWindow == null)
+        {
+            editWindow = new StudentParentEditWindow
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                ParentId = parent.Id,
+                StudentId = student.Id,
+            };
+            _db.StudentParentEditWindows.Add(editWindow);
+        }
+
+        editWindow.LastEditedAtUtc = now;
+        editWindow.NextEditableAtUtc = now.AddMonths(3);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            message = $"Child details updated. Next parent edit window opens on {editWindow.NextEditableAtUtc:dd MMM yyyy}.",
+            lockedUntilUtc = editWindow.NextEditableAtUtc
+        });
     }
 
     /// <summary>List students with their Parent Access Codes (for school to give to parents). SchoolAdmin/Teacher.</summary>
@@ -751,6 +940,73 @@ public class StudentsController : ControllerBase
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(new { message = "Photo uploaded.", profilePhotoFileName = relativePath });
+    }
+
+    private async Task<List<object>> GetAssignedTeachersAsync(Student student, CancellationToken ct)
+    {
+        if (!student.ClassId.HasValue)
+            return new List<object>();
+
+        var subjectTeachers = await _db.TeacherClassSubjects
+            .AsNoTracking()
+            .Include(tcs => tcs.Teacher)
+            .Include(tcs => tcs.Subject)
+            .Where(tcs => tcs.ClassId == student.ClassId.Value && tcs.Teacher.IsActive)
+            .Select(tcs => new
+            {
+                teacherId = tcs.TeacherId,
+                fullName = $"{tcs.Teacher.FirstName} {tcs.Teacher.LastName}".Trim(),
+                roleOrSubject = tcs.Subject.Name,
+                phone = tcs.Teacher.Phone
+            })
+            .ToListAsync(ct);
+
+        if (subjectTeachers.Count > 0)
+        {
+            return subjectTeachers
+                .GroupBy(t => new { t.teacherId, t.fullName, t.roleOrSubject, t.phone })
+                .Select(g => (object)g.Key)
+                .ToList();
+        }
+
+        var classTeachers = await _db.TeacherClasses
+            .AsNoTracking()
+            .Include(tc => tc.Teacher)
+            .Where(tc => tc.ClassId == student.ClassId.Value && tc.Teacher.IsActive)
+            .Select(tc => new
+            {
+                teacherId = tc.TeacherId,
+                fullName = $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim(),
+                roleOrSubject = tc.RoleInClass,
+                phone = tc.Teacher.Phone
+            })
+            .ToListAsync(ct);
+
+        return classTeachers.Select(t => (object)t).ToList();
+    }
+
+    private static List<object> BuildTermResults(Student student)
+    {
+        return student.Results
+            .GroupBy(r => r.TermId)
+            .Select(group => new
+            {
+                term = $"{group.First().Term.Name} {group.First().Term.AcademicYear}".Trim(),
+                averagePercentage = Math.Round(group.Average(r => r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m), 1),
+                results = group
+                    .OrderBy(r => r.Subject.Name)
+                    .Select(r => new
+                    {
+                        resultId = r.Id,
+                        subject = r.Subject.Name,
+                        percentage = Math.Round(r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m, 1),
+                        gradeLetter = r.GradeLetter
+                    })
+                    .ToList()
+            })
+            .OrderByDescending(t => t.term)
+            .Select(t => (object)t)
+            .ToList();
     }
 
     private async Task<StudentPortalAccess?> GetCurrentStudentPortalAccessAsync(CancellationToken ct)

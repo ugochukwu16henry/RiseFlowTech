@@ -46,3 +46,26 @@ public record UpdateStudentRequest(
     string? EmergencyContactName,
     string? EmergencyContactPhone,
     bool IsActive);
+
+public record ParentStudentCorrectionRequest(
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string? Nationality,
+    string? StateOfOrigin,
+    string? LGA,
+    string? NIN,
+    string? NationalIdType,
+    string? NationalIdNumber,
+    string? AdmissionNumber,
+    DateTime? DateOfAdmission,
+    Guid? ClassId,
+    Guid? GradeId,
+    string? PreviousSchool,
+    string? BloodGroup,
+    string? Genotype,
+    string? Allergies,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone);

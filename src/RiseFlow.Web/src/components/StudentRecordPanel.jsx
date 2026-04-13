@@ -14,7 +14,7 @@ function formatDate(value) {
 }
 
 function buildSchoolPayload(detail, form, availableClasses = []) {
-  const selectedClassId = form.classId || null;
+  const selectedClassId = form.classId || detail.class?.id || null;
   const selectedClass = selectedClassId ? availableClasses.find((item) => item.id === selectedClassId) : null;
 
   return {
@@ -32,7 +32,7 @@ function buildSchoolPayload(detail, form, availableClasses = []) {
     admissionNumber: form.admissionNumber?.trim() || null,
     dateOfAdmission: form.dateOfAdmission || detail.dateOfAdmission || null,
     classId: selectedClassId,
-    gradeId: selectedClass?.gradeId || null,
+    gradeId: selectedClass?.gradeId || detail.grade?.id || detail.class?.grade?.id || null,
     previousSchool: form.previousSchool?.trim() || null,
     previousClass: form.previousClass?.trim() || null,
     bloodGroup: form.bloodGroup?.trim() || null,
@@ -41,26 +41,6 @@ function buildSchoolPayload(detail, form, availableClasses = []) {
     emergencyContactName: form.emergencyContactName?.trim() || null,
     emergencyContactPhone: form.emergencyContactPhone?.trim() || null,
     isActive: Boolean(detail.isActive),
-  };
-}
-
-function buildParentPayload(form, detail) {
-  return {
-    firstName: form.firstName?.trim() || detail.firstName,
-    lastName: form.lastName?.trim() || detail.lastName,
-    middleName: form.middleName?.trim() || null,
-    dateOfBirth: form.dateOfBirth || null,
-    gender: form.gender?.trim() || null,
-    nationality: form.nationality?.trim() || null,
-    stateOfOrigin: form.stateOfOrigin?.trim() || null,
-    lga: form.lga?.trim() || null,
-    previousSchool: form.previousSchool?.trim() || null,
-    previousClass: form.previousClass?.trim() || null,
-    bloodGroup: form.bloodGroup?.trim() || null,
-    genotype: form.genotype?.trim() || null,
-    allergies: form.allergies?.trim() || null,
-    emergencyContactName: form.emergencyContactName?.trim() || null,
-    emergencyContactPhone: form.emergencyContactPhone?.trim() || null,
   };
 }
 
@@ -74,7 +54,8 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
   const [form, setForm] = useState({});
   const [visibilityForm, setVisibilityForm] = useState(null);
   const [schoolClasses, setSchoolClasses] = useState([]);
-  const [loadingClasses, setLoadingClasses] = useState(role === 'school');
+  const canEditRecord = role === 'school' || role === 'teacher' || role === 'parent';
+  const [loadingClasses, setLoadingClasses] = useState(canEditRecord);
 
   useEffect(() => {
     if (!studentId) return undefined;
@@ -127,7 +108,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
   }, [studentId]);
 
   useEffect(() => {
-    if (role !== 'school') {
+    if (!canEditRecord) {
       setSchoolClasses([]);
       setLoadingClasses(false);
       return undefined;
@@ -150,7 +131,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
     return () => {
       cancelled = true;
     };
-  }, [role]);
+  }, [canEditRecord]);
 
   const groupedTerms = useMemo(() => (Array.isArray(detail?.termResults) ? detail.termResults : []), [detail]);
 
@@ -180,7 +161,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
 
     try {
       const isParent = role === 'parent';
-      const payload = isParent ? buildParentPayload(form, detail) : buildSchoolPayload(detail, form, schoolClasses);
+      const payload = buildSchoolPayload(detail, form, schoolClasses);
       const res = await apiFetch(isParent ? `/api/students/${studentId}/parent-corrections` : `/api/students/${studentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -346,7 +327,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
             )}
           </div>
 
-          {(role === 'school' || role === 'parent') && (
+          {(role === 'school' || role === 'parent' || role === 'teacher') && (
             <div className="student-record-card">
               <h4 className="dashboard-section-title">
                 {role === 'parent' ? 'Correct child information' : 'Edit student information'}
@@ -414,7 +395,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
                     <input className="form-input" value={form.emergencyContactPhone || ''} onChange={(e) => updateForm('emergencyContactPhone', e.target.value)} disabled={saving || (role === 'parent' && !detail.canParentEdit)} />
                   </label>
 
-                  {role === 'school' && (
+                  {(role === 'school' || role === 'parent' || role === 'teacher') && (
                     <>
                       <label>
                         <span>Assign to class</span>
@@ -427,7 +408,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
                           ))}
                         </select>
                         {loadingClasses && <span className="card-desc">Loading classes…</span>}
-                        {!loadingClasses && schoolClasses.length === 0 && (
+                        {role === 'school' && !loadingClasses && schoolClasses.length === 0 && (
                           <span className="card-desc">
                             No classes yet. <Link to="/school/classes">Create a class first</Link>, then return here to assign this student.
                           </span>

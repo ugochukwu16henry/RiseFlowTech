@@ -490,6 +490,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_StudentId" ON "Stude
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_UserId" ON "StudentPortalAccesses" ("UserId");
 """);
 
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "StudentParentEditWindows" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_StudentParentEditWindows" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "ParentId" TEXT NOT NULL,
+    "StudentId" TEXT NOT NULL,
+    "LastEditedAtUtc" TEXT NOT NULL,
+    "NextEditableAtUtc" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_ParentId_StudentId" ON "StudentParentEditWindows" ("ParentId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_SchoolId_StudentId" ON "StudentParentEditWindows" ("SchoolId", "StudentId");
+""");
+
         logger.LogInformation("SQLite development schema verified for Super Admin, affiliate features, and student portal access.");
     }
     finally
@@ -706,6 +719,17 @@ ALTER TABLE IF EXISTS "StudentPortalAccesses" ADD COLUMN IF NOT EXISTS "LastPass
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_SchoolId_LoginId" ON "StudentPortalAccesses" ("SchoolId", "LoginId");
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_StudentId" ON "StudentPortalAccesses" ("StudentId");
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPortalAccesses_UserId" ON "StudentPortalAccesses" ("UserId");
+
+CREATE TABLE IF NOT EXISTS "StudentParentEditWindows" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "ParentId" uuid NOT NULL,
+    "StudentId" uuid NOT NULL,
+    "LastEditedAtUtc" timestamp with time zone NOT NULL,
+    "NextEditableAtUtc" timestamp with time zone NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_ParentId_StudentId" ON "StudentParentEditWindows" ("ParentId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_SchoolId_StudentId" ON "StudentParentEditWindows" ("SchoolId", "StudentId");
 
 ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "LevelOrder" integer NOT NULL DEFAULT 0;
 ALTER TABLE IF EXISTS "Grades" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;

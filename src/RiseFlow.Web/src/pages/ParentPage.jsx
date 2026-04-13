@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
+import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 import './ParentPage.css';
@@ -68,6 +69,7 @@ export default function ParentPage() {
   const [errorTeachers, setErrorTeachers] = useState(null);
   const [errorPortalAccess, setErrorPortalAccess] = useState(null);
   const [activeView, setActiveView] = useState('overview');
+  const [showStudentDetails, setShowStudentDetails] = useState(false);
 
   const loadChildren = useCallback(async () => {
     const res = await apiFetch('/api/parents/my-children');
@@ -133,6 +135,10 @@ export default function ParentPage() {
   useEffect(() => {
     if (children.length > 0 && !selectedChildId) setSelectedChildId(children[0].studentId);
   }, [children, selectedChildId]);
+
+  useEffect(() => {
+    setShowStudentDetails(false);
+  }, [selectedChildId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,7 +386,20 @@ export default function ParentPage() {
                 <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('access')}>
                   Open student access controls
                 </button>
+                <button type="button" className="btn-primary-action" onClick={() => setShowStudentDetails((current) => !current)}>
+                  {showStudentDetails ? 'Hide details' : 'View details'}
+                </button>
               </div>
+
+              {showStudentDetails && (
+                <div style={{ marginTop: '1rem' }}>
+                  <StudentRecordPanel
+                    studentId={selectedChild.studentId}
+                    role="parent"
+                    onClose={() => setShowStudentDetails(false)}
+                  />
+                </div>
+              )}
             </section>
           )}
 

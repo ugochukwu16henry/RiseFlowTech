@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import TeacherPhoto from '../components/TeacherPhoto';
+import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
@@ -14,6 +15,7 @@ export default function TeacherPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [attendance, setAttendance] = useState({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [activeView, setActiveView] = useState('overview');
@@ -443,6 +445,7 @@ export default function TeacherPage() {
                         <th>Class</th>
                         <th>Gender</th>
                         <th>Today&apos;s attendance</th>
+                        <th>Record</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -465,11 +468,28 @@ export default function TeacherPage() {
                               <option value="Excused">Excused</option>
                             </select>
                           </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn-primary-action btn-primary-action--ghost"
+                              onClick={() => setSelectedStudentId(s.studentId)}
+                            >
+                              View details
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+
+              {selectedStudentId && (
+                <StudentRecordPanel
+                  studentId={selectedStudentId}
+                  role="teacher"
+                  onClose={() => setSelectedStudentId(null)}
+                />
               )}
             </>
           )}
