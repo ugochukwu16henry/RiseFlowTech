@@ -1138,5 +1138,60 @@ ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" tim
 CREATE INDEX IF NOT EXISTS "IX_SchoolEvents_SchoolId_StartAtUtc" ON "SchoolEvents" ("SchoolId", "StartAtUtc");
 """);
 
-    logger.LogInformation("PostgreSQL hosted schema verified for Super Admin, affiliate features, and school communications.");
+    // School admin / parent term fees & bank transfer payments (matches migration AddSchoolFeesSystem).
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "SchoolBankDetails" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL REFERENCES "Schools" ("Id") ON DELETE CASCADE,
+    "BankName" character varying(128) NOT NULL,
+    "AccountName" character varying(256) NOT NULL,
+    "AccountNumber" character varying(64) NOT NULL,
+    "BranchOrSortCode" character varying(128) NULL,
+    "PaymentInstructions" character varying(1024) NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_SchoolBankDetails_SchoolId" ON "SchoolBankDetails" ("SchoolId");
+
+CREATE TABLE IF NOT EXISTS "TermFeeSchedules" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL REFERENCES "Schools" ("Id") ON DELETE CASCADE,
+    "TermLabel" character varying(128) NOT NULL,
+    "AcademicYear" character varying(32) NOT NULL,
+    "GradeId" uuid NULL REFERENCES "Grades" ("Id") ON DELETE SET NULL,
+    "ClassId" uuid NULL REFERENCES "Classes" ("Id") ON DELETE SET NULL,
+    "Amount" numeric(18,2) NOT NULL,
+    "Description" character varying(512) NULL,
+    "IsActive" boolean NOT NULL DEFAULT TRUE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_TermFeeSchedules_ClassId" ON "TermFeeSchedules" ("ClassId");
+CREATE INDEX IF NOT EXISTS "IX_TermFeeSchedules_GradeId" ON "TermFeeSchedules" ("GradeId");
+CREATE INDEX IF NOT EXISTS "IX_TermFeeSchedules_SchoolId_TermLabel_AcademicYear_GradeId_ClassId" ON "TermFeeSchedules" ("SchoolId", "TermLabel", "AcademicYear", "GradeId", "ClassId");
+
+CREATE TABLE IF NOT EXISTS "FeePaymentRecords" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL REFERENCES "Schools" ("Id") ON DELETE CASCADE,
+    "ScheduleId" uuid NOT NULL REFERENCES "TermFeeSchedules" ("Id") ON DELETE CASCADE,
+    "StudentId" uuid NOT NULL REFERENCES "Students" ("Id") ON DELETE CASCADE,
+    "ParentId" uuid NULL REFERENCES "Parents" ("Id") ON DELETE SET NULL,
+    "Status" integer NOT NULL,
+    "ReceiptFilePath" character varying(512) NULL,
+    "ReceiptFileName" character varying(256) NULL,
+    "ParentNote" character varying(1024) NULL,
+    "AdminNote" character varying(1024) NULL,
+    "SubmittedAtUtc" timestamp with time zone NULL,
+    "ConfirmedAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_FeePaymentRecords_ParentId" ON "FeePaymentRecords" ("ParentId");
+CREATE INDEX IF NOT EXISTS "IX_FeePaymentRecords_ScheduleId" ON "FeePaymentRecords" ("ScheduleId");
+CREATE INDEX IF NOT EXISTS "IX_FeePaymentRecords_SchoolId_ScheduleId_StudentId" ON "FeePaymentRecords" ("SchoolId", "ScheduleId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_FeePaymentRecords_SchoolId_Status" ON "FeePaymentRecords" ("SchoolId", "Status");
+CREATE INDEX IF NOT EXISTS "IX_FeePaymentRecords_StudentId" ON "FeePaymentRecords" ("StudentId");
+""");
+
+    logger.LogInformation("PostgreSQL hosted schema verified for Super Admin, affiliate features, school communications, and school fees / billing.");
 }

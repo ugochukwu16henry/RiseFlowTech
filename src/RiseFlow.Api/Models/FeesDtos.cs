@@ -80,6 +80,17 @@ public record SubmitPaymentRequest(
 public record ConfirmPaymentRequest(
     string? AdminNote);
 
+// ─── Roster (school admin sees who paid per schedule) ────────────────────────
+
+public record StudentFeeRosterRow(
+    Guid StudentId,
+    string StudentName,
+    string? AdmissionNumber,
+    string? ClassName,
+    string? GradeName,
+    string PaymentStatus,
+    DateTime? ConfirmedAtUtc);
+
 // ─── Parent view ─────────────────────────────────────────────────────────────
 
 public record ParentChildFeeOverviewDto(

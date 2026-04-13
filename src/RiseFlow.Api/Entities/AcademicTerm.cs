@@ -12,6 +12,10 @@ public class AcademicTerm : ITenantEntity
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
     public bool IsCurrent { get; set; }
+    public DateOnly? MidtermBreakStart { get; set; }
+    public DateOnly? MidtermBreakEnd { get; set; }
+    public string? Description { get; set; }
+    public int SortOrder { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
 

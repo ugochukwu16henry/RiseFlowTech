@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
@@ -65,6 +66,7 @@ public class AcademicTermsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(AcademicTerm), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AcademicTerm>> Create([FromBody] CreateAcademicTermRequest request, CancellationToken ct)
@@ -84,6 +86,10 @@ public class AcademicTermsController : ControllerBase
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             IsCurrent = request.SetAsCurrent,
+            MidtermBreakStart = request.MidtermBreakStart,
+            MidtermBreakEnd = request.MidtermBreakEnd,
+            Description = request.Description?.Trim(),
+            SortOrder = request.SortOrder,
             CreatedAtUtc = DateTime.UtcNow
         };
         _db.AcademicTerms.Add(term);
@@ -92,6 +98,7 @@ public class AcademicTermsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(AcademicTerm), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AcademicTerm>> Update(Guid id, [FromBody] UpdateAcademicTermRequest request, CancellationToken ct)
@@ -107,6 +114,10 @@ public class AcademicTermsController : ControllerBase
         term.AcademicYear = request.AcademicYear;
         term.StartDate = request.StartDate;
         term.EndDate = request.EndDate;
+        term.MidtermBreakStart = request.MidtermBreakStart;
+        term.MidtermBreakEnd = request.MidtermBreakEnd;
+        term.Description = request.Description?.Trim();
+        term.SortOrder = request.SortOrder;
         if (request.SetAsCurrent)
         {
             await _db.AcademicTerms.Where(t => t.SchoolId == term.SchoolId).ExecuteUpdateAsync(s => s.SetProperty(t => t.IsCurrent, false), ct);
@@ -118,6 +129,7 @@ public class AcademicTermsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
