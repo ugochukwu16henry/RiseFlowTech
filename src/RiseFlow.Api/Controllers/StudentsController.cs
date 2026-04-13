@@ -803,6 +803,15 @@ public class StudentsController : ControllerBase
             });
         }
 
+        if (request.DateOfAdmission.HasValue &&
+            (!student.DateOfAdmission.HasValue || request.DateOfAdmission.Value.Date != student.DateOfAdmission.Value.Date))
+        {
+            return BadRequest(new
+            {
+                message = "Admission date can only be updated by School Admin."
+            });
+        }
+
         student.FirstName = request.FirstName;
         student.LastName = request.LastName;
         student.MiddleName = request.MiddleName;
