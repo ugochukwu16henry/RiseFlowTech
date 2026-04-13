@@ -52,6 +52,9 @@ public class StudentsController : ControllerBase
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
 
+        if (User.IsInRole(Roles.Teacher) && !await CanTeacherAccessStudentAsync(schoolId, id, ct))
+            return Forbid();
+
         var student = await _db.Students
             .Include(s => s.Class)
             .Include(s => s.Grade)
@@ -303,11 +306,41 @@ public class StudentsController : ControllerBase
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
 
+        var isTeacher = User.IsInRole(Roles.Teacher);
+        var assignedClassIds = new HashSet<Guid>();
+        if (isTeacher)
+        {
+            var teacherId = await GetCurrentTeacherIdAsync(schoolId, ct);
+            if (!teacherId.HasValue)
+                return Ok(new List<StudentDirectoryItemDto>());
+
+            var classIdsFromTeacherClasses = await _db.TeacherClasses
+                .AsNoTracking()
+                .Where(tc => tc.TeacherId == teacherId.Value)
+                .Select(tc => tc.ClassId)
+                .ToListAsync(ct);
+
+            var classIdsFromTeacherClassSubjects = await _db.TeacherClassSubjects
+                .AsNoTracking()
+                .Where(tcs => tcs.TeacherId == teacherId.Value)
+                .Select(tcs => tcs.ClassId)
+                .ToListAsync(ct);
+
+            foreach (var classId in classIdsFromTeacherClasses)
+                assignedClassIds.Add(classId);
+            foreach (var classId in classIdsFromTeacherClassSubjects)
+                assignedClassIds.Add(classId);
+
+            if (assignedClassIds.Count == 0)
+                return Ok(new List<StudentDirectoryItemDto>());
+        }
+
         try
         {
             var list = await _db.Students
                 .AsNoTracking()
                 .Where(s => s.SchoolId == schoolId)
+                .Where(s => !isTeacher || (s.ClassId.HasValue && assignedClassIds.Contains(s.ClassId.Value)))
                 .OrderBy(s => s.LastName)
                 .ThenBy(s => s.FirstName)
                 .Select(s => new StudentDirectoryItemDto(
@@ -344,6 +377,7 @@ public class StudentsController : ControllerBase
             var fallback = await _db.Students
                 .AsNoTracking()
                 .Where(s => s.SchoolId == schoolId)
+                .Where(s => !isTeacher || (s.ClassId.HasValue && assignedClassIds.Contains(s.ClassId.Value)))
                 .OrderBy(s => s.LastName)
                 .ThenBy(s => s.FirstName)
                 .Select(s => new StudentDirectoryItemDto(
@@ -375,6 +409,10 @@ public class StudentsController : ControllerBase
         var isParent = User.IsInRole(Roles.Parent);
         var isTeacher = User.IsInRole(Roles.Teacher);
         var isSchoolAdmin = User.IsInRole(Roles.SchoolAdmin);
+
+        if (isTeacher && !await CanTeacherAccessStudentAsync(schoolId, id, ct))
+            return Forbid();
+
         Parent? currentParent = null;
         var canParentEdit = false;
         DateTime? parentEditLockedUntilUtc = null;
@@ -686,7 +724,7 @@ public class StudentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Student>> Update(Guid id, [FromBody] UpdateStudentRequest request, CancellationToken ct)
@@ -710,7 +748,6 @@ public class StudentsController : ControllerBase
         student.NationalIdType = request.NationalIdType;
         student.NationalIdNumber = request.NationalIdNumber;
         student.AdmissionNumber = request.AdmissionNumber;
-        student.DateOfAdmission = request.DateOfAdmission;
         student.ClassId = request.ClassId;
         student.GradeId = request.GradeId;
         student.PreviousSchool = request.PreviousSchool;
@@ -1114,6 +1151,48 @@ public class StudentsController : ControllerBase
         var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == email, ct);
         if (parent == null) return false;
         return await _db.StudentParents.AnyAsync(sp => sp.StudentId == studentId && sp.ParentId == parent.Id, ct);
+    }
+
+    private async Task<Guid?> GetCurrentTeacherIdAsync(Guid schoolId, CancellationToken ct)
+    {
+        var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var teacherId = await _db.Teachers
+            .AsNoTracking()
+            .Where(t => t.SchoolId == schoolId && t.Email == email)
+            .Select(t => t.Id)
+            .FirstOrDefaultAsync(ct);
+
+        return teacherId == Guid.Empty ? null : teacherId;
+    }
+
+    private async Task<bool> CanTeacherAccessStudentAsync(Guid schoolId, Guid studentId, CancellationToken ct)
+    {
+        var teacherId = await GetCurrentTeacherIdAsync(schoolId, ct);
+        if (!teacherId.HasValue)
+            return false;
+
+        var studentClassId = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.Id == studentId && s.SchoolId == schoolId)
+            .Select(s => s.ClassId)
+            .FirstOrDefaultAsync(ct);
+
+        if (!studentClassId.HasValue)
+            return false;
+
+        var classId = studentClassId.Value;
+        var teacherHasClass = await _db.TeacherClasses
+            .AsNoTracking()
+            .AnyAsync(tc => tc.TeacherId == teacherId.Value && tc.ClassId == classId, ct);
+        if (teacherHasClass)
+            return true;
+
+        return await _db.TeacherClassSubjects
+            .AsNoTracking()
+            .AnyAsync(tcs => tcs.TeacherId == teacherId.Value && tcs.ClassId == classId, ct);
     }
 
     [HttpDelete("{id:guid}")]

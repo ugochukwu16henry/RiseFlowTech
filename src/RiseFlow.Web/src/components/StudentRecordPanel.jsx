@@ -13,7 +13,7 @@ function formatDate(value) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
 }
 
-function buildSchoolPayload(detail, form, availableClasses = []) {
+function buildSchoolPayload(detail, form, availableClasses = [], allowAdmissionDateUpdate = true) {
   const selectedClassId = form.classId || detail.class?.id || null;
   const selectedClass = selectedClassId ? availableClasses.find((item) => item.id === selectedClassId) : null;
 
@@ -30,7 +30,7 @@ function buildSchoolPayload(detail, form, availableClasses = []) {
     nationalIdType: form.nationalIdType?.trim() || null,
     nationalIdNumber: form.nationalIdNumber?.trim() || null,
     admissionNumber: form.admissionNumber?.trim() || null,
-    dateOfAdmission: form.dateOfAdmission || detail.dateOfAdmission || null,
+    dateOfAdmission: allowAdmissionDateUpdate ? (form.dateOfAdmission || detail.dateOfAdmission || null) : (detail.dateOfAdmission || null),
     classId: selectedClassId,
     gradeId: selectedClass?.gradeId || detail.grade?.id || detail.class?.grade?.id || null,
     previousSchool: form.previousSchool?.trim() || null,
@@ -161,7 +161,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
 
     try {
       const isParent = role === 'parent';
-      const payload = buildSchoolPayload(detail, form, schoolClasses);
+      const payload = buildSchoolPayload(detail, form, schoolClasses, !isParent);
       const res = await apiFetch(isParent ? `/api/students/${studentId}/parent-corrections` : `/api/students/${studentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -418,10 +418,12 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
                         <span>Admission number</span>
                         <input className="form-input" value={form.admissionNumber || ''} onChange={(e) => updateForm('admissionNumber', e.target.value)} disabled={saving} />
                       </label>
-                      <label>
-                        <span>Date of admission</span>
-                        <input type="date" className="form-input" value={form.dateOfAdmission || ''} onChange={(e) => updateForm('dateOfAdmission', e.target.value)} disabled={saving} />
-                      </label>
+                      {role === 'school' && (
+                        <label>
+                          <span>Date of admission</span>
+                          <input type="date" className="form-input" value={form.dateOfAdmission || ''} onChange={(e) => updateForm('dateOfAdmission', e.target.value)} disabled={saving} />
+                        </label>
+                      )}
                       <label>
                         <span>NIN</span>
                         <input className="form-input" value={form.nin || ''} onChange={(e) => updateForm('nin', e.target.value)} disabled={saving} />
