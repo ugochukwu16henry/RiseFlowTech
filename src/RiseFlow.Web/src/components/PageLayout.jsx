@@ -7,6 +7,12 @@ const NAV_BY_ROLE = {
   school: [
     { to: '/school', label: 'Dashboard', end: true },
     { to: '/school/students', label: 'People' },
+    { to: '/school/students/add', label: 'Add student' },
+    { to: '/school/classes', label: 'Classes' },
+    { to: '/school/grading-systems', label: 'Grading systems' },
+    { to: '/school/promotions', label: 'Promotions' },
+    { to: '/school/timetable', label: 'Timetable' },
+    { to: '/school/communications', label: 'Notices & events' },
     { to: '/school/billing', label: 'Billing' },
     { to: '/school/reports', label: 'Reports' },
     { to: '/school/import', label: 'Import' },
@@ -26,12 +32,20 @@ const NAV_BY_ROLE = {
     { to: '/affiliate/payouts', label: 'Payouts' },
     { to: '/affiliate/training', label: 'Training' },
   ],
-  teacher: [{ to: '/teacher', label: 'Dashboard', end: true }],
+  teacher: [
+    { to: '/teacher', label: 'Dashboard', end: true },
+    { to: '/teacher/grading', label: 'Grading' },
+    { to: '/teacher/assignments', label: 'Assignments' },
+  ],
   parent: [
     { to: '/parent', label: 'Family', end: true },
+    { to: '/parent/dashboard', label: 'Dashboard' },
     { to: '/parent/claim', label: 'Claim child' },
   ],
-  student: [{ to: '/student', label: 'My results', end: true }],
+  student: [
+    { to: '/student', label: 'My dashboard', end: true },
+    { to: '/student/dashboard', label: 'Dashboard' },
+  ],
   legal: [
     { to: '/', label: 'Home' },
     { to: '/login', label: 'Sign in' },
