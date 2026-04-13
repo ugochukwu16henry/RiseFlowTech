@@ -316,7 +316,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
                     <ul className="student-term-results">
                       {(term.results || []).map((result) => (
                         <li key={result.resultId}>
-                          <span>{result.subject}</span>
+                          <span>{result.subject}{result.examName ? ` (${result.examName})` : ''}</span>
                           <span>{result.percentage}% {result.gradeLetter ? `(${result.gradeLetter})` : ''}</span>
                         </li>
                       ))}

@@ -24,6 +24,11 @@ import ClaimChildPage from './pages/ClaimChildPage.jsx'
 import ParentSignupPage from './pages/ParentSignupPage.jsx'
 import AddStudentPage from './pages/AddStudentPage.jsx'
 import SchoolClassesPage from './pages/SchoolClassesPage.jsx'
+import GradingSystemPage from './pages/GradingSystemPage.jsx'
+import StudentPromotionPage from './pages/StudentPromotionPage.jsx'
+import TimetablePage from './pages/TimetablePage.jsx'
+import SchoolCommunicationsPage from './pages/SchoolCommunicationsPage.jsx'
+import TeacherAssignmentsPage from './pages/TeacherAssignmentsPage.jsx'
 import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
@@ -65,6 +70,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/teacher" element={<TeacherPage />} />
         <Route path="/teacher/dashboard" element={<TeacherPage />} />
         <Route path="/teacher/grading" element={<TeacherPage />} />
+        <Route path="/teacher/assignments" element={<TeacherAssignmentsPage />} />
         <Route path="/teacher/signup" element={<TeacherSignupPage />} />
         <Route path="/school" element={<SchoolAdminPage />} />
         <Route path="/school/dashboard" element={<SchoolAdminPage />} />
@@ -73,12 +79,20 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/reports" element={<SchoolReportsPage />} />
         <Route path="/school/students/add" element={<AddStudentPage />} />
         <Route path="/school/classes" element={<SchoolClassesPage />} />
+        <Route path="/school/grading-systems" element={<GradingSystemPage />} />
+        <Route path="/school/promotions" element={<StudentPromotionPage />} />
+        <Route path="/school/timetable" element={<TimetablePage />} />
+        <Route path="/school/communications" element={<SchoolCommunicationsPage />} />
         <Route path="/school/import" element={<ExcelImportPage />} />
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
         <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
         <Route path="/admin/students" element={<SchoolStudentsPage />} />
         <Route path="/admin/billing" element={<SchoolBillingPage />} />
         <Route path="/admin/import" element={<ExcelImportPage />} />
+        <Route path="/admin/grading-systems" element={<GradingSystemPage />} />
+        <Route path="/admin/promotions" element={<StudentPromotionPage />} />
+        <Route path="/admin/timetable" element={<TimetablePage />} />
+        <Route path="/admin/communications" element={<SchoolCommunicationsPage />} />
         <Route path="/admin/access-codes" element={<AccessCodesPage />} />
         <Route path="/parent/signup" element={<ParentSignupPage />} />
         <Route path="/parent/claim" element={<ClaimChildPage />} />

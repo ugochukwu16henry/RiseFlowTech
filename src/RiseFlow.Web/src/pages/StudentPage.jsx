@@ -11,6 +11,9 @@ function formatValue(value) {
 export default function StudentPage() {
   const [dashboard, setDashboard] = useState(null);
   const [results, setResults] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -22,10 +25,15 @@ export default function StudentPage() {
     Promise.allSettled([
       apiFetch('/api/students/me/dashboard'),
       apiFetch('/api/results'),
+      apiFetch('/api/notices?limit=8'),
+      apiFetch('/api/events?limit=8'),
     ])
-      .then(async ([dashboardResult, resultsResult]) => {
+      .then(async ([dashboardResult, resultsResult, noticesResult, eventsResult]) => {
         let dashboardData = null;
         let resultsData = [];
+        let assignmentData = [];
+        let noticesData = [];
+        let eventsData = [];
         let dashboardError = null;
 
         if (dashboardResult.status === 'fulfilled') {
@@ -46,12 +54,31 @@ export default function StudentPage() {
           if (response.ok) {
             const payload = await response.json();
             resultsData = Array.isArray(payload) ? payload : [];
+            const firstStudentId = resultsData[0]?.studentId;
+            const assignmentsRes = await apiFetch(firstStudentId ? `/api/assignments?studentId=${firstStudentId}` : '/api/assignments');
+            if (assignmentsRes.ok) {
+              const assignmentsPayload = await assignmentsRes.json();
+              assignmentData = Array.isArray(assignmentsPayload) ? assignmentsPayload : [];
+            }
           }
+        }
+
+        if (noticesResult.status === 'fulfilled' && noticesResult.value.ok) {
+          const payload = await noticesResult.value.json();
+          noticesData = Array.isArray(payload) ? payload : [];
+        }
+
+        if (eventsResult.status === 'fulfilled' && eventsResult.value.ok) {
+          const payload = await eventsResult.value.json();
+          eventsData = Array.isArray(payload) ? payload : [];
         }
 
         if (!cancelled) {
           setDashboard(dashboardData);
           setResults(resultsData);
+          setAssignments(assignmentData);
+          setNotices(noticesData);
+          setEvents(eventsData);
           if (dashboardError) setError(dashboardError);
         }
       })
@@ -246,6 +273,72 @@ export default function StudentPage() {
                 </table>
               </div>
             )}
+          </section>
+
+          <section style={{ marginTop: '1rem' }}>
+            <h2 className="section-title">Assignments</h2>
+            {assignments.length === 0 ? (
+              <p className="empty-state">No assignments published for your class yet.</p>
+            ) : (
+              <div className="data-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Subject</th>
+                      <th>Term</th>
+                      <th>Due</th>
+                      <th>File</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assignments.map((a) => (
+                      <tr key={a.id}>
+                        <td>{a.title}</td>
+                        <td>{a.subjectName}</td>
+                        <td>{a.termName}</td>
+                        <td>{a.dueDateUtc ? new Date(a.dueDateUtc).toLocaleDateString() : '—'}</td>
+                        <td><a href={`/api/files/${a.fileAssetId}/download`}>{a.originalFileName}</a></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="dashboard-grid" style={{ marginTop: '1rem' }}>
+            <article className="dashboard-card">
+              <h3 className="card-title">School notices</h3>
+              {notices.length === 0 ? (
+                <p className="card-desc">No notices yet.</p>
+              ) : (
+                <ul className="student-record-list">
+                  {notices.map((notice) => (
+                    <li key={notice.id}>
+                      <strong>{notice.title}</strong>
+                      <span>{notice.body}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+
+            <article className="dashboard-card">
+              <h3 className="card-title">Upcoming events</h3>
+              {events.length === 0 ? (
+                <p className="card-desc">No upcoming events.</p>
+              ) : (
+                <ul className="student-record-list">
+                  {events.map((event) => (
+                    <li key={event.id}>
+                      <strong>{event.title}</strong>
+                      <span>{event.startAtUtc ? new Date(event.startAtUtc).toLocaleString() : 'Date pending'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
           </section>
         </>
       )}

@@ -10,6 +10,7 @@ public class StudentResult : ITenantEntity
     public Guid StudentId { get; set; }
     public Guid SubjectId { get; set; }
     public Guid TermId { get; set; }
+    public Guid? ExamId { get; set; }
     public string AssessmentType { get; set; } = "Exam"; // e.g. Exam, Quiz, Assignment, MidTerm
     public decimal Score { get; set; }
     public decimal MaxScore { get; set; }
@@ -23,5 +24,6 @@ public class StudentResult : ITenantEntity
     public Student Student { get; set; } = null!;
     public Subject Subject { get; set; } = null!;
     public AcademicTerm Term { get; set; } = null!;
+    public Exam? Exam { get; set; }
     public Teacher? EnteredByTeacher { get; set; }
 }

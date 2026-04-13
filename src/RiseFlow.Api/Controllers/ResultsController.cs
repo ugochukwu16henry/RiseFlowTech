@@ -18,12 +18,14 @@ public class ResultsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IAuditLogService _audit;
+    private readonly IConfiguration _configuration;
 
-    public ResultsController(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit)
+    public ResultsController(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit, IConfiguration configuration)
     {
         _db = db;
         _tenant = tenant;
         _audit = audit;
+        _configuration = configuration;
     }
 
     /// <summary>Teachers/SchoolAdmin: upload or update a result. EnteredBy is set from current user (teacher by email).</summary>
@@ -36,7 +38,13 @@ public class ResultsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+
+        var submissionWindowBlock = await ValidateTeacherSubmissionWindowAsync(request.TermId, ct);
+        if (submissionWindowBlock != null)
+            return submissionWindowBlock;
+
         var teacherId = await ResolveCurrentTeacherIdAsync(ct);
+        var resolvedGradeLetter = await ResolveGradeLetterAsync(request.StudentId, request.TermId, request.Score, request.MaxScore, request.GradeLetter, ct);
         var result = new StudentResult
         {
             Id = Guid.NewGuid(),
@@ -44,10 +52,11 @@ public class ResultsController : ControllerBase
             StudentId = request.StudentId,
             SubjectId = request.SubjectId,
             TermId = request.TermId,
+            ExamId = request.ExamId,
             AssessmentType = request.AssessmentType ?? "Exam",
             Score = request.Score,
             MaxScore = request.MaxScore,
-            GradeLetter = request.GradeLetter,
+            GradeLetter = resolvedGradeLetter,
             Comment = request.Comment,
             EnteredByTeacherId = teacherId,
             CreatedAtUtc = DateTime.UtcNow
@@ -78,6 +87,7 @@ public class ResultsController : ControllerBase
             .Include(r => r.Student)
             .Include(r => r.Subject)
             .Include(r => r.Term)
+            .Include(r => r.Exam)
             .Include(r => r.EnteredByTeacher)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
@@ -102,13 +112,20 @@ public class ResultsController : ControllerBase
             return NotFound();
         if (result.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
+
+        var submissionWindowBlock = await ValidateTeacherSubmissionWindowAsync(result.TermId, ct);
+        if (submissionWindowBlock != null)
+            return submissionWindowBlock;
+
         var oldScore = result.Score;
         var oldMax = result.MaxScore;
+        var resolvedGradeLetter = await ResolveGradeLetterAsync(result.StudentId, result.TermId, request.Score, request.MaxScore, request.GradeLetter, ct);
         result.AssessmentType = request.AssessmentType;
         result.Score = request.Score;
         result.MaxScore = request.MaxScore;
-        result.GradeLetter = request.GradeLetter;
+        result.GradeLetter = resolvedGradeLetter;
         result.Comment = request.Comment;
+        result.ExamId = request.ExamId;
         result.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         await _audit.LogAsync(
@@ -161,7 +178,8 @@ public class ResultsController : ControllerBase
         IQueryable<StudentResult> query = _db.StudentResults
             .Include(r => r.Student)
             .Include(r => r.Subject)
-            .Include(r => r.Term);
+            .Include(r => r.Term)
+            .Include(r => r.Exam);
         if (User.IsInRole(Roles.Parent))
         {
             var allowedStudentIds = await GetParentLinkedStudentIdsAsync(ct);
@@ -199,6 +217,7 @@ public class ResultsController : ControllerBase
             .Include(r => r.Student)
             .Include(r => r.Subject)
             .Include(r => r.Term)
+            .Include(r => r.Exam)
             .Where(r => allowedStudentIds.Contains(r.StudentId));
         if (termId.HasValue)
             query = query.Where(r => r.TermId == termId.Value);
@@ -301,6 +320,73 @@ public class ResultsController : ControllerBase
     {
         var ids = await GetStudentLinkedStudentIdsAsync(ct);
         return ids.Contains(studentId);
+    }
+
+    private async Task<string?> ResolveGradeLetterAsync(
+        Guid studentId,
+        Guid termId,
+        decimal score,
+        decimal maxScore,
+        string? fallbackGradeLetter,
+        CancellationToken ct)
+    {
+        if (!_configuration.GetValue<bool>("Features:EnableGradingSystemV1"))
+            return fallbackGradeLetter;
+
+        if (!_tenant.CurrentSchoolId.HasValue || maxScore <= 0)
+            return fallbackGradeLetter;
+
+        var studentClassId = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.Id == studentId && s.SchoolId == _tenant.CurrentSchoolId.Value)
+            .Select(s => s.ClassId)
+            .FirstOrDefaultAsync(ct);
+
+        var candidateSystems = await _db.GradingSystems
+            .AsNoTracking()
+            .Where(g => g.SchoolId == _tenant.CurrentSchoolId.Value && g.IsActive)
+            .Where(g => (g.ClassId == null || g.ClassId == studentClassId) && (g.TermId == null || g.TermId == termId))
+            .OrderByDescending(g => g.ClassId == studentClassId)
+            .ThenByDescending(g => g.TermId == termId)
+            .ThenByDescending(g => g.UpdatedAtUtc ?? g.CreatedAtUtc)
+            .Select(g => g.Id)
+            .ToListAsync(ct);
+
+        if (candidateSystems.Count == 0)
+            return fallbackGradeLetter;
+
+        var percentage = (score / maxScore) * 100m;
+        var gradeRule = await _db.GradeRules
+            .AsNoTracking()
+            .Where(r => candidateSystems.Contains(r.GradingSystemId))
+            .Where(r => percentage >= r.MinPercent && percentage <= r.MaxPercent)
+            .OrderByDescending(r => r.MinPercent)
+            .FirstOrDefaultAsync(ct);
+
+        return gradeRule?.GradeLetter ?? fallbackGradeLetter;
+    }
+
+    private async Task<ActionResult?> ValidateTeacherSubmissionWindowAsync(Guid termId, CancellationToken ct)
+    {
+        if (!_configuration.GetValue<bool>("Features:EnableExamWindowV1"))
+            return null;
+
+        if (User.IsInRole(Roles.SchoolAdmin) || !User.IsInRole(Roles.Teacher) || !_tenant.CurrentSchoolId.HasValue)
+            return null;
+
+        var window = await _db.MarkSubmissionWindows
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.SchoolId == _tenant.CurrentSchoolId.Value && x.TermId == termId, ct);
+
+        if (window == null || !window.IsOpen)
+        {
+            return BadRequest(new
+            {
+                message = "Mark submission window is closed for this term."
+            });
+        }
+
+        return null;
     }
 }
 

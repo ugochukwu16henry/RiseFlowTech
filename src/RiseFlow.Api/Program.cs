@@ -345,6 +345,10 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
         if (!schoolColumns.Contains("AffiliateReferralCodeUsed"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateReferralCodeUsed\" TEXT NULL;");
 
+        var studentResultColumns = await GetColumnsAsync("StudentResults");
+        if (!studentResultColumns.Contains("ExamId"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"StudentResults\" ADD COLUMN \"ExamId\" TEXT NULL;");
+
         await context.Database.ExecuteSqlRawAsync("""
 CREATE TABLE IF NOT EXISTS "Affiliates" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Affiliates" PRIMARY KEY,
@@ -503,7 +507,150 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_ParentId_StudentI
 CREATE INDEX IF NOT EXISTS "IX_StudentParentEditWindows_SchoolId_StudentId" ON "StudentParentEditWindows" ("SchoolId", "StudentId");
 """);
 
-        logger.LogInformation("SQLite development schema verified for Super Admin, affiliate features, and student portal access.");
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "GradingSystems" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_GradingSystems" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "Name" TEXT NOT NULL,
+    "ClassId" TEXT NULL,
+    "TermId" TEXT NULL,
+    "IsActive" INTEGER NOT NULL DEFAULT 1,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_GradingSystems_SchoolId_ClassId_TermId_Name" ON "GradingSystems" ("SchoolId", "ClassId", "TermId", "Name");
+
+CREATE TABLE IF NOT EXISTS "GradeRules" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_GradeRules" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "GradingSystemId" TEXT NOT NULL,
+    "GradeLetter" TEXT NOT NULL,
+    "MinPercent" TEXT NOT NULL,
+    "MaxPercent" TEXT NOT NULL,
+    "GradePoint" TEXT NULL,
+    "Remarks" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_GradeRules_GradingSystemId_MinPercent_MaxPercent" ON "GradeRules" ("GradingSystemId", "MinPercent", "MaxPercent");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "Exams" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Exams" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "Name" TEXT NOT NULL,
+    "ClassId" TEXT NOT NULL,
+    "SubjectId" TEXT NOT NULL,
+    "TermId" TEXT NOT NULL,
+    "StartDateUtc" TEXT NULL,
+    "EndDateUtc" TEXT NULL,
+    "CreatedByTeacherId" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_Exams_SchoolId_TermId_ClassId_SubjectId" ON "Exams" ("SchoolId", "TermId", "ClassId", "SubjectId");
+
+CREATE TABLE IF NOT EXISTS "MarkSubmissionWindows" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_MarkSubmissionWindows" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "TermId" TEXT NOT NULL,
+    "IsOpen" INTEGER NOT NULL DEFAULT 0,
+    "OpenedAtUtc" TEXT NULL,
+    "ClosedAtUtc" TEXT NULL,
+    "UpdatedByUserId" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_MarkSubmissionWindows_SchoolId_TermId" ON "MarkSubmissionWindows" ("SchoolId", "TermId");
+CREATE INDEX IF NOT EXISTS "IX_StudentResults_ExamId" ON "StudentResults" ("ExamId");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "StudentPromotions" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_StudentPromotions" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "StudentId" TEXT NOT NULL,
+    "FromClassId" TEXT NOT NULL,
+    "ToClassId" TEXT NOT NULL,
+    "FromTermId" TEXT NULL,
+    "PromotionSessionLabel" TEXT NULL,
+    "PromotedByUserId" TEXT NULL,
+    "PromotedAtUtc" TEXT NOT NULL,
+    "Notes" TEXT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_StudentId_FromClassId_FromTermId" ON "StudentPromotions" ("SchoolId", "StudentId", "FromClassId", "FromTermId");
+CREATE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_PromotedAtUtc" ON "StudentPromotions" ("SchoolId", "PromotedAtUtc");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "ClassRoutines" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ClassRoutines" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "ClassId" TEXT NOT NULL,
+    "SubjectId" TEXT NOT NULL,
+    "TeacherId" TEXT NULL,
+    "Weekday" INTEGER NOT NULL,
+    "StartTime" TEXT NOT NULL,
+    "EndTime" TEXT NOT NULL,
+    "Room" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_ClassRoutines_SchoolId_ClassId_Weekday_StartTime_EndTime" ON "ClassRoutines" ("SchoolId", "ClassId", "Weekday", "StartTime", "EndTime");
+CREATE INDEX IF NOT EXISTS "IX_ClassRoutines_SchoolId_TeacherId_Weekday_StartTime" ON "ClassRoutines" ("SchoolId", "TeacherId", "Weekday", "StartTime");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "TeacherAssignments" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_TeacherAssignments" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "TeacherId" TEXT NOT NULL,
+    "ClassId" TEXT NOT NULL,
+    "SubjectId" TEXT NOT NULL,
+    "TermId" TEXT NOT NULL,
+    "Title" TEXT NOT NULL,
+    "Description" TEXT NULL,
+    "FileAssetId" TEXT NOT NULL,
+    "DueDateUtc" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_TeacherAssignments_SchoolId_ClassId_TermId_SubjectId" ON "TeacherAssignments" ("SchoolId", "ClassId", "TermId", "SubjectId");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "SchoolNotices" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_SchoolNotices" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "Title" TEXT NOT NULL,
+    "Body" TEXT NOT NULL,
+    "TargetRolesCsv" TEXT NOT NULL,
+    "PublishedByUserId" TEXT NULL,
+    "PublishedAtUtc" TEXT NOT NULL,
+    "ExpiresAtUtc" TEXT NULL,
+    "IsActive" INTEGER NOT NULL DEFAULT 1,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_SchoolNotices_SchoolId_IsActive_PublishedAtUtc" ON "SchoolNotices" ("SchoolId", "IsActive", "PublishedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "SchoolEvents" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_SchoolEvents" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "Title" TEXT NOT NULL,
+    "Description" TEXT NULL,
+    "StartAtUtc" TEXT NOT NULL,
+    "EndAtUtc" TEXT NOT NULL,
+    "ColorHex" TEXT NULL,
+    "CreatedByUserId" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_SchoolEvents_SchoolId_StartAtUtc" ON "SchoolEvents" ("SchoolId", "StartAtUtc");
+""");
+
+        logger.LogInformation("SQLite development schema verified for Super Admin, affiliate features, student portal access, and school communications.");
     }
     finally
     {
@@ -797,7 +944,199 @@ ALTER TABLE IF EXISTS "BillingRecords" ADD COLUMN IF NOT EXISTS "ActivationAmoun
 ALTER TABLE IF EXISTS "BillingRecords" ADD COLUMN IF NOT EXISTS "CurrencyCode" text NOT NULL DEFAULT 'NGN';
 ALTER TABLE IF EXISTS "BillingRecords" ADD COLUMN IF NOT EXISTS "PaymentReference" text NULL;
 ALTER TABLE IF EXISTS "BillingRecords" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "StudentResults" ADD COLUMN IF NOT EXISTS "ExamId" uuid NULL;
+CREATE INDEX IF NOT EXISTS "IX_StudentResults_ExamId" ON "StudentResults" ("ExamId");
 """);
 
-    logger.LogInformation("PostgreSQL hosted schema verified for Super Admin and affiliate features.");
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "GradingSystems" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "Name" text NOT NULL,
+    "ClassId" uuid NULL,
+    "TermId" uuid NULL,
+    "IsActive" boolean NOT NULL DEFAULT TRUE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "GradingSystems" ADD COLUMN IF NOT EXISTS "ClassId" uuid NULL;
+ALTER TABLE IF EXISTS "GradingSystems" ADD COLUMN IF NOT EXISTS "TermId" uuid NULL;
+ALTER TABLE IF EXISTS "GradingSystems" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "GradingSystems" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "GradingSystems" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_GradingSystems_SchoolId_ClassId_TermId_Name" ON "GradingSystems" ("SchoolId", "ClassId", "TermId", "Name");
+
+CREATE TABLE IF NOT EXISTS "GradeRules" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "GradingSystemId" uuid NOT NULL,
+    "GradeLetter" text NOT NULL,
+    "MinPercent" numeric NOT NULL,
+    "MaxPercent" numeric NOT NULL,
+    "GradePoint" numeric NULL,
+    "Remarks" text NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "GradeRules" ADD COLUMN IF NOT EXISTS "GradePoint" numeric NULL;
+ALTER TABLE IF EXISTS "GradeRules" ADD COLUMN IF NOT EXISTS "Remarks" text NULL;
+ALTER TABLE IF EXISTS "GradeRules" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "GradeRules" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_GradeRules_GradingSystemId_MinPercent_MaxPercent" ON "GradeRules" ("GradingSystemId", "MinPercent", "MaxPercent");
+""");
+
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "Exams" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "Name" text NOT NULL,
+    "ClassId" uuid NOT NULL,
+    "SubjectId" uuid NOT NULL,
+    "TermId" uuid NOT NULL,
+    "StartDateUtc" timestamp with time zone NULL,
+    "EndDateUtc" timestamp with time zone NULL,
+    "CreatedByTeacherId" uuid NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "Exams" ADD COLUMN IF NOT EXISTS "StartDateUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "Exams" ADD COLUMN IF NOT EXISTS "EndDateUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "Exams" ADD COLUMN IF NOT EXISTS "CreatedByTeacherId" uuid NULL;
+ALTER TABLE IF EXISTS "Exams" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "Exams" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_Exams_SchoolId_TermId_ClassId_SubjectId" ON "Exams" ("SchoolId", "TermId", "ClassId", "SubjectId");
+
+CREATE TABLE IF NOT EXISTS "MarkSubmissionWindows" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "TermId" uuid NOT NULL,
+    "IsOpen" boolean NOT NULL DEFAULT FALSE,
+    "OpenedAtUtc" timestamp with time zone NULL,
+    "ClosedAtUtc" timestamp with time zone NULL,
+    "UpdatedByUserId" uuid NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "MarkSubmissionWindows" ADD COLUMN IF NOT EXISTS "OpenedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "MarkSubmissionWindows" ADD COLUMN IF NOT EXISTS "ClosedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "MarkSubmissionWindows" ADD COLUMN IF NOT EXISTS "UpdatedByUserId" uuid NULL;
+ALTER TABLE IF EXISTS "MarkSubmissionWindows" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "MarkSubmissionWindows" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_MarkSubmissionWindows_SchoolId_TermId" ON "MarkSubmissionWindows" ("SchoolId", "TermId");
+""");
+
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "StudentPromotions" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "StudentId" uuid NOT NULL,
+    "FromClassId" uuid NOT NULL,
+    "ToClassId" uuid NOT NULL,
+    "FromTermId" uuid NULL,
+    "PromotionSessionLabel" text NULL,
+    "PromotedByUserId" uuid NULL,
+    "PromotedAtUtc" timestamp with time zone NOT NULL,
+    "Notes" text NULL
+);
+ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "FromTermId" uuid NULL;
+ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "PromotionSessionLabel" text NULL;
+ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "PromotedByUserId" uuid NULL;
+ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "PromotedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_StudentId_FromClassId_FromTermId" ON "StudentPromotions" ("SchoolId", "StudentId", "FromClassId", "FromTermId");
+CREATE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_PromotedAtUtc" ON "StudentPromotions" ("SchoolId", "PromotedAtUtc");
+""");
+
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "ClassRoutines" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "ClassId" uuid NOT NULL,
+    "SubjectId" uuid NOT NULL,
+    "TeacherId" uuid NULL,
+    "Weekday" integer NOT NULL,
+    "StartTime" text NOT NULL,
+    "EndTime" text NOT NULL,
+    "Room" text NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "TeacherId" uuid NULL;
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "Weekday" integer NOT NULL DEFAULT 1;
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "StartTime" text NOT NULL DEFAULT '08:00';
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "EndTime" text NOT NULL DEFAULT '09:00';
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "Room" text NULL;
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "ClassRoutines" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_ClassRoutines_SchoolId_ClassId_Weekday_StartTime_EndTime" ON "ClassRoutines" ("SchoolId", "ClassId", "Weekday", "StartTime", "EndTime");
+CREATE INDEX IF NOT EXISTS "IX_ClassRoutines_SchoolId_TeacherId_Weekday_StartTime" ON "ClassRoutines" ("SchoolId", "TeacherId", "Weekday", "StartTime");
+""");
+
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "TeacherAssignments" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "TeacherId" uuid NOT NULL,
+    "ClassId" uuid NOT NULL,
+    "SubjectId" uuid NOT NULL,
+    "TermId" uuid NOT NULL,
+    "Title" text NOT NULL,
+    "Description" text NULL,
+    "FileAssetId" uuid NOT NULL,
+    "DueDateUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "TeacherAssignments" ADD COLUMN IF NOT EXISTS "Description" text NULL;
+ALTER TABLE IF EXISTS "TeacherAssignments" ADD COLUMN IF NOT EXISTS "FileAssetId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+ALTER TABLE IF EXISTS "TeacherAssignments" ADD COLUMN IF NOT EXISTS "DueDateUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "TeacherAssignments" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "TeacherAssignments" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_TeacherAssignments_SchoolId_ClassId_TermId_SubjectId" ON "TeacherAssignments" ("SchoolId", "ClassId", "TermId", "SubjectId");
+""");
+
+    await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "SchoolNotices" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "Title" text NOT NULL,
+    "Body" text NOT NULL,
+    "TargetRolesCsv" text NOT NULL,
+    "PublishedByUserId" uuid NULL,
+    "PublishedAtUtc" timestamp with time zone NOT NULL,
+    "ExpiresAtUtc" timestamp with time zone NULL,
+    "IsActive" boolean NOT NULL DEFAULT TRUE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "TargetRolesCsv" text NOT NULL DEFAULT 'All';
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "PublishedByUserId" uuid NULL;
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "PublishedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "ExpiresAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "SchoolNotices" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_SchoolNotices_SchoolId_IsActive_PublishedAtUtc" ON "SchoolNotices" ("SchoolId", "IsActive", "PublishedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "SchoolEvents" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "Title" text NOT NULL,
+    "Description" text NULL,
+    "StartAtUtc" timestamp with time zone NOT NULL,
+    "EndAtUtc" timestamp with time zone NOT NULL,
+    "ColorHex" text NULL,
+    "CreatedByUserId" uuid NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "Description" text NULL;
+ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "ColorHex" text NULL;
+ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
+ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "SchoolEvents" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_SchoolEvents_SchoolId_StartAtUtc" ON "SchoolEvents" ("SchoolId", "StartAtUtc");
+""");
+
+    logger.LogInformation("PostgreSQL hosted schema verified for Super Admin, affiliate features, and school communications.");
 }

@@ -8,11 +8,13 @@ public record CreateResultRequest(
     decimal Score,
     decimal MaxScore,
     string? GradeLetter,
-    string? Comment);
+    string? Comment,
+    Guid? ExamId);
 
 public record UpdateResultRequest(
     string AssessmentType,
     decimal Score,
     decimal MaxScore,
     string? GradeLetter,
-    string? Comment);
+    string? Comment,
+    Guid? ExamId);

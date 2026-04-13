@@ -39,7 +39,16 @@ public class School
     public ICollection<Grade> Grades { get; set; } = new List<Grade>();
     public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
     public ICollection<AcademicTerm> AcademicTerms { get; set; } = new List<AcademicTerm>();
+    public ICollection<Exam> Exams { get; set; } = new List<Exam>();
+    public ICollection<MarkSubmissionWindow> MarkSubmissionWindows { get; set; } = new List<MarkSubmissionWindow>();
     public ICollection<StudentResult> StudentResults { get; set; } = new List<StudentResult>();
+    public ICollection<StudentPromotion> StudentPromotions { get; set; } = new List<StudentPromotion>();
+    public ICollection<ClassRoutine> ClassRoutines { get; set; } = new List<ClassRoutine>();
+    public ICollection<TeacherAssignment> TeacherAssignments { get; set; } = new List<TeacherAssignment>();
+    public ICollection<SchoolNotice> SchoolNotices { get; set; } = new List<SchoolNotice>();
+    public ICollection<SchoolEvent> SchoolEvents { get; set; } = new List<SchoolEvent>();
+    public ICollection<GradingSystem> GradingSystems { get; set; } = new List<GradingSystem>();
+    public ICollection<GradeRule> GradeRules { get; set; } = new List<GradeRule>();
     public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();

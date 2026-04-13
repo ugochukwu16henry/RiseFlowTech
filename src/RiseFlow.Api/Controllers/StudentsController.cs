@@ -446,6 +446,8 @@ public class StudentsController : ControllerBase
                 .ThenInclude(r => r.Term)
             .Include(s => s.Results)
                 .ThenInclude(r => r.Subject)
+            .Include(s => s.Results)
+                .ThenInclude(r => r.Exam)
             .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
         if (student == null)
             return NotFound();
@@ -1102,7 +1104,8 @@ public class StudentsController : ControllerBase
                         ResultId: r.Id,
                         Subject: r.Subject.Name,
                         Percentage: Math.Round(r.MaxScore > 0 ? (r.Score / r.MaxScore) * 100m : 0m, 1),
-                        GradeLetter: r.GradeLetter))
+                        GradeLetter: r.GradeLetter,
+                        ExamName: r.Exam != null ? r.Exam.Name : null))
                     .ToList()))
             .OrderByDescending(t => t.Term)
             .ToList();
@@ -1263,7 +1266,7 @@ public record StudentDashboardParentDto(Guid ParentId, string FullName, string? 
 public record StudentDashboardTeacherDto(Guid TeacherId, string FullName, string? RoleOrSubject, string? Email, string? Phone, string? WhatsAppNumber);
 public record StudentDashboardClassmateDto(Guid StudentId, string FullName, string? ProfilePhotoFileName);
 public record StudentTermResultGroupDto(string Term, decimal AveragePercentage, List<StudentTermResultItemDto> Results);
-public record StudentTermResultItemDto(Guid ResultId, string Subject, decimal Percentage, string? GradeLetter);
+public record StudentTermResultItemDto(Guid ResultId, string Subject, decimal Percentage, string? GradeLetter, string? ExamName);
 public record UpdateStudentProfileVisibilityRequest(
     bool ShowDateOfBirthToTeachers,
     bool ShowLocationDetailsToTeachers,

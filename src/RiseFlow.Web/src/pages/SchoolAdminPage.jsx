@@ -419,9 +419,21 @@ export default function SchoolAdminPage() {
           <Link to="/school/classes" className="school-admin-nav-btn school-admin-nav-link">
             Grades &amp; classes
           </Link>
+          <Link to="/school/grading-systems" className="school-admin-nav-btn school-admin-nav-link">
+            Grading systems
+          </Link>
           <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
             Operations
           </button>
+          <Link to="/school/promotions" className="school-admin-nav-btn school-admin-nav-link">
+            Promotions
+          </Link>
+          <Link to="/school/timetable" className="school-admin-nav-btn school-admin-nav-link">
+            Timetable
+          </Link>
+          <Link to="/school/communications" className="school-admin-nav-btn school-admin-nav-link">
+            Notices &amp; events
+          </Link>
         </aside>
 
         <section className="school-admin-view">
@@ -506,8 +518,12 @@ export default function SchoolAdminPage() {
       <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
         <Link to="/school/students" className="btn-primary-action">Students</Link>
         <Link to="/school/classes" className="btn-primary-action btn-primary-action--ghost">Grades & classes</Link>
+        <Link to="/school/grading-systems" className="btn-primary-action btn-primary-action--ghost">Grading systems</Link>
         <Link to="/school/billing" className="btn-primary-action btn-primary-action--ghost">Billing</Link>
         <Link to="/school/reports" className="btn-primary-action btn-primary-action--ghost">Reports</Link>
+        <Link to="/school/promotions" className="btn-primary-action btn-primary-action--ghost">Promotions</Link>
+        <Link to="/school/timetable" className="btn-primary-action btn-primary-action--ghost">Timetable</Link>
+        <Link to="/school/communications" className="btn-primary-action btn-primary-action--ghost">Notices & events</Link>
         <Link to="/school/import" className="btn-primary-action btn-primary-action--ghost">Import</Link>
         <Link to="/school/access-codes" className="btn-primary-action btn-primary-action--ghost">Access codes</Link>
       </div>

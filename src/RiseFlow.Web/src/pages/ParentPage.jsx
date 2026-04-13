@@ -52,6 +52,9 @@ export default function ParentPage() {
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(null);
   const [results, setResults] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [notices, setNotices] = useState([]);
+  const [events, setEvents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [portalAccesses, setPortalAccesses] = useState([]);
   const [portalForm, setPortalForm] = useState(null);
@@ -161,6 +164,49 @@ export default function ParentPage() {
 
   useEffect(() => {
     if (!selectedChildId) {
+      setAssignments([]);
+      return undefined;
+    }
+    let cancelled = false;
+    apiFetch(`/api/assignments?studentId=${selectedChildId}`)
+      .then(async (res) => {
+        if (cancelled) return [];
+        if (res.status === 401 || res.status === 403) return [];
+        if (!res.ok) throw new Error('Could not load assignments');
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      })
+      .then((data) => {
+        if (!cancelled) setAssignments(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAssignments([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedChildId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      apiFetch('/api/notices?limit=8').then((r) => (r.ok ? r.json() : [])),
+      apiFetch('/api/events?limit=8').then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([noticeList, eventList]) => {
+        if (cancelled) return;
+        setNotices(Array.isArray(noticeList) ? noticeList : []);
+        setEvents(Array.isArray(eventList) ? eventList : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setNotices([]);
+        setEvents([]);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChildId) {
       setTeachers([]);
       setLoadingTeachers(false);
       return undefined;
@@ -205,6 +251,7 @@ export default function ParentPage() {
   }, [selectedPortalAccess]);
 
   const resultsForChild = selectedChildId ? results.filter((r) => r.studentId === selectedChildId) : [];
+  const assignmentsForChild = selectedChild?.classId ? assignments.filter((a) => a.classId === selectedChild.classId) : assignments;
   const progress = mapResultsToProgress(resultsForChild);
   const overallPct = progress.length
     ? Math.round(progress.reduce((s, p) => s + p.value, 0) / progress.length)
@@ -324,6 +371,16 @@ export default function ParentPage() {
                   <p className="dashboard-label">Student portal</p>
                   <p className="dashboard-value">{selectedPortalAccess?.isEnabled ? 'On' : 'Off'}</p>
                   <p className="dashboard-sub">Only parents can share this login with the child.</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Latest notice</p>
+                  <p className="dashboard-value" style={{ fontSize: '1rem' }}>{notices[0]?.title || '—'}</p>
+                  <p className="dashboard-sub">School announcements for families.</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Next event</p>
+                  <p className="dashboard-value" style={{ fontSize: '1rem' }}>{events[0]?.title || '—'}</p>
+                  <p className="dashboard-sub">{events[0]?.startAtUtc ? new Date(events[0].startAtUtc).toLocaleDateString() : 'No upcoming date yet.'}</p>
                 </article>
               </div>
             </section>
@@ -480,6 +537,27 @@ export default function ParentPage() {
               <p className="card-desc" style={{ marginTop: '1rem' }}>
                 <button type="button" className="btn-download-pdf" disabled>Download PDF report (coming soon)</button>
               </p>
+
+              <div className="student-record-card" style={{ marginTop: '1rem' }}>
+                <h4 className="dashboard-section-title">Assignments</h4>
+                {assignmentsForChild.length === 0 ? (
+                  <p className="card-desc">No assignments published for this child’s class.</p>
+                ) : (
+                  <ul className="student-record-list">
+                    {assignmentsForChild.map((a) => (
+                      <li key={a.id}>
+                        <strong>{a.title}</strong>
+                        <span>
+                          {a.subjectName} • {a.termName}
+                          {a.dueDateUtc ? ` • Due ${new Date(a.dueDateUtc).toLocaleDateString()}` : ''}
+                          {' • '}
+                          <a href={`/api/files/${a.fileAssetId}/download`}>{a.originalFileName}</a>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 
