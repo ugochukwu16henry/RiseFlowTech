@@ -135,6 +135,15 @@ export default function SchoolAdminPage() {
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
   const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const selectedTeacherClassIds = selectedTeacher
+    ? Array.from(new Set([
+      ...(selectedTeacher.teacherClasses || []).map((tc) => tc.classId),
+      ...(selectedTeacher.teacherClassSubjects || []).map((tcs) => tcs.classId),
+    ].filter(Boolean)))
+    : [];
+  const selectedTeacherStudentCount = selectedTeacherClassIds.length === 0
+    ? 0
+    : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
 
   const handlePayWithPaystack = async () => {
     if (!currentBilling || outstanding <= 0 || paying) return;
@@ -486,6 +495,10 @@ export default function SchoolAdminPage() {
                 <article className="dashboard-card"><p className="dashboard-label">Contact</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.email || '—'}</p><p className="dashboard-sub">Phone: {selectedTeacher.phone || '—'} • WhatsApp: {selectedTeacher.whatsAppNumber || selectedTeacher.phone || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Role</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.roleTitle || 'Teacher'}</p><p className="dashboard-sub">Department: {selectedTeacher.department || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Professional summary</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.highestQualification || selectedTeacher.subjectSpecialization || '—'}</p><p className="dashboard-sub">Experience: {selectedTeacher.yearsOfExperience ?? '—'} years</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Workload</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacherClassIds.length} class(es)</p><p className="dashboard-sub">Handling {selectedTeacherStudentCount} student(s)</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Location / identity</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.nationality || '—'}</p><p className="dashboard-sub">State: {selectedTeacher.stateOfOrigin || '—'} • LGA: {selectedTeacher.lga || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Personal</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>Religion: {selectedTeacher.religion || '—'}</p><p className="dashboard-sub">Gender: {selectedTeacher.gender || '—'} • DOB: {selectedTeacher.dateOfBirth || '—'}</p></article>
+                <article className="dashboard-card"><p className="dashboard-label">Address</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.residentialAddress || '—'}</p><p className="dashboard-sub">Prev. schools: {selectedTeacher.previousSchools || '—'}</p></article>
               </div>
             </section>
           )}

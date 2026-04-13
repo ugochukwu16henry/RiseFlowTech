@@ -14,6 +14,7 @@ public record CreateTeacherRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
+    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -48,6 +49,7 @@ public record UpdateTeacherRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
+    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -86,6 +88,7 @@ public record TeacherSignupRequest(
     string? Nationality,
     string? StateOfOrigin,
     string? LGA,
+    string? Religion,
     string? NIN,
     string? NationalIdType,
     string? NationalIdNumber,
@@ -98,3 +101,23 @@ public record TeacherSignupRequest(
     string? ProfessionalBodies);
 
 public record TeacherSignupResult(bool Success, string Message);
+
+public record UpdateTeacherSelfRequest(
+    string FirstName,
+    string LastName,
+    string? MiddleName,
+    string? Phone,
+    string? WhatsAppNumber,
+    DateOnly? DateOfBirth,
+    string? Gender,
+    string? Nationality,
+    string? StateOfOrigin,
+    string? LGA,
+    string? Religion,
+    string? ResidentialAddress,
+    string? SubjectSpecialization,
+    string? HighestQualification,
+    string? FieldOfStudy,
+    int? YearsOfExperience,
+    string? PreviousSchools,
+    string? ProfessionalBodies);

@@ -18,6 +18,27 @@ export default function TeacherPage() {
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [activeView, setActiveView] = useState('overview');
   const [showProfileDetails, setShowProfileDetails] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    phone: '',
+    whatsAppNumber: '',
+    dateOfBirth: '',
+    gender: '',
+    nationality: '',
+    stateOfOrigin: '',
+    lga: '',
+    religion: '',
+    residentialAddress: '',
+    subjectSpecialization: '',
+    highestQualification: '',
+    fieldOfStudy: '',
+    yearsOfExperience: '',
+    previousSchools: '',
+    professionalBodies: '',
+  });
   const photoInputRef = useRef(null);
 
   useEffect(() => {
@@ -45,6 +66,76 @@ export default function TeacherPage() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!me) return;
+    setProfileForm({
+      firstName: me.firstName || '',
+      lastName: me.lastName || '',
+      middleName: me.middleName || '',
+      phone: me.phone || '',
+      whatsAppNumber: me.whatsAppNumber || '',
+      dateOfBirth: me.dateOfBirth || '',
+      gender: me.gender || '',
+      nationality: me.nationality || '',
+      stateOfOrigin: me.stateOfOrigin || '',
+      lga: me.lga || '',
+      religion: me.religion || '',
+      residentialAddress: me.residentialAddress || '',
+      subjectSpecialization: me.subjectSpecialization || '',
+      highestQualification: me.highestQualification || '',
+      fieldOfStudy: me.fieldOfStudy || '',
+      yearsOfExperience: me.yearsOfExperience ?? '',
+      previousSchools: me.previousSchools || '',
+      professionalBodies: me.professionalBodies || '',
+    });
+  }, [me]);
+
+  const updateProfileField = (field, value) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveProfile = async () => {
+    if (!me) return;
+    setSavingProfile(true);
+    try {
+      const payload = {
+        firstName: profileForm.firstName.trim(),
+        lastName: profileForm.lastName.trim(),
+        middleName: profileForm.middleName.trim() || null,
+        phone: profileForm.phone.trim() || null,
+        whatsAppNumber: profileForm.whatsAppNumber.trim() || null,
+        dateOfBirth: profileForm.dateOfBirth || null,
+        gender: profileForm.gender.trim() || null,
+        nationality: profileForm.nationality.trim() || null,
+        stateOfOrigin: profileForm.stateOfOrigin.trim() || null,
+        lga: profileForm.lga.trim() || null,
+        religion: profileForm.religion.trim() || null,
+        residentialAddress: profileForm.residentialAddress.trim() || null,
+        subjectSpecialization: profileForm.subjectSpecialization.trim() || null,
+        highestQualification: profileForm.highestQualification.trim() || null,
+        fieldOfStudy: profileForm.fieldOfStudy.trim() || null,
+        yearsOfExperience: profileForm.yearsOfExperience === '' ? null : Number(profileForm.yearsOfExperience),
+        previousSchools: profileForm.previousSchools.trim() || null,
+        professionalBodies: profileForm.professionalBodies.trim() || null,
+      };
+      const res = await apiFetch('/api/teachers/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const updated = await res.json();
+      setMe(updated);
+      // eslint-disable-next-line no-alert
+      alert('Profile updated successfully. School Admin can now see your latest details.');
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err.message || 'Could not update profile right now.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handlePhotoChange = async (e) => {
     const file = e.target?.files?.[0];
@@ -192,11 +283,69 @@ export default function TeacherPage() {
                       ) : (
                         <>
                           <p className="card-desc">Email: {me.email || '—'} • Phone: {me.phone || '—'}</p>
-                          <p className="card-desc">Highest qualification: {me.highestQualification || '—'}</p>
+                          <p className="card-desc">Highest qualification: {me.highestQualification || '—'} • Religion: {me.religion || '—'}</p>
                         </>
                       )}
                     </div>
                   </div>
+                  {showProfileDetails && (
+                    <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+                      <label className="form-field">First name
+                        <input className="form-input" value={profileForm.firstName} onChange={(e) => updateProfileField('firstName', e.target.value)} />
+                      </label>
+                      <label className="form-field">Middle name
+                        <input className="form-input" value={profileForm.middleName} onChange={(e) => updateProfileField('middleName', e.target.value)} />
+                      </label>
+                      <label className="form-field">Last name
+                        <input className="form-input" value={profileForm.lastName} onChange={(e) => updateProfileField('lastName', e.target.value)} />
+                      </label>
+                      <label className="form-field">Phone
+                        <input className="form-input" value={profileForm.phone} onChange={(e) => updateProfileField('phone', e.target.value)} />
+                      </label>
+                      <label className="form-field">WhatsApp number
+                        <input className="form-input" value={profileForm.whatsAppNumber} onChange={(e) => updateProfileField('whatsAppNumber', e.target.value)} />
+                      </label>
+                      <label className="form-field">Date of birth
+                        <input type="date" className="form-input" value={profileForm.dateOfBirth || ''} onChange={(e) => updateProfileField('dateOfBirth', e.target.value)} />
+                      </label>
+                      <label className="form-field">Gender
+                        <input className="form-input" value={profileForm.gender} onChange={(e) => updateProfileField('gender', e.target.value)} />
+                      </label>
+                      <label className="form-field">Nationality
+                        <input className="form-input" value={profileForm.nationality} onChange={(e) => updateProfileField('nationality', e.target.value)} />
+                      </label>
+                      <label className="form-field">State
+                        <input className="form-input" value={profileForm.stateOfOrigin} onChange={(e) => updateProfileField('stateOfOrigin', e.target.value)} />
+                      </label>
+                      <label className="form-field">LGA
+                        <input className="form-input" value={profileForm.lga} onChange={(e) => updateProfileField('lga', e.target.value)} />
+                      </label>
+                      <label className="form-field">Religion
+                        <input className="form-input" value={profileForm.religion} onChange={(e) => updateProfileField('religion', e.target.value)} />
+                      </label>
+                      <label className="form-field">Years of experience
+                        <input type="number" min="0" className="form-input" value={profileForm.yearsOfExperience} onChange={(e) => updateProfileField('yearsOfExperience', e.target.value)} />
+                      </label>
+                      <label className="form-field" style={{ gridColumn: '1 / -1' }}>Residential address
+                        <input className="form-input" value={profileForm.residentialAddress} onChange={(e) => updateProfileField('residentialAddress', e.target.value)} />
+                      </label>
+                      <label className="form-field">Subject specialization
+                        <input className="form-input" value={profileForm.subjectSpecialization} onChange={(e) => updateProfileField('subjectSpecialization', e.target.value)} />
+                      </label>
+                      <label className="form-field">Highest qualification
+                        <input className="form-input" value={profileForm.highestQualification} onChange={(e) => updateProfileField('highestQualification', e.target.value)} />
+                      </label>
+                      <label className="form-field">Field of study
+                        <input className="form-input" value={profileForm.fieldOfStudy} onChange={(e) => updateProfileField('fieldOfStudy', e.target.value)} />
+                      </label>
+                      <label className="form-field">Previous schools
+                        <input className="form-input" value={profileForm.previousSchools} onChange={(e) => updateProfileField('previousSchools', e.target.value)} />
+                      </label>
+                      <label className="form-field">Professional bodies
+                        <input className="form-input" value={profileForm.professionalBodies} onChange={(e) => updateProfileField('professionalBodies', e.target.value)} />
+                      </label>
+                    </div>
+                  )}
                   <div className="form-actions" style={{ marginTop: '0.5rem' }}>
                     <button
                       type="button"
@@ -221,6 +370,16 @@ export default function TeacherPage() {
                     >
                       {uploadingPhoto ? 'Uploading…' : 'Upload / change photo'}
                     </button>
+                    {showProfileDetails && (
+                      <button
+                        type="button"
+                        className="btn-primary-action"
+                        onClick={saveProfile}
+                        disabled={savingProfile || !profileForm.firstName.trim() || !profileForm.lastName.trim()}
+                      >
+                        {savingProfile ? 'Saving…' : 'Save profile'}
+                      </button>
+                    )}
                   </div>
                 </section>
               )}

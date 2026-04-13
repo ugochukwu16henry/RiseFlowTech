@@ -44,6 +44,8 @@ public class TeachersController : ControllerBase
                 .AsNoTracking()
                 .Include(t => t.TeacherClasses)
                 .ThenInclude(tc => tc.Class)
+                .Include(t => t.TeacherClassSubjects)
+                .ThenInclude(tcs => tcs.Class)
                 .Where(t => t.SchoolId == schoolId)
                 .OrderBy(t => t.LastName)
                 .ThenBy(t => t.FirstName)
@@ -67,6 +69,7 @@ public class TeachersController : ControllerBase
                     MiddleName = (string?)null,
                     Email = (string?)null,
                     TeacherClasses = Array.Empty<object>(),
+                    TeacherClassSubjects = Array.Empty<object>(),
                     t.IsActive
                 })
                 .ToListAsync(ct);
@@ -87,6 +90,8 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses)
             .ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Class)
             .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
@@ -118,6 +123,7 @@ public class TeachersController : ControllerBase
             Nationality = request.Nationality,
             StateOfOrigin = request.StateOfOrigin,
             LGA = request.LGA,
+            Religion = request.Religion,
             NIN = request.NIN,
             NationalIdType = request.NationalIdType,
             NationalIdNumber = request.NationalIdNumber,
@@ -171,6 +177,7 @@ public class TeachersController : ControllerBase
         teacher.Nationality = request.Nationality;
         teacher.StateOfOrigin = request.StateOfOrigin;
         teacher.LGA = request.LGA;
+        teacher.Religion = request.Religion;
         teacher.NIN = request.NIN;
         teacher.NationalIdType = request.NationalIdType;
         teacher.NationalIdNumber = request.NationalIdNumber;
@@ -274,6 +281,7 @@ public class TeachersController : ControllerBase
             Nationality = request.Nationality,
             StateOfOrigin = request.StateOfOrigin,
             LGA = request.LGA,
+            Religion = request.Religion,
             NIN = request.NIN,
             NationalIdType = request.NationalIdType,
             NationalIdNumber = request.NationalIdNumber,
@@ -307,10 +315,62 @@ public class TeachersController : ControllerBase
         var teacher = await _db.Teachers
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
             .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
         if (teacher == null)
             return Ok(null);
         return Ok(teacher);
+    }
+
+    /// <summary>Update current teacher profile (self-service, prefilled fields in teacher dashboard).</summary>
+    [HttpPut("me")]
+    [Authorize(Roles = Constants.Roles.Teacher)]
+    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Teacher>> UpdateMe([FromBody] UpdateTeacherSelfRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrWhiteSpace(email))
+            return Forbid();
+
+        var teacher = await _db.Teachers
+            .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
+
+        if (teacher == null)
+            return NotFound();
+
+        teacher.FirstName = request.FirstName;
+        teacher.LastName = request.LastName;
+        teacher.MiddleName = request.MiddleName;
+        teacher.Phone = request.Phone;
+        teacher.WhatsAppNumber = request.WhatsAppNumber;
+        teacher.DateOfBirth = request.DateOfBirth;
+        teacher.Gender = request.Gender;
+        teacher.Nationality = request.Nationality;
+        teacher.StateOfOrigin = request.StateOfOrigin;
+        teacher.LGA = request.LGA;
+        teacher.Religion = request.Religion;
+        teacher.ResidentialAddress = request.ResidentialAddress;
+        teacher.SubjectSpecialization = request.SubjectSpecialization;
+        teacher.HighestQualification = request.HighestQualification;
+        teacher.FieldOfStudy = request.FieldOfStudy;
+        teacher.YearsOfExperience = request.YearsOfExperience;
+        teacher.PreviousSchools = request.PreviousSchools;
+        teacher.ProfessionalBodies = request.ProfessionalBodies;
+        teacher.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        var refreshed = await _db.Teachers
+            .AsNoTracking()
+            .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .FirstOrDefaultAsync(t => t.Id == teacher.Id, ct);
+
+        return Ok(refreshed);
     }
 
     /// <summary>Students in classes assigned to the current teacher. Teacher only. Returns empty list until admin assigns classes/subjects.</summary>
