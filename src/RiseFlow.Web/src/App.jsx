@@ -113,6 +113,7 @@ const DASHBOARD_BY_ROLE = {
   [ROLES.SchoolAdmin]: [
     card('school', '/school/dashboard', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
     card('fees', '/school/fees', 'School Fees', 'Set fees, bank details and track payments', IconPay, 'card--results'),
+    card('terms', '/school/terms', 'Terms & Calendar', 'Configure term dates and breaks', IconBook, 'card--message'),
     card('billing', '/school/billing', 'Platform Billing', 'View RiseFlow subscription billing', IconPay, 'card--results'),
     card('people', '/school/students', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
     card('reports', '/school/reports', 'Reports', 'View reports and analytics', IconChart, 'card--message'),

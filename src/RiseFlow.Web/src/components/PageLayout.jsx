@@ -10,6 +10,7 @@ const NAV_BY_ROLE = {
     { to: '/school/students/add', label: 'Add student' },
     { to: '/school/classes', label: 'Classes' },
     { to: '/school/fees', label: 'School fees' },
+    { to: '/school/terms', label: 'Terms & calendar' },
     { to: '/school/grading-systems', label: 'Grading systems' },
     { to: '/school/promotions', label: 'Promotions' },
     { to: '/school/timetable', label: 'Timetable' },

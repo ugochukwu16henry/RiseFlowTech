@@ -27,7 +27,7 @@ const STATUS_CLASS = {
 };
 
 export default function SchoolFeesPage() {
-  const [tab, setTab] = useState('schedules'); // schedules | bank | payments
+  const [tab, setTab] = useState('schedules'); // schedules | bank | payments | roster
   const [schedules, setSchedules] = useState([]);
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -37,6 +37,9 @@ export default function SchoolFeesPage() {
   const [message, setMessage] = useState(null);
   const [filterSchedule, setFilterSchedule] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [rosterScheduleId, setRosterScheduleId] = useState('');
+  const [roster, setRoster] = useState([]);
+  const [loadingRoster, setLoadingRoster] = useState(false);
 
   // Schedule form
   const emptySchedule = { termLabel: '', academicYear: '', gradeId: '', classId: '', amount: '', description: '' };
@@ -93,6 +96,23 @@ export default function SchoolFeesPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
   useEffect(() => { if (tab === 'payments') loadPayments(); }, [tab, loadPayments]);
+
+  const loadRoster = useCallback(async (scheduleId) => {
+    if (!scheduleId) return;
+    setLoadingRoster(true);
+    try {
+      const res = await apiFetch(`/api/school-fees/roster?scheduleId=${scheduleId}`);
+      setRoster(res.ok ? await res.json() : []);
+    } catch {
+      setRoster([]);
+    } finally {
+      setLoadingRoster(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'roster' && rosterScheduleId) loadRoster(rosterScheduleId);
+  }, [tab, rosterScheduleId, loadRoster]);
 
   // ─── Schedule CRUD ────────────────────────────────────────────────────────
 
@@ -234,6 +254,11 @@ export default function SchoolFeesPage() {
           className={`btn-primary-action${tab === 'payments' ? '' : ' btn-primary-action--ghost'}`}
           onClick={() => { setTab('payments'); }}>
           Payments Tracker
+        </button>
+        <button
+          className={`btn-primary-action${tab === 'roster' ? '' : ' btn-primary-action--ghost'}`}
+          onClick={() => setTab('roster')}>
+          Student Roster
         </button>
       </div>
 
@@ -482,6 +507,72 @@ export default function SchoolFeesPage() {
                 </table>
               </div>
             )}
+        </div>
+      )}
+
+      {/* ── Student Roster tab ──────────────────────────────────────────── */}
+      {tab === 'roster' && (
+        <div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', alignItems: 'flex-end' }}>
+            <div>
+              <label className="form-label">Select fee schedule</label>
+              <select className="form-input" style={{ minWidth: 260 }} value={rosterScheduleId}
+                onChange={(e) => setRosterScheduleId(e.target.value)}>
+                <option value="">All schedules</option>
+                {schedules.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.termLabel} {s.academicYear}{s.gradeName ? ` — ${s.gradeName}` : ''}{s.className ? ` / ${s.className}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              className="btn-primary-action btn-primary-action--ghost"
+              onClick={() => loadRoster(rosterScheduleId)}
+              disabled={!rosterScheduleId}
+            >
+              Refresh
+            </button>
+          </div>
+
+          {!rosterScheduleId && <p className="empty-state">Select a schedule to view the payment roster.</p>}
+          {loadingRoster && <p className="empty-state" aria-busy="true">Loading roster...</p>}
+          {!loadingRoster && rosterScheduleId && roster.length === 0 && (
+            <p className="empty-state">No students found for this schedule.</p>
+          )}
+
+          {!loadingRoster && roster.length > 0 && (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Adm. No.</th>
+                    <th>Grade</th>
+                    <th>Class</th>
+                    <th>Status</th>
+                    <th>Confirmed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roster.map(r => (
+                    <tr key={r.studentId}>
+                      <td>{r.studentName}</td>
+                      <td>{r.admissionNumber || '—'}</td>
+                      <td>{r.gradeName || '—'}</td>
+                      <td>{r.className || '—'}</td>
+                      <td>
+                        <span className={`badge ${STATUS_CLASS[r.paymentStatus] || 'badge--neutral'}`}>
+                          {STATUS_LABELS[r.paymentStatus] || r.paymentStatus}
+                        </span>
+                      </td>
+                      <td>{r.confirmedAtUtc ? new Date(r.confirmedAtUtc).toLocaleDateString() : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </PageLayout>

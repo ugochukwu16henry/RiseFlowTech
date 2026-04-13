@@ -28,6 +28,7 @@ const STATUS_CLASS = {
 export default function ParentFeesPage() {
   const [children, setChildren] = useState([]);
   const [bank, setBank] = useState(null);
+  const [terms, setTerms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [uploading, setUploading] = useState(null); // paymentId being uploaded
@@ -38,12 +39,14 @@ export default function ParentFeesPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [feesRes, bankRes] = await Promise.all([
+      const [feesRes, bankRes, termsRes] = await Promise.all([
         apiFetch('/api/school-fees/my-fees'),
         apiFetch('/api/school-fees/bank-details'),
+        apiFetch('/api/academicterms'),
       ]);
       setChildren(feesRes.ok ? await feesRes.json() : []);
       setBank(bankRes.ok ? await bankRes.json() : null);
+      setTerms(termsRes.ok ? await termsRes.json() : []);
     } catch {
       setMessage('Could not load fee information.');
     } finally {
@@ -292,6 +295,46 @@ export default function ParentFeesPage() {
                       </tr>
                     ))
                 )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && terms.length > 0 && (
+        <div className="card" style={{ marginTop: '2rem' }}>
+          <h3 style={{ marginTop: 0 }}>Academic term calendar</h3>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Term</th>
+                  <th>Year</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Midterm break</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {terms.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td>{t.academicYear}</td>
+                    <td>{t.startDate ? new Date(t.startDate).toLocaleDateString() : '—'}</td>
+                    <td>{t.endDate ? new Date(t.endDate).toLocaleDateString() : '—'}</td>
+                    <td>
+                      {t.midtermBreakStart
+                        ? `${new Date(t.midtermBreakStart).toLocaleDateString()} - ${t.midtermBreakEnd ? new Date(t.midtermBreakEnd).toLocaleDateString() : '—'}`
+                        : '—'}
+                    </td>
+                    <td>
+                      <span className={`badge ${t.isCurrent ? 'badge--success' : 'badge--neutral'}`}>
+                        {t.isCurrent ? 'Current' : 'Upcoming/Past'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

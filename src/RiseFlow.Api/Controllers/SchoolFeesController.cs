@@ -559,6 +559,125 @@ public class SchoolFeesController : ControllerBase
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Roster — school admin views which students paid per schedule
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Returns all students for a fee schedule with their payment status.</summary>
+    [HttpGet("roster")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    public async Task<ActionResult<List<StudentFeeRosterRow>>> GetRoster([FromQuery] Guid scheduleId, CancellationToken ct)
+    {
+        var schoolId = GetSchoolId();
+        if (schoolId == Guid.Empty) return Forbid();
+
+        var schedule = await _db.TermFeeSchedules
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == scheduleId && x.SchoolId == schoolId, ct);
+        if (schedule is null) return NotFound();
+
+        IQueryable<Student> studentQuery = _db.Students.AsNoTracking()
+            .Where(s => s.SchoolId == schoolId)
+            .Include(s => s.Class)
+            .Include(s => s.Grade);
+
+        if (schedule.ClassId.HasValue)
+            studentQuery = studentQuery.Where(s => s.ClassId == schedule.ClassId.Value);
+        else if (schedule.GradeId.HasValue)
+            studentQuery = studentQuery.Where(s => s.GradeId == schedule.GradeId.Value);
+
+        var students = await studentQuery.OrderBy(s => s.LastName).ThenBy(s => s.FirstName).ToListAsync(ct);
+
+        var studentIds = students.Select(s => s.Id).ToList();
+        var payments = await _db.FeePaymentRecords.AsNoTracking()
+            .Where(x => x.ScheduleId == scheduleId && studentIds.Contains(x.StudentId))
+            .ToListAsync(ct);
+
+        var paymentMap = payments.ToDictionary(p => p.StudentId);
+
+        return Ok(students.Select(s =>
+        {
+            var p = paymentMap.GetValueOrDefault(s.Id);
+            return new StudentFeeRosterRow(
+                s.Id,
+                $"{s.FirstName} {s.LastName}",
+                s.AdmissionNumber,
+                s.Class?.Name,
+                s.Grade?.Name,
+                p is null ? "NotSubmitted" : p.Status.ToString(),
+                p?.ConfirmedAtUtc);
+        }).ToList());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Class fee status — teacher views fee payment status for their class
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fee payment status for all students in a class across active schedules.
+    /// Teachers must be assigned to the class; school admins have full access.
+    /// </summary>
+    [HttpGet("class-fee-status")]
+    [Authorize(Roles = $"{Roles.Teacher},{Roles.SchoolAdmin}")]
+    public async Task<ActionResult<object>> GetClassFeeStatus([FromQuery] Guid classId, CancellationToken ct)
+    {
+        var schoolId = GetSchoolId();
+        if (schoolId == Guid.Empty) return Forbid();
+
+        if (!User.IsInRole(Roles.SchoolAdmin))
+        {
+            var teacherEmail = User.FindFirst(ClaimTypes.Email)?.Value
+                ?? User.FindFirst("email")?.Value;
+            var teacher = await _db.Teachers.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.Email == teacherEmail, ct);
+            if (teacher is null) return Forbid();
+            var hasClass = await _db.TeacherClasses.AnyAsync(tc => tc.TeacherId == teacher.Id && tc.ClassId == classId, ct);
+            if (!hasClass) return Forbid();
+        }
+
+        var students = await _db.Students.AsNoTracking()
+            .Where(s => s.SchoolId == schoolId && s.ClassId == classId)
+            .Include(s => s.Grade)
+            .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
+            .ToListAsync(ct);
+
+        var activeSchedules = await _db.TermFeeSchedules.AsNoTracking()
+            .Where(x => x.SchoolId == schoolId && x.IsActive && (x.ClassId == classId || x.ClassId == null))
+            .OrderBy(x => x.AcademicYear).ThenBy(x => x.TermLabel)
+            .ToListAsync(ct);
+
+        var studentIds = students.Select(s => s.Id).ToList();
+        var scheduleIds = activeSchedules.Select(s => s.Id).ToList();
+        var payments = await _db.FeePaymentRecords.AsNoTracking()
+            .Where(x => x.SchoolId == schoolId && studentIds.Contains(x.StudentId) && scheduleIds.Contains(x.ScheduleId))
+            .ToListAsync(ct);
+
+        return Ok(new
+        {
+            schedules = activeSchedules.Select(s => new { s.Id, s.TermLabel, s.AcademicYear, s.Amount }).ToList(),
+            students = students.Select(s => new
+            {
+                studentId = s.Id,
+                studentName = $"{s.FirstName} {s.LastName}",
+                admissionNumber = s.AdmissionNumber,
+                gradeName = s.Grade?.Name,
+                feeStatuses = activeSchedules.Select(sch =>
+                {
+                    var p = payments.FirstOrDefault(x => x.StudentId == s.Id && x.ScheduleId == sch.Id);
+                    return new
+                    {
+                        scheduleId = sch.Id,
+                        termLabel = sch.TermLabel,
+                        academicYear = sch.AcademicYear,
+                        amount = sch.Amount,
+                        status = p is null ? "NotSubmitted" : p.Status.ToString(),
+                        confirmedAt = p?.ConfirmedAtUtc,
+                    };
+                }).ToList(),
+            }).ToList(),
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
 

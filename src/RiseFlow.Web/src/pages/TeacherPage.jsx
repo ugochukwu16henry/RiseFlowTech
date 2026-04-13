@@ -29,6 +29,8 @@ export default function TeacherPage() {
   const [savingExam, setSavingExam] = useState(false);
   const [savingResult, setSavingResult] = useState(false);
   const [gradingMessage, setGradingMessage] = useState(null);
+  const [loadingFees, setLoadingFees] = useState(false);
+  const [classFeeData, setClassFeeData] = useState(null);
   const [submissionWindow, setSubmissionWindow] = useState(null);
   const [notices, setNotices] = useState([]);
   const [events, setEvents] = useState([]);
@@ -420,6 +422,28 @@ export default function TeacherPage() {
     }
   };
 
+  useEffect(() => {
+    if (activeView !== 'fees' || !selectedClassId) return;
+    let cancelled = false;
+    setLoadingFees(true);
+    apiFetch(`/api/school-fees/class-fee-status?classId=${selectedClassId}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setClassFeeData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setClassFeeData({ schedules: [], students: [] });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFees(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeView, selectedClassId]);
+
   if (loading) return <PageLayout title="Teacher" role="teacher"><p className="empty-state" aria-busy="true">Loading…</p></PageLayout>;
   if (error) return <PageLayout title="Teacher" role="teacher"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
@@ -440,6 +464,9 @@ export default function TeacherPage() {
           </button>
           <button type="button" className={`school-admin-nav-btn ${activeView === 'grading' ? 'is-active' : ''}`} onClick={() => setActiveView('grading')}>
             Grading
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${activeView === 'fees' ? 'is-active' : ''}`} onClick={() => setActiveView('fees')} disabled={classes.length === 0}>
+            Fees
           </button>
           <Link to="/teacher/assignments" className="school-admin-nav-btn school-admin-nav-link">
             Assignments
@@ -914,6 +941,58 @@ export default function TeacherPage() {
                   <button type="button" className="btn-primary-action" onClick={submitResult} disabled={savingResult}>{savingResult ? 'Submitting…' : 'Submit result'}</button>
                 </div>
               </div>
+            </section>
+          )}
+
+          {activeView === 'fees' && (
+            <section aria-label="Class fees status">
+              <h2 className="section-title">Class Fee Status</h2>
+              <p className="card-desc">See who has paid for each term fee schedule in your assigned class.</p>
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Class</label>
+                <select className="form-input" style={{ maxWidth: 280 }} value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}>
+                  {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {loadingFees && <p className="empty-state" aria-busy="true">Loading fee status...</p>}
+              {!loadingFees && (!classFeeData?.students || classFeeData.students.length === 0) && (
+                <p className="empty-state">No fee status records for this class yet.</p>
+              )}
+              {!loadingFees && classFeeData?.students?.length > 0 && (
+                <div className="table-scroll">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Adm. No.</th>
+                        <th>Grade</th>
+                        {classFeeData.schedules.map((s) => (
+                          <th key={s.id}>{s.termLabel} {s.academicYear}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classFeeData.students.map((st) => (
+                        <tr key={st.studentId}>
+                          <td>{st.studentName}</td>
+                          <td>{st.admissionNumber || '—'}</td>
+                          <td>{st.gradeName || '—'}</td>
+                          {classFeeData.schedules.map((s) => {
+                            const item = (st.feeStatuses || []).find((x) => x.scheduleId === s.id);
+                            return (
+                              <td key={`${st.studentId}-${s.id}`}>
+                                <span className={`badge ${(item?.status === 'Confirmed') ? 'badge--success' : 'badge--neutral'}`}>
+                                  {item?.status || 'NotSubmitted'}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
         </section>

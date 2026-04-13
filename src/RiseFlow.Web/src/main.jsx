@@ -38,6 +38,7 @@ import AffiliateSignupPage from './pages/AffiliateSignupPage.jsx'
 import AffiliatePage from './pages/AffiliatePage.jsx'
 import SuperAdminAffiliatesPage from './pages/SuperAdminAffiliatesPage.jsx'
 import SchoolFeesPage from './pages/SchoolFeesPage.jsx'
+import SchoolTermsPage from './pages/SchoolTermsPage.jsx'
 import ParentFeesPage from './pages/ParentFeesPage.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -88,6 +89,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/import" element={<ExcelImportPage />} />
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
         <Route path="/school/fees" element={<SchoolFeesPage />} />
+        <Route path="/school/terms" element={<SchoolTermsPage />} />
         <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
         <Route path="/admin/students" element={<SchoolStudentsPage />} />
         <Route path="/admin/billing" element={<SchoolBillingPage />} />
