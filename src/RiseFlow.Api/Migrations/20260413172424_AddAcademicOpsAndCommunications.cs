@@ -11,150 +11,6 @@ namespace RiseFlow.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_StudentPortalAccesses_Schools_SchoolId",
-                table: "StudentPortalAccesses");
-
-            migrationBuilder.DropIndex(
-                name: "IX_AffiliateCommissionLedgers_BillingRecordId",
-                table: "AffiliateCommissionLedgers");
-
-            migrationBuilder.DropColumn(
-                name: "ParentProfileLastUpdatedAtUtc",
-                table: "Students");
-
-            migrationBuilder.DropColumn(
-                name: "PreviousClass",
-                table: "Students");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Religion",
-                table: "Teachers",
-                type: "text",
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "FieldKey",
-                table: "TeacherProfileFieldSettings",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "FieldKey",
-                table: "TeacherCustomFieldValues",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "ExamId",
-                table: "StudentResults",
-                type: "uuid",
-                nullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginId",
-                table: "StudentPortalAccesses",
-                type: "character varying(256)",
-                maxLength: 256,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(128)",
-                oldMaxLength: 128);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "YoutubeUrl",
-                table: "AffiliateTrainingVideos",
-                type: "character varying(1024)",
-                maxLength: 1024,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(512)",
-                oldMaxLength: 512);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Title",
-                table: "AffiliateTrainingVideos",
-                type: "character varying(256)",
-                maxLength: 256,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(160)",
-                oldMaxLength: 160);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "UniqueCode",
-                table: "Affiliates",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "PhoneNumber",
-                table: "Affiliates",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(512)",
-                oldMaxLength: 512,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "AccountNumber",
-                table: "Affiliates",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(32)",
-                oldMaxLength: 32,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Title",
-                table: "AffiliateNotifications",
-                type: "character varying(256)",
-                maxLength: 256,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(160)",
-                oldMaxLength: 160);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "PhoneNumber",
-                table: "AffiliateLeadRequests",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(512)",
-                oldMaxLength: 512,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "CommissionType",
-                table: "AffiliateCommissionLedgers",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64);
 
             migrationBuilder.CreateTable(
                 name: "ClassRoutines",
@@ -368,40 +224,6 @@ namespace RiseFlow.Api.Migrations
                         name: "FK_SchoolNotices_Schools_SchoolId",
                         column: x => x.SchoolId,
                         principalTable: "Schools",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "StudentParentEditWindows",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    SchoolId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ParentId = table.Column<Guid>(type: "uuid", nullable: false),
-                    StudentId = table.Column<Guid>(type: "uuid", nullable: false),
-                    LastEditedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    NextEditableAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_StudentParentEditWindows", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_StudentParentEditWindows_Parents_ParentId",
-                        column: x => x.ParentId,
-                        principalTable: "Parents",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_StudentParentEditWindows_Schools_SchoolId",
-                        column: x => x.SchoolId,
-                        principalTable: "Schools",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_StudentParentEditWindows_Students_StudentId",
-                        column: x => x.StudentId,
-                        principalTable: "Students",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -653,22 +475,6 @@ namespace RiseFlow.Api.Migrations
                 columns: new[] { "SchoolId", "IsActive", "PublishedAtUtc" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentParentEditWindows_ParentId_StudentId",
-                table: "StudentParentEditWindows",
-                columns: new[] { "ParentId", "StudentId" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StudentParentEditWindows_SchoolId_StudentId",
-                table: "StudentParentEditWindows",
-                columns: new[] { "SchoolId", "StudentId" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StudentParentEditWindows_StudentId",
-                table: "StudentParentEditWindows",
-                column: "StudentId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_StudentPromotions_FromClassId",
                 table: "StudentPromotions",
                 column: "FromClassId");
@@ -723,40 +529,13 @@ namespace RiseFlow.Api.Migrations
                 name: "IX_TeacherAssignments_TermId",
                 table: "TeacherAssignments",
                 column: "TermId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_StudentPortalAccesses_Schools_SchoolId",
-                table: "StudentPortalAccesses",
-                column: "SchoolId",
-                principalTable: "Schools",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_StudentResults_Exams_ExamId",
-                table: "StudentResults",
-                column: "ExamId",
-                principalTable: "Exams",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_StudentPortalAccesses_Schools_SchoolId",
-                table: "StudentPortalAccesses");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_StudentResults_Exams_ExamId",
-                table: "StudentResults");
-
             migrationBuilder.DropTable(
                 name: "ClassRoutines");
-
-            migrationBuilder.DropTable(
-                name: "Exams");
 
             migrationBuilder.DropTable(
                 name: "GradeRules");
@@ -771,178 +550,16 @@ namespace RiseFlow.Api.Migrations
                 name: "SchoolNotices");
 
             migrationBuilder.DropTable(
-                name: "StudentParentEditWindows");
-
-            migrationBuilder.DropTable(
                 name: "StudentPromotions");
 
             migrationBuilder.DropTable(
                 name: "TeacherAssignments");
 
             migrationBuilder.DropTable(
+                name: "Exams");
+
+            migrationBuilder.DropTable(
                 name: "GradingSystems");
-
-            migrationBuilder.DropIndex(
-                name: "IX_StudentResults_ExamId",
-                table: "StudentResults");
-
-            migrationBuilder.DropIndex(
-                name: "IX_AffiliateCommissionLedgers_BillingRecordId",
-                table: "AffiliateCommissionLedgers");
-
-            migrationBuilder.DropColumn(
-                name: "ExamId",
-                table: "StudentResults");
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Religion",
-                table: "Teachers",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "text",
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "FieldKey",
-                table: "TeacherProfileFieldSettings",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "FieldKey",
-                table: "TeacherCustomFieldValues",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64);
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "ParentProfileLastUpdatedAtUtc",
-                table: "Students",
-                type: "timestamp with time zone",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "PreviousClass",
-                table: "Students",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "LoginId",
-                table: "StudentPortalAccesses",
-                type: "character varying(128)",
-                maxLength: 128,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(256)",
-                oldMaxLength: 256);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "YoutubeUrl",
-                table: "AffiliateTrainingVideos",
-                type: "character varying(512)",
-                maxLength: 512,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(1024)",
-                oldMaxLength: 1024);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Title",
-                table: "AffiliateTrainingVideos",
-                type: "character varying(160)",
-                maxLength: 160,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(256)",
-                oldMaxLength: 256);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "UniqueCode",
-                table: "Affiliates",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(32)",
-                oldMaxLength: 32);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "PhoneNumber",
-                table: "Affiliates",
-                type: "character varying(512)",
-                maxLength: 512,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "AccountNumber",
-                table: "Affiliates",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "Title",
-                table: "AffiliateNotifications",
-                type: "character varying(160)",
-                maxLength: 160,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(256)",
-                oldMaxLength: 256);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "PhoneNumber",
-                table: "AffiliateLeadRequests",
-                type: "character varying(512)",
-                maxLength: 512,
-                nullable: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(64)",
-                oldMaxLength: 64,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<string>(
-                name: "CommissionType",
-                table: "AffiliateCommissionLedgers",
-                type: "character varying(64)",
-                maxLength: 64,
-                nullable: false,
-                oldClrType: typeof(string),
-                oldType: "character varying(32)",
-                oldMaxLength: 32);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AffiliateCommissionLedgers_BillingRecordId",
-                table: "AffiliateCommissionLedgers",
-                column: "BillingRecordId",
-                unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_StudentPortalAccesses_Schools_SchoolId",
-                table: "StudentPortalAccesses",
-                column: "SchoolId",
-                principalTable: "Schools",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
         }
     }
 }
