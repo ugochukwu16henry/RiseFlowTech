@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj": {}
+    "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj": {
+    "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
+        "projectUniqueName": "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
         "projectName": "RiseFlow.Api",
-        "projectPath": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
+        "projectPath": "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
         "packagesPath": "C:\\Users\\Dell\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\obj\\",
+        "outputPath": "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Dell\\AppData\\Roaming\\NuGet\\NuGet.Config"

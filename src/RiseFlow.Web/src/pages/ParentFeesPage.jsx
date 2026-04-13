@@ -9,6 +9,25 @@ function fmt(amount, currency = 'NGN') {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
 }
 
+function toDate(value) {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toLabel(value) {
+  const d = toDate(value);
+  return d ? d.toLocaleDateString() : '—';
+}
+
+function pctWithinRange(point, min, max) {
+  if (!point || !min || !max) return null;
+  const total = max.getTime() - min.getTime();
+  if (total <= 0) return 0;
+  const offset = point.getTime() - min.getTime();
+  return Math.max(0, Math.min(100, (offset / total) * 100));
+}
+
 const STATUS_LABELS = {
   NotSubmitted: 'Not yet submitted',
   Pending: 'Submitted — awaiting receipt',
@@ -304,6 +323,87 @@ export default function ParentFeesPage() {
       {!loading && terms.length > 0 && (
         <div className="card" style={{ marginTop: '2rem' }}>
           <h3 style={{ marginTop: 0 }}>Academic term calendar</h3>
+
+          {(() => {
+            const sorted = [...terms]
+              .filter(t => t.startDate && t.endDate)
+              .sort((a, b) => {
+                if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+                return String(a.startDate).localeCompare(String(b.startDate));
+              });
+
+            if (sorted.length === 0) return null;
+
+            const starts = sorted.map(t => toDate(t.startDate)).filter(Boolean);
+            const ends = sorted.map(t => toDate(t.endDate)).filter(Boolean);
+            const min = starts.length ? new Date(Math.min(...starts.map(d => d.getTime()))) : null;
+            const max = ends.length ? new Date(Math.max(...ends.map(d => d.getTime()))) : null;
+
+            if (!min || !max) return null;
+
+            return (
+              <div style={{ marginBottom: '1rem', padding: '0.9rem', background: 'var(--surface-elevated, #f8f9fb)', borderRadius: 10, border: '1px solid var(--border, #e5e7eb)' }}>
+                <p style={{ margin: '0 0 0.75rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                  Visual timeline: each bar shows a term range; highlighted inner segment shows midterm break.
+                </p>
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  {sorted.map((t) => {
+                    const start = toDate(t.startDate);
+                    const end = toDate(t.endDate);
+                    const left = pctWithinRange(start, min, max) ?? 0;
+                    const right = pctWithinRange(end, min, max) ?? left;
+                    const width = Math.max(2, right - left);
+
+                    const midStart = pctWithinRange(toDate(t.midtermBreakStart), min, max);
+                    const midEnd = pctWithinRange(toDate(t.midtermBreakEnd), min, max);
+                    const midWidth = (midStart != null && midEnd != null) ? Math.max(1, midEnd - midStart) : 0;
+
+                    return (
+                      <div key={`timeline-${t.id}`}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <strong style={{ fontSize: '0.9rem' }}>{t.name} {t.academicYear ? `(${t.academicYear})` : ''}</strong>
+                          {t.isCurrent && <span className="badge badge--success">Current</span>}
+                        </div>
+                        <div style={{ position: 'relative', height: 18, background: '#e5edf3', borderRadius: 999 }}>
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${left}%`,
+                              width: `${width}%`,
+                              height: '100%',
+                              borderRadius: 999,
+                              background: t.isCurrent ? '#22c55e' : '#3b82f6',
+                              opacity: 0.85,
+                            }}
+                            title={`${toLabel(t.startDate)} - ${toLabel(t.endDate)}`}
+                          />
+                          {(midStart != null && midEnd != null) && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${midStart}%`,
+                                width: `${midWidth}%`,
+                                top: 3,
+                                height: 12,
+                                borderRadius: 999,
+                                background: '#f59e0b',
+                              }}
+                              title={`Midterm: ${toLabel(t.midtermBreakStart)} - ${toLabel(t.midtermBreakEnd)}`}
+                            />
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          <span>{toLabel(t.startDate)}</span>
+                          <span>{toLabel(t.endDate)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="table-scroll">
             <table className="data-table">
               <thead>
