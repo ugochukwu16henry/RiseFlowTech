@@ -373,10 +373,13 @@ public class StudentsController : ControllerBase
         var schoolId = _tenant.CurrentSchoolId.Value;
 
         var isParent = User.IsInRole(Roles.Parent);
+        var isTeacher = User.IsInRole(Roles.Teacher);
+        var isSchoolAdmin = User.IsInRole(Roles.SchoolAdmin);
         Parent? currentParent = null;
         var canParentEdit = false;
         DateTime? parentEditLockedUntilUtc = null;
         string? parentEditMessage = null;
+        StudentProfileVisibilitySetting? visibilitySetting = null;
 
         if (isParent)
         {
@@ -390,6 +393,9 @@ public class StudentsController : ControllerBase
             if (currentParent == null)
                 return Forbid();
         }
+
+        if (isTeacher || isSchoolAdmin)
+            visibilitySetting = await GetOrCreateStudentVisibilitySettingAsync(schoolId, ct);
 
         var student = await _db.Students
             .AsNoTracking()
@@ -429,28 +435,56 @@ public class StudentsController : ControllerBase
         var assignedTeachers = await GetAssignedTeachersAsync(student, ct);
         var termResults = BuildTermResults(student);
 
+        var teacherCanSeeDateOfBirth = visibilitySetting?.ShowDateOfBirthToTeachers ?? true;
+        var teacherCanSeeLocation = visibilitySetting?.ShowLocationDetailsToTeachers ?? false;
+        var teacherCanSeeHealth = visibilitySetting?.ShowHealthDetailsToTeachers ?? true;
+        var teacherCanSeeParents = visibilitySetting?.ShowParentContactsToTeachers ?? false;
+        var teacherCanSeeAcademic = visibilitySetting?.ShowAcademicHistoryToTeachers ?? true;
+        var teacherCanSeePrevious = visibilitySetting?.ShowPreviousRecordToTeachers ?? false;
+
+        var teacherView = isTeacher && !isSchoolAdmin;
+
+        var parentsView = (teacherView && !teacherCanSeeParents)
+            ? new List<object>()
+            : student.StudentParents
+                .OrderByDescending(sp => sp.IsPrimaryContact)
+                .Select(sp => (object)new
+                {
+                    parentId = sp.ParentId,
+                    firstName = sp.Parent.FirstName,
+                    lastName = sp.Parent.LastName,
+                    relationshipToStudent = sp.RelationshipToStudent,
+                    phone = sp.Parent.Phone,
+                    email = sp.Parent.Email
+                })
+                .ToList();
+
+        var visibleTermResults = (teacherView && !teacherCanSeeAcademic)
+            ? new List<StudentTermResultGroupDto>()
+            : termResults;
+
         return Ok(new
         {
             student.Id,
             student.FirstName,
             student.LastName,
             student.MiddleName,
-            student.DateOfBirth,
+            DateOfBirth = teacherView && !teacherCanSeeDateOfBirth ? null : student.DateOfBirth,
             student.Gender,
-            student.Nationality,
-            stateOfOrigin = student.StateOfOrigin,
-            lga = student.LGA,
+            Nationality = teacherView && !teacherCanSeeLocation ? null : student.Nationality,
+            stateOfOrigin = teacherView && !teacherCanSeeLocation ? null : student.StateOfOrigin,
+            lga = teacherView && !teacherCanSeeLocation ? null : student.LGA,
             nin = student.NIN,
             student.NationalIdType,
             student.NationalIdNumber,
             student.AdmissionNumber,
             student.DateOfAdmission,
-            student.PreviousSchool,
-            student.BloodGroup,
-            student.Genotype,
-            student.Allergies,
-            student.EmergencyContactName,
-            student.EmergencyContactPhone,
+            PreviousSchool = teacherView && !teacherCanSeePrevious ? null : student.PreviousSchool,
+            BloodGroup = teacherView && !teacherCanSeeHealth ? null : student.BloodGroup,
+            Genotype = teacherView && !teacherCanSeeHealth ? null : student.Genotype,
+            Allergies = teacherView && !teacherCanSeeHealth ? null : student.Allergies,
+            EmergencyContactName = teacherView && !teacherCanSeeHealth ? null : student.EmergencyContactName,
+            EmergencyContactPhone = teacherView && !teacherCanSeeHealth ? null : student.EmergencyContactPhone,
             student.ParentAccessCode,
             student.ProfilePhotoFileName,
             student.IsActive,
@@ -461,27 +495,50 @@ public class StudentsController : ControllerBase
                 Grade = student.Class.Grade == null ? null : new { student.Class.Grade.Id, student.Class.Grade.Name }
             },
             Grade = student.Grade == null ? null : new { student.Grade.Id, student.Grade.Name },
-            studentParents = student.StudentParents
-                .OrderByDescending(sp => sp.IsPrimaryContact)
-                .Select(sp => new
-                {
-                    parentId = sp.ParentId,
-                    firstName = sp.Parent.FirstName,
-                    lastName = sp.Parent.LastName,
-                    relationshipToStudent = sp.RelationshipToStudent,
-                    phone = sp.Parent.Phone,
-                    email = sp.Parent.Email
-                })
-                .ToList(),
+            studentParents = parentsView,
             assignedTeachers,
-            termResults,
-            currentAveragePercentage = termResults.Count == 0 ? (decimal?)null : Math.Round(termResults.Average(t => t.AveragePercentage), 1),
+            termResults = visibleTermResults,
+            currentAveragePercentage = visibleTermResults.Count == 0 ? (decimal?)null : Math.Round(visibleTermResults.Average(t => t.AveragePercentage), 1),
             canParentEdit,
             parentEditLockedUntilUtc,
             parentEditMessage,
-            canManageTeacherVisibility = User.IsInRole(Roles.SchoolAdmin),
-            teacherVisibilitySettings = (object?)null
+            canManageTeacherVisibility = isSchoolAdmin,
+            teacherVisibilitySettings = isSchoolAdmin ? visibilitySetting : null
         });
+    }
+
+    [HttpGet("profile-visibility-settings")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentProfileVisibilitySetting), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StudentProfileVisibilitySetting>> GetStudentProfileVisibilitySettings(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var setting = await GetOrCreateStudentVisibilitySettingAsync(schoolId, ct);
+        return Ok(setting);
+    }
+
+    [HttpPut("profile-visibility-settings")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentProfileVisibilitySetting), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StudentProfileVisibilitySetting>> UpdateStudentProfileVisibilitySettings([FromBody] UpdateStudentProfileVisibilityRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var setting = await GetOrCreateStudentVisibilitySettingAsync(schoolId, ct);
+
+        setting.ShowDateOfBirthToTeachers = request.ShowDateOfBirthToTeachers;
+        setting.ShowLocationDetailsToTeachers = request.ShowLocationDetailsToTeachers;
+        setting.ShowHealthDetailsToTeachers = request.ShowHealthDetailsToTeachers;
+        setting.ShowParentContactsToTeachers = request.ShowParentContactsToTeachers;
+        setting.ShowAcademicHistoryToTeachers = request.ShowAcademicHistoryToTeachers;
+        setting.ShowPreviousRecordToTeachers = request.ShowPreviousRecordToTeachers;
+        setting.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(setting);
     }
 
     /// <summary>Register a single student. SchoolAdmin only. Use this to add new students one-by-one; use bulk upload for many at once.</summary>
@@ -1005,6 +1062,32 @@ public class StudentsController : ControllerBase
             .ToList();
     }
 
+    private async Task<StudentProfileVisibilitySetting> GetOrCreateStudentVisibilitySettingAsync(Guid schoolId, CancellationToken ct)
+    {
+        var setting = await _db.StudentProfileVisibilitySettings
+            .FirstOrDefaultAsync(s => s.SchoolId == schoolId, ct);
+
+        if (setting != null)
+            return setting;
+
+        setting = new StudentProfileVisibilitySetting
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            ShowDateOfBirthToTeachers = true,
+            ShowLocationDetailsToTeachers = false,
+            ShowHealthDetailsToTeachers = true,
+            ShowParentContactsToTeachers = false,
+            ShowAcademicHistoryToTeachers = true,
+            ShowPreviousRecordToTeachers = false,
+            CreatedAtUtc = DateTime.UtcNow,
+        };
+
+        _db.StudentProfileVisibilitySettings.Add(setting);
+        await _db.SaveChangesAsync(ct);
+        return setting;
+    }
+
     private async Task<StudentPortalAccess?> GetCurrentStudentPortalAccessAsync(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
@@ -1093,3 +1176,10 @@ public record StudentDashboardTeacherDto(Guid TeacherId, string FullName, string
 public record StudentDashboardClassmateDto(Guid StudentId, string FullName, string? ProfilePhotoFileName);
 public record StudentTermResultGroupDto(string Term, decimal AveragePercentage, List<StudentTermResultItemDto> Results);
 public record StudentTermResultItemDto(Guid ResultId, string Subject, decimal Percentage, string? GradeLetter);
+public record UpdateStudentProfileVisibilityRequest(
+    bool ShowDateOfBirthToTeachers,
+    bool ShowLocationDetailsToTeachers,
+    bool ShowHealthDetailsToTeachers,
+    bool ShowParentContactsToTeachers,
+    bool ShowAcademicHistoryToTeachers,
+    bool ShowPreviousRecordToTeachers);

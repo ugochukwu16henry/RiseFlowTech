@@ -25,6 +25,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<Parent> Parents => Set<Parent>();
     public DbSet<StudentPortalAccess> StudentPortalAccesses => Set<StudentPortalAccess>();
+    public DbSet<StudentProfileVisibilitySetting> StudentProfileVisibilitySettings => Set<StudentProfileVisibilitySetting>();
     public DbSet<StudentParentEditWindow> StudentParentEditWindows => Set<StudentParentEditWindow>();
     public DbSet<Grade> Grades => Set<Grade>();
     public DbSet<Class> Classes => Set<Class>();
@@ -222,6 +223,13 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StudentProfileVisibilitySetting>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.SchoolId).IsUnique();
+            e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Parent student profile edit cooldown windows

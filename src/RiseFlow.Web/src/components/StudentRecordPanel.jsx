@@ -327,7 +327,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
             )}
           </div>
 
-          {(role === 'school' || role === 'parent' || role === 'teacher') && (
+          {(role === 'school' || role === 'parent') && (
             <div className="student-record-card">
               <h4 className="dashboard-section-title">
                 {role === 'parent' ? 'Correct child information' : 'Edit student information'}
@@ -395,7 +395,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
                     <input className="form-input" value={form.emergencyContactPhone || ''} onChange={(e) => updateForm('emergencyContactPhone', e.target.value)} disabled={saving || (role === 'parent' && !detail.canParentEdit)} />
                   </label>
 
-                  {(role === 'school' || role === 'parent' || role === 'teacher') && (
+                  {(role === 'school' || role === 'parent') && (
                     <>
                       <label>
                         <span>Assign to class</span>
