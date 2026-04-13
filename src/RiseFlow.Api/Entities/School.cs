@@ -43,4 +43,6 @@ public class School
     public ICollection<BillingRecord> BillingRecords { get; set; } = new List<BillingRecord>();
     public ICollection<TranscriptVerification> TranscriptVerifications { get; set; } = new List<TranscriptVerification>();
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
+    public ICollection<TeacherProfileFieldSetting> TeacherProfileFieldSettings { get; set; } = new List<TeacherProfileFieldSetting>();
+    public ICollection<TeacherCustomFieldValue> TeacherCustomFieldValues { get; set; } = new List<TeacherCustomFieldValue>();
 }

@@ -51,6 +51,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AffiliatePayout> AffiliatePayouts => Set<AffiliatePayout>();
     public DbSet<AffiliateCommissionLedger> AffiliateCommissionLedgers => Set<AffiliateCommissionLedger>();
     public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
+    public DbSet<TeacherProfileFieldSetting> TeacherProfileFieldSettings => Set<TeacherProfileFieldSetting>();
+    public DbSet<TeacherCustomFieldValue> TeacherCustomFieldValues => Set<TeacherCustomFieldValue>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -171,6 +173,25 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Recognitions).HasMaxLength(512);
             e.Property(x => x.ProfilePhotoFileName).HasMaxLength(256);
             e.HasOne(x => x.School).WithMany(s => s.Teachers).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<TeacherProfileFieldSetting>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FieldKey).IsRequired().HasMaxLength(64);
+            e.Property(x => x.DisplayName).IsRequired().HasMaxLength(128);
+            e.HasIndex(x => new { x.SchoolId, x.FieldKey }).IsUnique();
+            e.HasOne(x => x.School).WithMany(s => s.TeacherProfileFieldSettings).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TeacherCustomFieldValue>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FieldKey).IsRequired().HasMaxLength(64);
+            e.Property(x => x.Value).HasMaxLength(2048);
+            e.HasIndex(x => new { x.TeacherId, x.FieldKey }).IsUnique();
+            e.HasOne(x => x.School).WithMany(s => s.TeacherCustomFieldValues).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Parent

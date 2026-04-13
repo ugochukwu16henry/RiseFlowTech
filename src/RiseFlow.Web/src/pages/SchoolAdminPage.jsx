@@ -28,6 +28,11 @@ export default function SchoolAdminPage() {
   const [bulkClassId, setBulkClassId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
+  const [selectedTeacherProfile, setSelectedTeacherProfile] = useState(null);
+  const [teacherFieldSettings, setTeacherFieldSettings] = useState([]);
+  const [loadingTeacherProfile, setLoadingTeacherProfile] = useState(false);
+  const [savingFieldSettingKey, setSavingFieldSettingKey] = useState(null);
+  const [newCustomField, setNewCustomField] = useState({ displayName: '', fieldKey: '' });
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
@@ -101,6 +106,109 @@ export default function SchoolAdminPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const loadTeacherFieldSettings = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/teachers/profile-field-settings');
+      if (!res.ok) throw new Error(await res.text());
+      const settings = await res.json();
+      setTeacherFieldSettings(Array.isArray(settings) ? settings : []);
+    } catch {
+      setTeacherFieldSettings([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'people') {
+      loadTeacherFieldSettings();
+    }
+  }, [activeView, loadTeacherFieldSettings]);
+
+  const fetchTeacherProfile = async (teacherId) => {
+    setLoadingTeacherProfile(true);
+    try {
+      const res = await apiFetch(`/api/teachers/${teacherId}/profile-config`);
+      if (!res.ok) throw new Error(await res.text());
+      const profile = await res.json();
+      setSelectedTeacherProfile(profile);
+      if (Array.isArray(profile?.fieldSettings) && profile.fieldSettings.length > 0) {
+        setTeacherFieldSettings(profile.fieldSettings);
+      }
+    } catch {
+      setSelectedTeacherProfile(null);
+    } finally {
+      setLoadingTeacherProfile(false);
+    }
+  };
+
+  const openTeacherProfile = async (teacherId) => {
+    const nextId = selectedTeacherId === teacherId ? null : teacherId;
+    setSelectedTeacherId(nextId);
+    if (!nextId) {
+      setSelectedTeacherProfile(null);
+      return;
+    }
+    await fetchTeacherProfile(nextId);
+  };
+
+  const upsertTeacherFieldSetting = async (payload) => {
+    const res = await apiFetch('/api/teachers/profile-field-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  };
+
+  const toggleSetting = async (setting, patch) => {
+    setSavingFieldSettingKey(setting.fieldKey);
+    try {
+      await upsertTeacherFieldSetting({
+        fieldKey: setting.fieldKey,
+        displayName: setting.displayName,
+        isCustom: setting.isCustom,
+        isVisibleToTeacher: patch.isVisibleToTeacher ?? setting.isVisibleToTeacher,
+        isEditableByTeacher: patch.isEditableByTeacher ?? setting.isEditableByTeacher,
+        isAdminOnly: patch.isAdminOnly ?? setting.isAdminOnly,
+        sortOrder: setting.sortOrder ?? 0,
+      });
+      await loadTeacherFieldSettings();
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not update field setting.');
+    } finally {
+      setSavingFieldSettingKey(null);
+    }
+  };
+
+  const addCustomField = async () => {
+    const key = (newCustomField.fieldKey || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const name = (newCustomField.displayName || '').trim();
+    if (!key || !name) {
+      setError('Custom field key and display name are required.');
+      return;
+    }
+    setSavingFieldSettingKey(key);
+    try {
+      await upsertTeacherFieldSetting({
+        fieldKey: key,
+        displayName: name,
+        isCustom: true,
+        isVisibleToTeacher: true,
+        isEditableByTeacher: true,
+        isAdminOnly: false,
+        sortOrder: 600,
+      });
+      setNewCustomField({ displayName: '', fieldKey: '' });
+      await loadTeacherFieldSettings();
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not add custom field.');
+    } finally {
+      setSavingFieldSettingKey(null);
+    }
+  };
+
   // Keep X-Tenant-Id in sync with the signed-in school (fixes teacher/parent share links if localStorage was cleared).
   useEffect(() => {
     const id = dashboard?.schoolId;
@@ -134,7 +242,7 @@ export default function SchoolAdminPage() {
 
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
-  const selectedTeacher = teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
   const selectedTeacherClassIds = selectedTeacher
     ? Array.from(new Set([
       ...(selectedTeacher.teacherClasses || []).map((tc) => tc.classId),
@@ -475,7 +583,7 @@ export default function SchoolAdminPage() {
                       <button
                         type="button"
                         className="btn-primary-action btn-primary-action--ghost"
-                        onClick={() => setSelectedTeacherId((current) => (current === t.id ? null : t.id))}
+                        onClick={() => openTeacherProfile(t.id)}
                       >
                         {selectedTeacherId === t.id ? 'Hide details' : 'View details'}
                       </button>
@@ -485,6 +593,82 @@ export default function SchoolAdminPage() {
               </tbody>
             </table>
           </div>
+
+          {loadingTeacherProfile && (
+            <p className="card-desc" style={{ marginTop: '0.75rem' }}>Loading selected teacher details…</p>
+          )}
+
+          <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="Teacher profile governance">
+            <h3 className="card-title">Teacher field controls</h3>
+            <p className="card-desc">Control what teachers can see or edit. Salary, allowances and recognitions can be locked here. You can also add custom fields.</p>
+            <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+              <label className="form-field">Custom field label
+                <input
+                  className="form-input"
+                  value={newCustomField.displayName}
+                  onChange={(e) => setNewCustomField((prev) => ({ ...prev, displayName: e.target.value }))}
+                  placeholder="e.g. Teaching License Expiry"
+                />
+              </label>
+              <label className="form-field">Custom field key
+                <input
+                  className="form-input"
+                  value={newCustomField.fieldKey}
+                  onChange={(e) => setNewCustomField((prev) => ({ ...prev, fieldKey: e.target.value }))}
+                  placeholder="e.g. teachinglicenseexpiry"
+                />
+              </label>
+              <div className="form-actions" style={{ alignSelf: 'end' }}>
+                <button type="button" className="btn-primary-action" onClick={addCustomField} disabled={!!savingFieldSettingKey}>
+                  Add custom field
+                </button>
+              </div>
+            </div>
+
+            <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Visible to teacher</th>
+                    <th>Editable by teacher</th>
+                    <th>Admin only</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teacherFieldSettings.map((setting) => (
+                    <tr key={setting.fieldKey}>
+                      <td>{setting.displayName}{setting.isCustom ? ' (custom)' : ''}</td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={!!setting.isVisibleToTeacher}
+                          disabled={savingFieldSettingKey === setting.fieldKey}
+                          onChange={(e) => toggleSetting(setting, { isVisibleToTeacher: e.target.checked })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={!!setting.isEditableByTeacher}
+                          disabled={savingFieldSettingKey === setting.fieldKey || !!setting.isAdminOnly}
+                          onChange={(e) => toggleSetting(setting, { isEditableByTeacher: e.target.checked })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={!!setting.isAdminOnly}
+                          disabled={savingFieldSettingKey === setting.fieldKey}
+                          onChange={(e) => toggleSetting(setting, { isAdminOnly: e.target.checked, isEditableByTeacher: e.target.checked ? false : setting.isEditableByTeacher })}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           {selectedTeacher && (
             <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="Teacher details">
@@ -499,6 +683,19 @@ export default function SchoolAdminPage() {
                 <article className="dashboard-card"><p className="dashboard-label">Location / identity</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.nationality || '—'}</p><p className="dashboard-sub">State: {selectedTeacher.stateOfOrigin || '—'} • LGA: {selectedTeacher.lga || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Personal</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>Religion: {selectedTeacher.religion || '—'}</p><p className="dashboard-sub">Gender: {selectedTeacher.gender || '—'} • DOB: {selectedTeacher.dateOfBirth || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Address</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.residentialAddress || '—'}</p><p className="dashboard-sub">Prev. schools: {selectedTeacher.previousSchools || '—'}</p></article>
+                {selectedTeacherProfile?.customFields && Object.keys(selectedTeacherProfile.customFields).length > 0 && (
+                  <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+                    <p className="dashboard-label">Custom profile fields</p>
+                    {Object.entries(selectedTeacherProfile.customFields).map(([key, value]) => {
+                      const setting = teacherFieldSettings.find((s) => s.fieldKey === key);
+                      return (
+                        <p key={key} className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+                          <strong>{setting?.displayName || key}:</strong> {value || '—'}
+                        </p>
+                      );
+                    })}
+                  </article>
+                )}
               </div>
             </section>
           )}

@@ -15,6 +15,31 @@ namespace RiseFlow.Api.Controllers;
 [Authorize]
 public class TeachersController : ControllerBase
 {
+    private static readonly IReadOnlyList<(string FieldKey, string DisplayName, bool IsAdminOnly, bool IsVisibleToTeacher, bool IsEditableByTeacher, int SortOrder)> DefaultProfileFields =
+    [
+        ("firstName", "First Name", false, true, true, 10),
+        ("middleName", "Middle Name", false, true, true, 20),
+        ("lastName", "Last Name", false, true, true, 30),
+        ("phone", "Phone", false, true, true, 40),
+        ("whatsAppNumber", "WhatsApp Number", false, true, true, 50),
+        ("dateOfBirth", "Date of Birth", false, true, true, 60),
+        ("gender", "Gender", false, true, true, 70),
+        ("nationality", "Nationality", false, true, true, 80),
+        ("stateOfOrigin", "State", false, true, true, 90),
+        ("lga", "LGA", false, true, true, 100),
+        ("religion", "Religion", false, true, true, 110),
+        ("residentialAddress", "Residential Address", false, true, true, 120),
+        ("subjectSpecialization", "Subject Specialization", false, true, true, 130),
+        ("highestQualification", "Highest Qualification", false, true, true, 140),
+        ("fieldOfStudy", "Field Of Study", false, true, true, 150),
+        ("yearsOfExperience", "Years Of Experience", false, true, true, 160),
+        ("previousSchools", "Previous Schools", false, true, true, 170),
+        ("professionalBodies", "Professional Bodies", false, true, true, 180),
+        ("baseSalaryAmount", "Base Salary", true, false, false, 400),
+        ("allowancesNote", "Allowances", true, false, false, 410),
+        ("recognitions", "Recognitions", true, false, false, 420)
+    ];
+
     private readonly RiseFlowDbContext _db;
     private readonly Services.ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -301,33 +326,117 @@ public class TeachersController : ControllerBase
         return Ok(new TeacherSignupResult(true, "Account created. Sign in as a teacher. Your school admin will assign your classes and subjects."));
     }
 
-    /// <summary>Current teacher profile (by email + school). Teacher only.</summary>
+    /// <summary>Current teacher profile (filtered by school-admin visibility settings). Teacher only.</summary>
     [HttpGet("me")]
     [Authorize(Roles = Constants.Roles.Teacher)]
-    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
-    public async Task<ActionResult<Teacher>> Me(CancellationToken ct)
+    [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TeacherProfileConfigDto>> Me(CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var email = _tenant.CurrentUserEmail;
         if (string.IsNullOrEmpty(email))
             return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
         var teacher = await _db.Teachers
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
-            .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
+            .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.Email == email, ct);
         if (teacher == null)
             return Ok(null);
-        return Ok(teacher);
+
+        return Ok(await BuildTeacherProfileConfigDtoAsync(schoolId, teacher, teacherView: true, ct));
     }
 
-    /// <summary>Update current teacher profile (self-service, prefilled fields in teacher dashboard).</summary>
+    /// <summary>Teacher profile plus field settings for self-edit dashboard.</summary>
+    [HttpGet("me/profile-config")]
+    [Authorize(Roles = Constants.Roles.Teacher)]
+    [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TeacherProfileConfigDto>> MeProfileConfig(CancellationToken ct) => await Me(ct);
+
+    /// <summary>School-admin view of one teacher profile + governance settings.</summary>
+    [HttpGet("{id:guid}/profile-config")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TeacherProfileConfigDto>> GetProfileConfig(Guid id, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var teacher = await _db.Teachers
+            .AsNoTracking()
+            .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
+        if (teacher == null)
+            return NotFound();
+        return Ok(await BuildTeacherProfileConfigDtoAsync(schoolId, teacher, teacherView: false, ct));
+    }
+
+    /// <summary>School-admin managed teacher field visibility/editability settings.</summary>
+    [HttpGet("profile-field-settings")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(List<TeacherProfileFieldSettingDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<TeacherProfileFieldSettingDto>>> GetProfileFieldSettings(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var settings = await EnsureTeacherProfileFieldSettingsAsync(schoolId, ct);
+        return Ok(settings.Select(MapSettingDto).ToList());
+    }
+
+    /// <summary>Create or update teacher profile field setting. Supports custom fields.</summary>
+    [HttpPost("profile-field-settings")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(TeacherProfileFieldSettingDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TeacherProfileFieldSettingDto>> UpsertProfileFieldSetting([FromBody] UpsertTeacherProfileFieldSettingRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var normalizedKey = NormalizeFieldKey(request.FieldKey);
+        if (string.IsNullOrWhiteSpace(normalizedKey))
+            return BadRequest("FieldKey is required.");
+
+        var settings = await EnsureTeacherProfileFieldSettingsAsync(schoolId, ct);
+        var setting = settings.FirstOrDefault(s => s.FieldKey == normalizedKey);
+        if (setting == null)
+        {
+            setting = new TeacherProfileFieldSetting
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                FieldKey = normalizedKey,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _db.TeacherProfileFieldSettings.Add(setting);
+        }
+
+        var isBuiltIn = DefaultProfileFields.Any(f => f.FieldKey == normalizedKey);
+        setting.IsCustom = request.IsCustom || !isBuiltIn;
+        setting.DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? normalizedKey : request.DisplayName.Trim();
+        setting.IsAdminOnly = request.IsAdminOnly;
+        setting.IsVisibleToTeacher = request.IsVisibleToTeacher;
+        setting.IsEditableByTeacher = request.IsEditableByTeacher && !request.IsAdminOnly;
+        setting.SortOrder = request.SortOrder;
+        setting.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(MapSettingDto(setting));
+    }
+
+    /// <summary>Update current teacher profile respecting school-admin field locks and visibility.</summary>
     [HttpPut("me")]
     [Authorize(Roles = Constants.Roles.Teacher)]
-    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<Teacher>> UpdateMe([FromBody] UpdateTeacherSelfRequest request, CancellationToken ct)
+    public async Task<ActionResult<TeacherProfileConfigDto>> UpdateMe([FromBody] UpdateTeacherSelfRequest request, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -336,31 +445,79 @@ public class TeachersController : ControllerBase
         if (string.IsNullOrWhiteSpace(email))
             return Forbid();
 
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var settings = (await EnsureTeacherProfileFieldSettingsAsync(schoolId, ct)).ToDictionary(x => x.FieldKey, x => x);
+
         var teacher = await _db.Teachers
-            .FirstOrDefaultAsync(t => t.SchoolId == _tenant.CurrentSchoolId.Value && t.Email == email, ct);
+            .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.Email == email, ct);
 
         if (teacher == null)
             return NotFound();
 
-        teacher.FirstName = request.FirstName;
-        teacher.LastName = request.LastName;
-        teacher.MiddleName = request.MiddleName;
-        teacher.Phone = request.Phone;
-        teacher.WhatsAppNumber = request.WhatsAppNumber;
-        teacher.DateOfBirth = request.DateOfBirth;
-        teacher.Gender = request.Gender;
-        teacher.Nationality = request.Nationality;
-        teacher.StateOfOrigin = request.StateOfOrigin;
-        teacher.LGA = request.LGA;
-        teacher.Religion = request.Religion;
-        teacher.ResidentialAddress = request.ResidentialAddress;
-        teacher.SubjectSpecialization = request.SubjectSpecialization;
-        teacher.HighestQualification = request.HighestQualification;
-        teacher.FieldOfStudy = request.FieldOfStudy;
-        teacher.YearsOfExperience = request.YearsOfExperience;
-        teacher.PreviousSchools = request.PreviousSchools;
-        teacher.ProfessionalBodies = request.ProfessionalBodies;
+        bool CanEdit(string fieldKey)
+        {
+            if (!settings.TryGetValue(fieldKey, out var setting)) return true;
+            return setting.IsVisibleToTeacher && setting.IsEditableByTeacher && !setting.IsAdminOnly;
+        }
+
+        if (CanEdit("firstName")) teacher.FirstName = request.FirstName;
+        if (CanEdit("lastName")) teacher.LastName = request.LastName;
+        if (CanEdit("middleName")) teacher.MiddleName = request.MiddleName;
+        if (CanEdit("phone")) teacher.Phone = request.Phone;
+        if (CanEdit("whatsAppNumber")) teacher.WhatsAppNumber = request.WhatsAppNumber;
+        if (CanEdit("dateOfBirth")) teacher.DateOfBirth = request.DateOfBirth;
+        if (CanEdit("gender")) teacher.Gender = request.Gender;
+        if (CanEdit("nationality")) teacher.Nationality = request.Nationality;
+        if (CanEdit("stateOfOrigin")) teacher.StateOfOrigin = request.StateOfOrigin;
+        if (CanEdit("lga")) teacher.LGA = request.LGA;
+        if (CanEdit("religion")) teacher.Religion = request.Religion;
+        if (CanEdit("residentialAddress")) teacher.ResidentialAddress = request.ResidentialAddress;
+        if (CanEdit("subjectSpecialization")) teacher.SubjectSpecialization = request.SubjectSpecialization;
+        if (CanEdit("highestQualification")) teacher.HighestQualification = request.HighestQualification;
+        if (CanEdit("fieldOfStudy")) teacher.FieldOfStudy = request.FieldOfStudy;
+        if (CanEdit("yearsOfExperience")) teacher.YearsOfExperience = request.YearsOfExperience;
+        if (CanEdit("previousSchools")) teacher.PreviousSchools = request.PreviousSchools;
+        if (CanEdit("professionalBodies")) teacher.ProfessionalBodies = request.ProfessionalBodies;
         teacher.UpdatedAtUtc = DateTime.UtcNow;
+
+        if (request.CustomFields != null && request.CustomFields.Count > 0)
+        {
+            var editableCustomKeys = settings.Values
+                .Where(s => s.IsCustom && s.IsVisibleToTeacher && s.IsEditableByTeacher && !s.IsAdminOnly)
+                .Select(s => s.FieldKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var existingCustomValues = await _db.TeacherCustomFieldValues
+                .Where(v => v.SchoolId == schoolId && v.TeacherId == teacher.Id)
+                .ToListAsync(ct);
+
+            foreach (var pair in request.CustomFields)
+            {
+                var key = NormalizeFieldKey(pair.Key);
+                if (!editableCustomKeys.Contains(key))
+                    continue;
+
+                var existing = existingCustomValues.FirstOrDefault(v => v.FieldKey == key);
+                if (existing == null)
+                {
+                    _db.TeacherCustomFieldValues.Add(new TeacherCustomFieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        SchoolId = schoolId,
+                        TeacherId = teacher.Id,
+                        FieldKey = key,
+                        Value = pair.Value,
+                        CreatedAtUtc = DateTime.UtcNow,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    existing.Value = pair.Value;
+                    existing.UpdatedAtUtc = DateTime.UtcNow;
+                }
+            }
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -370,7 +527,7 @@ public class TeachersController : ControllerBase
             .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
             .FirstOrDefaultAsync(t => t.Id == teacher.Id, ct);
 
-        return Ok(refreshed);
+        return Ok(await BuildTeacherProfileConfigDtoAsync(schoolId, refreshed!, teacherView: true, ct));
     }
 
     /// <summary>Students in classes assigned to the current teacher. Teacher only. Returns empty list until admin assigns classes/subjects.</summary>
@@ -537,6 +694,115 @@ public class TeachersController : ControllerBase
         await _db.SaveChangesAsync(ct);
         return Ok(new { message = "Photo uploaded.", profilePhotoFileName = relativePath });
     }
+
+    private async Task<List<TeacherProfileFieldSetting>> EnsureTeacherProfileFieldSettingsAsync(Guid schoolId, CancellationToken ct)
+    {
+        var existing = await _db.TeacherProfileFieldSettings
+            .Where(x => x.SchoolId == schoolId)
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.DisplayName)
+            .ToListAsync(ct);
+
+        if (existing.Count == 0)
+        {
+            var now = DateTime.UtcNow;
+            existing = DefaultProfileFields.Select(x => new TeacherProfileFieldSetting
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                FieldKey = x.FieldKey,
+                DisplayName = x.DisplayName,
+                IsCustom = false,
+                IsAdminOnly = x.IsAdminOnly,
+                IsVisibleToTeacher = x.IsVisibleToTeacher,
+                IsEditableByTeacher = x.IsEditableByTeacher,
+                SortOrder = x.SortOrder,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            }).ToList();
+
+            _db.TeacherProfileFieldSettings.AddRange(existing);
+            await _db.SaveChangesAsync(ct);
+            return existing.OrderBy(x => x.SortOrder).ThenBy(x => x.DisplayName).ToList();
+        }
+
+        var missingDefaults = DefaultProfileFields
+            .Where(d => existing.All(e => e.FieldKey != d.FieldKey))
+            .ToList();
+
+        if (missingDefaults.Count > 0)
+        {
+            var now = DateTime.UtcNow;
+            var toAdd = missingDefaults.Select(x => new TeacherProfileFieldSetting
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                FieldKey = x.FieldKey,
+                DisplayName = x.DisplayName,
+                IsCustom = false,
+                IsAdminOnly = x.IsAdminOnly,
+                IsVisibleToTeacher = x.IsVisibleToTeacher,
+                IsEditableByTeacher = x.IsEditableByTeacher,
+                SortOrder = x.SortOrder,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            }).ToList();
+
+            _db.TeacherProfileFieldSettings.AddRange(toAdd);
+            await _db.SaveChangesAsync(ct);
+
+            existing.AddRange(toAdd);
+            existing = existing.OrderBy(x => x.SortOrder).ThenBy(x => x.DisplayName).ToList();
+        }
+
+        return existing;
+    }
+
+    private async Task<TeacherProfileConfigDto> BuildTeacherProfileConfigDtoAsync(Guid schoolId, Teacher teacher, bool teacherView, CancellationToken ct)
+    {
+        var settings = await EnsureTeacherProfileFieldSettingsAsync(schoolId, ct);
+        var values = await _db.TeacherCustomFieldValues
+            .AsNoTracking()
+            .Where(v => v.SchoolId == schoolId && v.TeacherId == teacher.Id)
+            .ToListAsync(ct);
+
+        var settingsDto = settings.Select(MapSettingDto).ToList();
+        var customMap = values.ToDictionary(x => x.FieldKey, x => x.Value ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+        if (teacherView)
+        {
+            settingsDto = settingsDto
+                .Where(s => s.isVisibleToTeacher || s.isCustom)
+                .ToList();
+
+            // Hide admin-only values from teacher responses.
+            if (settings.Any(s => s.FieldKey == "baseSalaryAmount" && !s.IsVisibleToTeacher))
+                teacher.BaseSalaryAmount = null;
+            if (settings.Any(s => s.FieldKey == "allowancesNote" && !s.IsVisibleToTeacher))
+                teacher.AllowancesNote = null;
+            if (settings.Any(s => s.FieldKey == "recognitions" && !s.IsVisibleToTeacher))
+                teacher.Recognitions = null;
+
+            var visibleCustomKeys = settings
+                .Where(s => s.IsCustom && s.IsVisibleToTeacher)
+                .Select(s => s.FieldKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            customMap = customMap
+                .Where(kv => visibleCustomKeys.Contains(kv.Key))
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return new TeacherProfileConfigDto(teacher, settingsDto, customMap);
+    }
+
+    private static TeacherProfileFieldSettingDto MapSettingDto(TeacherProfileFieldSetting setting)
+        => new(setting.FieldKey, setting.DisplayName, setting.IsCustom, setting.IsVisibleToTeacher, setting.IsEditableByTeacher, setting.IsAdminOnly, setting.SortOrder);
+
+    private static string NormalizeFieldKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return string.Empty;
+        return new string(key.Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch)).ToArray());
+    }
 }
 
 public record MyStudentDto(
@@ -548,3 +814,26 @@ public record MyStudentDto(
     string? AdmissionNumber,
     string? ClassName,
     string? Gender);
+
+public record TeacherProfileFieldSettingDto(
+    string fieldKey,
+    string displayName,
+    bool isCustom,
+    bool isVisibleToTeacher,
+    bool isEditableByTeacher,
+    bool isAdminOnly,
+    int sortOrder);
+
+public record UpsertTeacherProfileFieldSettingRequest(
+    string FieldKey,
+    string DisplayName,
+    bool IsCustom,
+    bool IsVisibleToTeacher,
+    bool IsEditableByTeacher,
+    bool IsAdminOnly,
+    int SortOrder);
+
+public record TeacherProfileConfigDto(
+    Teacher teacher,
+    List<TeacherProfileFieldSettingDto> fieldSettings,
+    Dictionary<string, string> customFields);

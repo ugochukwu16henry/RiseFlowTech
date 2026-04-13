@@ -19,6 +19,8 @@ export default function TeacherPage() {
   const [activeView, setActiveView] = useState('overview');
   const [showProfileDetails, setShowProfileDetails] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [fieldSettings, setFieldSettings] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState({});
   const [profileForm, setProfileForm] = useState({
     firstName: '',
     lastName: '',
@@ -49,9 +51,12 @@ export default function TeacherPage() {
       apiFetch('/api/teachers/me').then((r) => (r.ok ? r.json() : null)),
       apiFetch('/api/teachers/my-students').then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([profile, list]) => {
+      .then(([profileConfig, list]) => {
         if (cancelled) return;
+        const profile = profileConfig?.teacher || profileConfig || null;
         setMe(profile);
+        setFieldSettings(Array.isArray(profileConfig?.fieldSettings) ? profileConfig.fieldSettings : []);
+        setCustomFieldValues(profileConfig?.customFields && typeof profileConfig.customFields === 'object' ? profileConfig.customFields : {});
         const arr = Array.isArray(list) ? list : [];
         setStudents(arr);
         if (arr.length > 0 && !selectedClassId) {
@@ -91,6 +96,24 @@ export default function TeacherPage() {
     });
   }, [me]);
 
+  const settingByKey = (fieldKey) => fieldSettings.find((s) => s.fieldKey === fieldKey);
+  const isFieldVisible = (fieldKey) => {
+    const s = settingByKey(fieldKey);
+    return s ? !!s.isVisibleToTeacher : true;
+  };
+  const isFieldEditable = (fieldKey) => {
+    const s = settingByKey(fieldKey);
+    return s ? (!!s.isEditableByTeacher && !!s.isVisibleToTeacher && !s.isAdminOnly) : true;
+  };
+
+  const visibleCustomFieldSettings = fieldSettings
+    .filter((s) => s.isCustom && s.isVisibleToTeacher)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  const setCustomFieldValue = (fieldKey, value) => {
+    setCustomFieldValues((prev) => ({ ...prev, [fieldKey]: value }));
+  };
+
   const updateProfileField = (field, value) => {
     setProfileForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -118,6 +141,11 @@ export default function TeacherPage() {
         yearsOfExperience: profileForm.yearsOfExperience === '' ? null : Number(profileForm.yearsOfExperience),
         previousSchools: profileForm.previousSchools.trim() || null,
         professionalBodies: profileForm.professionalBodies.trim() || null,
+        customFields: Object.fromEntries(
+          visibleCustomFieldSettings
+            .filter((s) => isFieldEditable(s.fieldKey))
+            .map((s) => [s.fieldKey, (customFieldValues[s.fieldKey] || '').trim() || null]),
+        ),
       };
       const res = await apiFetch('/api/teachers/me', {
         method: 'PUT',
@@ -126,7 +154,9 @@ export default function TeacherPage() {
       });
       if (!res.ok) throw new Error(await res.text());
       const updated = await res.json();
-      setMe(updated);
+      setMe(updated?.teacher || updated);
+      setFieldSettings(Array.isArray(updated?.fieldSettings) ? updated.fieldSettings : fieldSettings);
+      setCustomFieldValues(updated?.customFields && typeof updated.customFields === 'object' ? updated.customFields : customFieldValues);
       // eslint-disable-next-line no-alert
       alert('Profile updated successfully. School Admin can now see your latest details.');
     } catch (err) {
@@ -282,68 +312,79 @@ export default function TeacherPage() {
                         <p className="card-desc">Your personal contact details are hidden until you click <strong>View details</strong>.</p>
                       ) : (
                         <>
-                          <p className="card-desc">Email: {me.email || '—'} • Phone: {me.phone || '—'}</p>
-                          <p className="card-desc">Highest qualification: {me.highestQualification || '—'} • Religion: {me.religion || '—'}</p>
+                          <p className="card-desc">Email: {me.email || '—'} • Phone: {isFieldVisible('phone') ? (me.phone || '—') : 'Hidden by school admin'}</p>
+                          <p className="card-desc">Highest qualification: {isFieldVisible('highestQualification') ? (me.highestQualification || '—') : 'Hidden by school admin'} • Religion: {isFieldVisible('religion') ? (me.religion || '—') : 'Hidden by school admin'}</p>
                         </>
                       )}
                     </div>
                   </div>
                   {showProfileDetails && (
                     <div className="form-grid" style={{ marginTop: '0.75rem' }}>
-                      <label className="form-field">First name
-                        <input className="form-input" value={profileForm.firstName} onChange={(e) => updateProfileField('firstName', e.target.value)} />
-                      </label>
-                      <label className="form-field">Middle name
-                        <input className="form-input" value={profileForm.middleName} onChange={(e) => updateProfileField('middleName', e.target.value)} />
-                      </label>
-                      <label className="form-field">Last name
-                        <input className="form-input" value={profileForm.lastName} onChange={(e) => updateProfileField('lastName', e.target.value)} />
-                      </label>
-                      <label className="form-field">Phone
-                        <input className="form-input" value={profileForm.phone} onChange={(e) => updateProfileField('phone', e.target.value)} />
-                      </label>
-                      <label className="form-field">WhatsApp number
-                        <input className="form-input" value={profileForm.whatsAppNumber} onChange={(e) => updateProfileField('whatsAppNumber', e.target.value)} />
-                      </label>
-                      <label className="form-field">Date of birth
-                        <input type="date" className="form-input" value={profileForm.dateOfBirth || ''} onChange={(e) => updateProfileField('dateOfBirth', e.target.value)} />
-                      </label>
-                      <label className="form-field">Gender
-                        <input className="form-input" value={profileForm.gender} onChange={(e) => updateProfileField('gender', e.target.value)} />
-                      </label>
-                      <label className="form-field">Nationality
-                        <input className="form-input" value={profileForm.nationality} onChange={(e) => updateProfileField('nationality', e.target.value)} />
-                      </label>
-                      <label className="form-field">State
-                        <input className="form-input" value={profileForm.stateOfOrigin} onChange={(e) => updateProfileField('stateOfOrigin', e.target.value)} />
-                      </label>
-                      <label className="form-field">LGA
-                        <input className="form-input" value={profileForm.lga} onChange={(e) => updateProfileField('lga', e.target.value)} />
-                      </label>
-                      <label className="form-field">Religion
-                        <input className="form-input" value={profileForm.religion} onChange={(e) => updateProfileField('religion', e.target.value)} />
-                      </label>
-                      <label className="form-field">Years of experience
-                        <input type="number" min="0" className="form-input" value={profileForm.yearsOfExperience} onChange={(e) => updateProfileField('yearsOfExperience', e.target.value)} />
-                      </label>
-                      <label className="form-field" style={{ gridColumn: '1 / -1' }}>Residential address
-                        <input className="form-input" value={profileForm.residentialAddress} onChange={(e) => updateProfileField('residentialAddress', e.target.value)} />
-                      </label>
-                      <label className="form-field">Subject specialization
-                        <input className="form-input" value={profileForm.subjectSpecialization} onChange={(e) => updateProfileField('subjectSpecialization', e.target.value)} />
-                      </label>
-                      <label className="form-field">Highest qualification
-                        <input className="form-input" value={profileForm.highestQualification} onChange={(e) => updateProfileField('highestQualification', e.target.value)} />
-                      </label>
-                      <label className="form-field">Field of study
-                        <input className="form-input" value={profileForm.fieldOfStudy} onChange={(e) => updateProfileField('fieldOfStudy', e.target.value)} />
-                      </label>
-                      <label className="form-field">Previous schools
-                        <input className="form-input" value={profileForm.previousSchools} onChange={(e) => updateProfileField('previousSchools', e.target.value)} />
-                      </label>
-                      <label className="form-field">Professional bodies
-                        <input className="form-input" value={profileForm.professionalBodies} onChange={(e) => updateProfileField('professionalBodies', e.target.value)} />
-                      </label>
+                      {isFieldVisible('firstName') && (<label className="form-field">First name
+                        <input className="form-input" value={profileForm.firstName} onChange={(e) => updateProfileField('firstName', e.target.value)} disabled={!isFieldEditable('firstName')} />
+                      </label>)}
+                      {isFieldVisible('middleName') && (<label className="form-field">Middle name
+                        <input className="form-input" value={profileForm.middleName} onChange={(e) => updateProfileField('middleName', e.target.value)} disabled={!isFieldEditable('middleName')} />
+                      </label>)}
+                      {isFieldVisible('lastName') && (<label className="form-field">Last name
+                        <input className="form-input" value={profileForm.lastName} onChange={(e) => updateProfileField('lastName', e.target.value)} disabled={!isFieldEditable('lastName')} />
+                      </label>)}
+                      {isFieldVisible('phone') && (<label className="form-field">Phone
+                        <input className="form-input" value={profileForm.phone} onChange={(e) => updateProfileField('phone', e.target.value)} disabled={!isFieldEditable('phone')} />
+                      </label>)}
+                      {isFieldVisible('whatsAppNumber') && (<label className="form-field">WhatsApp number
+                        <input className="form-input" value={profileForm.whatsAppNumber} onChange={(e) => updateProfileField('whatsAppNumber', e.target.value)} disabled={!isFieldEditable('whatsAppNumber')} />
+                      </label>)}
+                      {isFieldVisible('dateOfBirth') && (<label className="form-field">Date of birth
+                        <input type="date" className="form-input" value={profileForm.dateOfBirth || ''} onChange={(e) => updateProfileField('dateOfBirth', e.target.value)} disabled={!isFieldEditable('dateOfBirth')} />
+                      </label>)}
+                      {isFieldVisible('gender') && (<label className="form-field">Gender
+                        <input className="form-input" value={profileForm.gender} onChange={(e) => updateProfileField('gender', e.target.value)} disabled={!isFieldEditable('gender')} />
+                      </label>)}
+                      {isFieldVisible('nationality') && (<label className="form-field">Nationality
+                        <input className="form-input" value={profileForm.nationality} onChange={(e) => updateProfileField('nationality', e.target.value)} disabled={!isFieldEditable('nationality')} />
+                      </label>)}
+                      {isFieldVisible('stateOfOrigin') && (<label className="form-field">State
+                        <input className="form-input" value={profileForm.stateOfOrigin} onChange={(e) => updateProfileField('stateOfOrigin', e.target.value)} disabled={!isFieldEditable('stateOfOrigin')} />
+                      </label>)}
+                      {isFieldVisible('lga') && (<label className="form-field">LGA
+                        <input className="form-input" value={profileForm.lga} onChange={(e) => updateProfileField('lga', e.target.value)} disabled={!isFieldEditable('lga')} />
+                      </label>)}
+                      {isFieldVisible('religion') && (<label className="form-field">Religion
+                        <input className="form-input" value={profileForm.religion} onChange={(e) => updateProfileField('religion', e.target.value)} disabled={!isFieldEditable('religion')} />
+                      </label>)}
+                      {isFieldVisible('yearsOfExperience') && (<label className="form-field">Years of experience
+                        <input type="number" min="0" className="form-input" value={profileForm.yearsOfExperience} onChange={(e) => updateProfileField('yearsOfExperience', e.target.value)} disabled={!isFieldEditable('yearsOfExperience')} />
+                      </label>)}
+                      {isFieldVisible('residentialAddress') && (<label className="form-field" style={{ gridColumn: '1 / -1' }}>Residential address
+                        <input className="form-input" value={profileForm.residentialAddress} onChange={(e) => updateProfileField('residentialAddress', e.target.value)} disabled={!isFieldEditable('residentialAddress')} />
+                      </label>)}
+                      {isFieldVisible('subjectSpecialization') && (<label className="form-field">Subject specialization
+                        <input className="form-input" value={profileForm.subjectSpecialization} onChange={(e) => updateProfileField('subjectSpecialization', e.target.value)} disabled={!isFieldEditable('subjectSpecialization')} />
+                      </label>)}
+                      {isFieldVisible('highestQualification') && (<label className="form-field">Highest qualification
+                        <input className="form-input" value={profileForm.highestQualification} onChange={(e) => updateProfileField('highestQualification', e.target.value)} disabled={!isFieldEditable('highestQualification')} />
+                      </label>)}
+                      {isFieldVisible('fieldOfStudy') && (<label className="form-field">Field of study
+                        <input className="form-input" value={profileForm.fieldOfStudy} onChange={(e) => updateProfileField('fieldOfStudy', e.target.value)} disabled={!isFieldEditable('fieldOfStudy')} />
+                      </label>)}
+                      {isFieldVisible('previousSchools') && (<label className="form-field">Previous schools
+                        <input className="form-input" value={profileForm.previousSchools} onChange={(e) => updateProfileField('previousSchools', e.target.value)} disabled={!isFieldEditable('previousSchools')} />
+                      </label>)}
+                      {isFieldVisible('professionalBodies') && (<label className="form-field">Professional bodies
+                        <input className="form-input" value={profileForm.professionalBodies} onChange={(e) => updateProfileField('professionalBodies', e.target.value)} disabled={!isFieldEditable('professionalBodies')} />
+                      </label>)}
+                      {visibleCustomFieldSettings.map((setting) => (
+                        <label key={setting.fieldKey} className="form-field">
+                          {setting.displayName}
+                          <input
+                            className="form-input"
+                            value={customFieldValues[setting.fieldKey] || ''}
+                            onChange={(e) => setCustomFieldValue(setting.fieldKey, e.target.value)}
+                            disabled={!isFieldEditable(setting.fieldKey)}
+                          />
+                        </label>
+                      ))}
                     </div>
                   )}
                   <div className="form-actions" style={{ marginTop: '0.5rem' }}>

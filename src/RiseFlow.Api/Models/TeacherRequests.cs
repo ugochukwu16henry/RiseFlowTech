@@ -120,4 +120,5 @@ public record UpdateTeacherSelfRequest(
     string? FieldOfStudy,
     int? YearsOfExperience,
     string? PreviousSchools,
-    string? ProfessionalBodies);
+    string? ProfessionalBodies,
+    Dictionary<string, string?>? CustomFields);
