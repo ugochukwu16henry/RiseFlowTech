@@ -26,6 +26,13 @@ artifacts/platform-build/
 *.log
 logs
 
+# Local SQLite sidecar files
+*.db-wal
+*.db-shm
+
+# External reference repos cloned for analysis
+external/unifiedtransform/
+
 # Web
 src/RiseFlow.Web/dist
 src/RiseFlow.Web/dist-ssr
