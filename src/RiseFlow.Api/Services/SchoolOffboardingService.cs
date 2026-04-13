@@ -27,7 +27,13 @@ public sealed class SchoolOffboardingService(
             ? recipientEmail.Trim()
             : school.Email;
 
-        var notificationSent = await TrySendNotificationAsync(emailTarget, school.Name, exportInfo.ExportUrl, ct);
+        // Build absolute URL for the email notification
+        var publicBase = (configuration["App:PublicUrl"] ?? string.Empty).TrimEnd('/');
+        var absoluteExportUrl = string.IsNullOrWhiteSpace(publicBase)
+            ? exportInfo.ExportUrl
+            : $"{publicBase}{exportInfo.ExportUrl}";
+
+        var notificationSent = await TrySendNotificationAsync(emailTarget, school.Name, absoluteExportUrl, ct);
 
         await DeleteSchoolDataAsync(school.Id, ct);
 
@@ -143,7 +149,7 @@ public sealed class SchoolOffboardingService(
         ZipFile.CreateFromDirectory(tempDir, zipFile);
         Directory.Delete(tempDir, true);
 
-        return ($"{baseName}.zip", $"/exports/offboarding/{baseName}.zip");
+        return ($"{baseName}.zip", $"/api/superadmin/exports/offboarding/{baseName}.zip");
     }
 
     private async Task DeleteSchoolDataAsync(Guid schoolId, CancellationToken ct)

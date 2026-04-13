@@ -356,6 +356,30 @@ public class SuperAdminController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Download a previously generated offboarding export package.</summary>
+    [HttpGet("exports/offboarding/{filename}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult DownloadOffboardingExport(string filename)
+    {
+        // Prevent path traversal: only allow safe filenames (alphanumeric, hyphens, dots)
+        if (string.IsNullOrWhiteSpace(filename) || !System.Text.RegularExpressions.Regex.IsMatch(filename, @"^[\w\-\.]+\.zip$"))
+            return BadRequest("Invalid filename.");
+
+        var exportRoot = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "exports", "offboarding");
+        var fullPath = Path.GetFullPath(Path.Combine(exportRoot, filename));
+
+        // Ensure the resolved path is within the export directory (extra path-traversal guard)
+        if (!fullPath.StartsWith(Path.GetFullPath(exportRoot), StringComparison.OrdinalIgnoreCase))
+            return BadRequest("Invalid filename.");
+
+        if (!System.IO.File.Exists(fullPath))
+            return NotFound();
+
+        var stream = System.IO.File.OpenRead(fullPath);
+        return File(stream, "application/zip", filename);
+    }
+
     /// <summary>Audit log: who did what (e.g. grade changes). Super Admin only.</summary>
     [HttpGet("audit")]
     [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]
