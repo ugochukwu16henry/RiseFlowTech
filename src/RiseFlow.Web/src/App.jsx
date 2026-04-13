@@ -97,9 +97,10 @@ function card(id, to, title, desc, icon, className) {
 
 const DASHBOARD_BY_ROLE = {
   [ROLES.Parent]: [
+    card('fees', '/parent/fees', 'School Fees', 'View and pay school fees for your children', IconPay, 'card--pay'),
     card('results', '/parent/dashboard', 'View Results', 'See latest grades and report cards', IconResults, 'card--results'),
-    card('message', '/parent/dashboard', 'Message Teacher', 'Contact your child’s teacher', IconMessage, 'card--message'),
-    card('pay', '/parent/dashboard', 'Pay Fees', 'View and pay school fees', IconPay, 'card--pay'),
+    card('message', '/parent/dashboard', 'Message Teacher', 'Contact your child\'s teacher', IconMessage, 'card--message'),
+    card('claim', '/parent/claim', 'Claim child', 'Link your child to your account', IconUsers, 'card--pay'),
   ],
   [ROLES.Teacher]: [
     card('upload', '/teacher/grading', 'Upload Results', 'Enter grades for your classes', IconUpload, 'card--results'),
@@ -111,7 +112,8 @@ const DASHBOARD_BY_ROLE = {
   ],
   [ROLES.SchoolAdmin]: [
     card('school', '/school/dashboard', 'Manage School', 'School profile and settings', IconSchool, 'card--message'),
-    card('billing', '/school/billing', 'Billing & Fees', 'View billing and collect fees', IconPay, 'card--results'),
+    card('fees', '/school/fees', 'School Fees', 'Set fees, bank details and track payments', IconPay, 'card--results'),
+    card('billing', '/school/billing', 'Platform Billing', 'View RiseFlow subscription billing', IconPay, 'card--results'),
     card('people', '/school/students', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
     card('reports', '/school/reports', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
   ],

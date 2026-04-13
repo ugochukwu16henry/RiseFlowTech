@@ -64,6 +64,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
     public DbSet<TeacherProfileFieldSetting> TeacherProfileFieldSettings => Set<TeacherProfileFieldSetting>();
     public DbSet<TeacherCustomFieldValue> TeacherCustomFieldValues => Set<TeacherCustomFieldValue>();
+    public DbSet<SchoolBankDetails> SchoolBankDetails => Set<SchoolBankDetails>();
+    public DbSet<TermFeeSchedule> TermFeeSchedules => Set<TermFeeSchedule>();
+    public DbSet<FeePaymentRecord> FeePaymentRecords => Set<FeePaymentRecord>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -203,6 +206,47 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasIndex(x => new { x.TeacherId, x.FieldKey }).IsUnique();
             e.HasOne(x => x.School).WithMany(s => s.TeacherCustomFieldValues).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ─── School Fees ──────────────────────────────────────────────────────────
+
+        builder.Entity<SchoolBankDetails>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.BankName).IsRequired().HasMaxLength(128);
+            e.Property(x => x.AccountName).IsRequired().HasMaxLength(256);
+            e.Property(x => x.AccountNumber).IsRequired().HasMaxLength(64);
+            e.Property(x => x.BranchOrSortCode).HasMaxLength(128);
+            e.Property(x => x.PaymentInstructions).HasMaxLength(1024);
+            e.HasOne(x => x.School).WithMany(s => s.SchoolBankDetails).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TermFeeSchedule>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TermLabel).IsRequired().HasMaxLength(128);
+            e.Property(x => x.AcademicYear).IsRequired().HasMaxLength(32);
+            e.Property(x => x.Amount).HasColumnType("numeric(18,2)");
+            e.Property(x => x.Description).HasMaxLength(512);
+            e.HasIndex(x => new { x.SchoolId, x.TermLabel, x.AcademicYear, x.GradeId, x.ClassId });
+            e.HasOne(x => x.School).WithMany(s => s.TermFeeSchedules).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Grade).WithMany().HasForeignKey(x => x.GradeId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Class).WithMany().HasForeignKey(x => x.ClassId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<FeePaymentRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ReceiptFilePath).HasMaxLength(512);
+            e.Property(x => x.ReceiptFileName).HasMaxLength(256);
+            e.Property(x => x.ParentNote).HasMaxLength(1024);
+            e.Property(x => x.AdminNote).HasMaxLength(1024);
+            e.HasIndex(x => new { x.SchoolId, x.ScheduleId, x.StudentId });
+            e.HasIndex(x => new { x.SchoolId, x.Status });
+            e.HasOne(x => x.School).WithMany(s => s.FeePaymentRecords).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Schedule).WithMany(s => s.Payments).HasForeignKey(x => x.ScheduleId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
         });
 
         // Parent

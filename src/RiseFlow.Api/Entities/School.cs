@@ -54,4 +54,7 @@ public class School
     public ICollection<AssessmentCategory> AssessmentCategories { get; set; } = new List<AssessmentCategory>();
     public ICollection<TeacherProfileFieldSetting> TeacherProfileFieldSettings { get; set; } = new List<TeacherProfileFieldSetting>();
     public ICollection<TeacherCustomFieldValue> TeacherCustomFieldValues { get; set; } = new List<TeacherCustomFieldValue>();
+    public ICollection<SchoolBankDetails> SchoolBankDetails { get; set; } = new List<SchoolBankDetails>();
+    public ICollection<TermFeeSchedule> TermFeeSchedules { get; set; } = new List<TermFeeSchedule>();
+    public ICollection<FeePaymentRecord> FeePaymentRecords { get; set; } = new List<FeePaymentRecord>();
 }

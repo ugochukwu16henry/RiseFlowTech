@@ -9,6 +9,7 @@ const NAV_BY_ROLE = {
     { to: '/school/students', label: 'People' },
     { to: '/school/students/add', label: 'Add student' },
     { to: '/school/classes', label: 'Classes' },
+    { to: '/school/fees', label: 'School fees' },
     { to: '/school/grading-systems', label: 'Grading systems' },
     { to: '/school/promotions', label: 'Promotions' },
     { to: '/school/timetable', label: 'Timetable' },
@@ -39,6 +40,7 @@ const NAV_BY_ROLE = {
   ],
   parent: [
     { to: '/parent', label: 'Family', end: true },
+    { to: '/parent/fees', label: 'School fees' },
     { to: '/parent/dashboard', label: 'Dashboard' },
     { to: '/parent/claim', label: 'Claim child' },
   ],

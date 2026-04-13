@@ -37,6 +37,8 @@ import AffiliateProgramPage from './pages/AffiliateProgramPage.jsx'
 import AffiliateSignupPage from './pages/AffiliateSignupPage.jsx'
 import AffiliatePage from './pages/AffiliatePage.jsx'
 import SuperAdminAffiliatesPage from './pages/SuperAdminAffiliatesPage.jsx'
+import SchoolFeesPage from './pages/SchoolFeesPage.jsx'
+import ParentFeesPage from './pages/ParentFeesPage.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -85,6 +87,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/communications" element={<SchoolCommunicationsPage />} />
         <Route path="/school/import" element={<ExcelImportPage />} />
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
+        <Route path="/school/fees" element={<SchoolFeesPage />} />
         <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
         <Route path="/admin/students" element={<SchoolStudentsPage />} />
         <Route path="/admin/billing" element={<SchoolBillingPage />} />
@@ -96,6 +99,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/admin/access-codes" element={<AccessCodesPage />} />
         <Route path="/parent/signup" element={<ParentSignupPage />} />
         <Route path="/parent/claim" element={<ClaimChildPage />} />
+        <Route path="/parent/fees" element={<ParentFeesPage />} />
         <Route path="/student" element={<StudentPage />} />
         <Route path="/student/dashboard" element={<StudentPage />} />
         <Route path="/*" element={<App />} />
