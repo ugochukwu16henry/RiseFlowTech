@@ -83,6 +83,55 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "RiseFlow API Release Quick Verify",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj",
+				"-c",
+				"Release",
+				"--no-restore"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "RiseFlow API Quiet Verify",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/RiseFlow.Api/RiseFlow.Api.csproj",
+				"-c",
+				"Release",
+				"--no-restore",
+				"-v:q"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "RiseFlow Web Fresh Verify",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build",
+				"--prefix",
+				"src/RiseFlow.Web"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }
