@@ -73,6 +73,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/teacher" element={<TeacherPage />} />
         <Route path="/teacher/dashboard" element={<TeacherPage />} />
         <Route path="/teacher/grading" element={<TeacherPage />} />
+        <Route path="/teacher/promotions" element={<StudentPromotionPage />} />
         <Route path="/teacher/assignments" element={<TeacherAssignmentsPage />} />
         <Route path="/teacher/signup" element={<TeacherSignupPage />} />
         <Route path="/school" element={<SchoolAdminPage />} />

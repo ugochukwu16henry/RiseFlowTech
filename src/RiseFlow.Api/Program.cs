@@ -593,6 +593,31 @@ CREATE TABLE IF NOT EXISTS "StudentPromotions" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_StudentId_FromClassId_FromTermId" ON "StudentPromotions" ("SchoolId", "StudentId", "FromClassId", "FromTermId");
 CREATE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_PromotedAtUtc" ON "StudentPromotions" ("SchoolId", "PromotedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequests" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ClassPromotionRequests" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "TeacherId" TEXT NOT NULL,
+    "FromClassId" TEXT NOT NULL,
+    "ToClassId" TEXT NOT NULL,
+    "FromTermId" TEXT NULL,
+    "PromotionSessionLabel" TEXT NULL,
+    "Notes" TEXT NULL,
+    "Status" TEXT NOT NULL,
+    "RequestedAtUtc" TEXT NOT NULL,
+    "ReviewedAtUtc" TEXT NULL,
+    "ReviewedByUserId" TEXT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_SchoolId_Status_RequestedAtUtc" ON "ClassPromotionRequests" ("SchoolId", "Status", "RequestedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequestItems" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ClassPromotionRequestItems" PRIMARY KEY,
+    "SchoolId" TEXT NOT NULL,
+    "RequestId" TEXT NOT NULL,
+    "StudentId" TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_RequestId_StudentId" ON "ClassPromotionRequestItems" ("RequestId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_SchoolId_StudentId" ON "ClassPromotionRequestItems" ("SchoolId", "StudentId");
 """);
 
         await context.Database.ExecuteSqlRawAsync("""
@@ -1067,6 +1092,38 @@ ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "PromotedAtUt
 ALTER TABLE IF EXISTS "StudentPromotions" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_StudentId_FromClassId_FromTermId" ON "StudentPromotions" ("SchoolId", "StudentId", "FromClassId", "FromTermId");
 CREATE INDEX IF NOT EXISTS "IX_StudentPromotions_SchoolId_PromotedAtUtc" ON "StudentPromotions" ("SchoolId", "PromotedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequests" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "TeacherId" uuid NOT NULL,
+    "FromClassId" uuid NOT NULL,
+    "ToClassId" uuid NOT NULL,
+    "FromTermId" uuid NULL,
+    "PromotionSessionLabel" text NULL,
+    "Notes" text NULL,
+    "Status" text NOT NULL,
+    "RequestedAtUtc" timestamp with time zone NOT NULL,
+    "ReviewedAtUtc" timestamp with time zone NULL,
+    "ReviewedByUserId" uuid NULL
+);
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "FromTermId" uuid NULL;
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "PromotionSessionLabel" text NULL;
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "Status" text NOT NULL DEFAULT 'Pending';
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "RequestedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "ReviewedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "ClassPromotionRequests" ADD COLUMN IF NOT EXISTS "ReviewedByUserId" uuid NULL;
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_SchoolId_Status_RequestedAtUtc" ON "ClassPromotionRequests" ("SchoolId", "Status", "RequestedAtUtc");
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequestItems" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "SchoolId" uuid NOT NULL,
+    "RequestId" uuid NOT NULL,
+    "StudentId" uuid NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_RequestId_StudentId" ON "ClassPromotionRequestItems" ("RequestId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_SchoolId_StudentId" ON "ClassPromotionRequestItems" ("SchoolId", "StudentId");
 """);
 
     await context.Database.ExecuteSqlRawAsync("""

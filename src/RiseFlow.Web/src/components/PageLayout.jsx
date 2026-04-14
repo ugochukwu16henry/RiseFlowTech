@@ -37,6 +37,7 @@ const NAV_BY_ROLE = {
   teacher: [
     { to: '/teacher', label: 'Dashboard', end: true },
     { to: '/teacher/grading', label: 'Grading' },
+    { to: '/teacher/promotions', label: 'Promotions' },
     { to: '/teacher/assignments', label: 'Assignments' },
   ],
   parent: [

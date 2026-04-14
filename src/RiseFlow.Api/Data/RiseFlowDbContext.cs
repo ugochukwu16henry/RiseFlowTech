@@ -40,6 +40,8 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<MarkSubmissionWindow> MarkSubmissionWindows => Set<MarkSubmissionWindow>();
     public DbSet<StudentResult> StudentResults => Set<StudentResult>();
     public DbSet<StudentPromotion> StudentPromotions => Set<StudentPromotion>();
+    public DbSet<ClassPromotionRequest> ClassPromotionRequests => Set<ClassPromotionRequest>();
+    public DbSet<ClassPromotionRequestItem> ClassPromotionRequestItems => Set<ClassPromotionRequestItem>();
     public DbSet<ClassRoutine> ClassRoutines => Set<ClassRoutine>();
     public DbSet<TeacherAssignment> TeacherAssignments => Set<TeacherAssignment>();
     public DbSet<SchoolNotice> SchoolNotices => Set<SchoolNotice>();
@@ -464,6 +466,31 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.HasOne(x => x.FromClass).WithMany().HasForeignKey(x => x.FromClassId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.ToClass).WithMany().HasForeignKey(x => x.ToClassId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.FromTerm).WithMany().HasForeignKey(x => x.FromTermId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ClassPromotionRequest
+        builder.Entity<ClassPromotionRequest>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.PromotionSessionLabel).HasMaxLength(64);
+            e.Property(x => x.Notes).HasMaxLength(512);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(16);
+            e.HasIndex(x => new { x.SchoolId, x.Status, x.RequestedAtUtc });
+            e.HasOne(x => x.School).WithMany().HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Teacher).WithMany().HasForeignKey(x => x.TeacherId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.FromClass).WithMany().HasForeignKey(x => x.FromClassId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ToClass).WithMany().HasForeignKey(x => x.ToClassId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.FromTerm).WithMany().HasForeignKey(x => x.FromTermId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ClassPromotionRequestItem
+        builder.Entity<ClassPromotionRequestItem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.RequestId, x.StudentId }).IsUnique();
+            e.HasIndex(x => new { x.SchoolId, x.StudentId });
+            e.HasOne(x => x.Request).WithMany(x => x.Items).HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Student).WithMany().HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ClassRoutine
