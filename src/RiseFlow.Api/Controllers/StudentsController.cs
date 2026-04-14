@@ -1045,7 +1045,7 @@ public class StudentsController : ControllerBase
         {
             var canUploadForStudent = await IsCurrentParentLinkedToStudentAsync(student.SchoolId, student.Id, ct);
             if (!canUploadForStudent)
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden, "You can upload photos only for children linked to your parent account.");
         }
 
         if (file == null || file.Length == 0)
@@ -1219,13 +1219,17 @@ public class StudentsController : ControllerBase
 
     private async Task<bool> IsCurrentParentLinkedToStudentAsync(Guid schoolId, Guid studentId, CancellationToken ct)
     {
-        var email = User.FindFirstValue(ClaimTypes.Email) ?? _tenant.CurrentUserEmail;
+        var email = (_tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email))?.Trim();
         if (string.IsNullOrWhiteSpace(email))
             return false;
 
+        var normalizedEmail = email.ToLowerInvariant();
+
         var parentId = await _db.Parents
             .AsNoTracking()
-            .Where(p => p.SchoolId == schoolId && p.Email == email)
+            .Where(p => p.SchoolId == schoolId
+                && p.Email != null
+                && p.Email.ToLower() == normalizedEmail)
             .Select(p => (Guid?)p.Id)
             .FirstOrDefaultAsync(ct);
 
