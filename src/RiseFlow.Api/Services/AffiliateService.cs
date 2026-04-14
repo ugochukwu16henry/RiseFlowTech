@@ -595,10 +595,27 @@ public class AffiliateService
             ?? throw new InvalidOperationException("Affiliate account not found.");
 
         var storageKey = $"uploads/affiliates/{affiliate.Id:N}";
-        await using var uploadStream = file.OpenReadStream();
-        await _fileStorage.UploadAsync(storageKey, uploadStream, file.ContentType, ct);
+        byte[] bytes;
+        await using (var uploadStream = file.OpenReadStream())
+        await using (var ms = new MemoryStream())
+        {
+            await uploadStream.CopyToAsync(ms, ct);
+            bytes = ms.ToArray();
+        }
 
-        affiliate.HeadshotBytes = null;
+        try
+        {
+            await using var storageStream = new MemoryStream(bytes, writable: false);
+            await _fileStorage.UploadAsync(storageKey, storageStream, file.ContentType, ct);
+            affiliate.HeadshotBytes = null;
+        }
+        catch (Exception ex)
+        {
+            // Keep affiliate onboarding functional even when object/file storage is transiently unavailable.
+            _logger.LogWarning(ex, "Headshot upload to storage failed for affiliate {AffiliateId}. Falling back to database blob.", affiliate.Id);
+            affiliate.HeadshotBytes = bytes;
+        }
+
         affiliate.HeadshotContentType = NormalizeNullable(file.ContentType) ?? GetContentTypeFromExtension(ext);
         affiliate.HeadshotPath = $"api/affiliate-media/headshot/{affiliate.Id}";
         affiliate.UpdatedAtUtc = DateTime.UtcNow;
