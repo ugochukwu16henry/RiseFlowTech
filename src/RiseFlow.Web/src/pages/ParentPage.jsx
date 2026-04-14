@@ -18,6 +18,16 @@ function displayName(child) {
   return [child.firstName, child.middleName, child.lastName].filter(Boolean).join(' ');
 }
 
+function childPhotoUploadErrorMessage(status, bodyText) {
+  if (status === 401) return 'Session expired. Sign in again and retry the upload.';
+  if (status === 403) return 'You are not allowed to upload this child photo.';
+  if (status === 404) return 'Student record was not found for your school. Refresh and try again.';
+  if (status === 413) return 'Photo is too large. Please use a smaller image (max 5 MB).';
+  if (status >= 500) return 'Server error while uploading photo. Please retry shortly.';
+  if (bodyText && bodyText.trim()) return bodyText.trim();
+  return `Could not upload child photo (HTTP ${status}).`;
+}
+
 function mapResultsToProgress(results) {
   if (!Array.isArray(results) || results.length === 0) return [];
   const bySubject = {};
@@ -342,6 +352,13 @@ export default function ParentPage() {
     setUploadingChildPhoto(true);
     setChildPhotoUploadError(null);
 
+    if (file.size > 5 * 1024 * 1024) {
+      setChildPhotoUploadError('Photo is too large. Please choose an image up to 5 MB.');
+      setUploadingChildPhoto(false);
+      if (event?.target) event.target.value = '';
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -350,10 +367,10 @@ export default function ParentPage() {
       const text = await res.text().catch(() => '');
 
       if (!res.ok) {
-        let message = text || 'Could not upload child photo.';
+        let message = childPhotoUploadErrorMessage(res.status, text);
         try {
           const parsed = text ? JSON.parse(text) : null;
-          message = parsed?.message || parsed?.title || parsed?.error || message;
+          message = parsed?.message || parsed?.title || parsed?.error || parsed?.detail || message;
         } catch {
           // Keep text fallback when response is not JSON.
         }
@@ -364,7 +381,11 @@ export default function ParentPage() {
       const refreshedChildren = await loadChildren();
       setChildren(refreshedChildren);
     } catch (error) {
-      setChildPhotoUploadError(error?.message || 'Could not upload child photo.');
+      const raw = String(error?.message || '');
+      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(raw)
+        ? 'Could not reach the API while uploading. Check your internet connection and try again.'
+        : (raw || 'Could not upload child photo.');
+      setChildPhotoUploadError(message);
     } finally {
       setUploadingChildPhoto(false);
       if (event?.target) event.target.value = '';

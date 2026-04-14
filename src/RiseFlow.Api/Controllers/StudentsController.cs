@@ -17,6 +17,7 @@ namespace RiseFlow.Api.Controllers;
 [Authorize]
 public class StudentsController : ControllerBase
 {
+    private const long MaxStudentPhotoBytes = 5 * 1024 * 1024; // 5 MB
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IWebHostEnvironment _env;
@@ -1033,23 +1034,25 @@ public class StudentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> UploadPhoto(Guid id, IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult> UploadPhoto(Guid id, [FromForm] IFormFile? file, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
         if (student == null)
-            return NotFound();
+            return NotFound("Student not found for your school.");
 
         if (User.IsInRole(Roles.Parent))
         {
             var canUploadForStudent = await IsCurrentParentLinkedToStudentAsync(student.SchoolId, student.Id, ct);
             if (!canUploadForStudent)
-                return StatusCode(StatusCodes.Status403Forbidden, "You can upload photos only for children linked to your parent account.");
+                return Forbid();
         }
 
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+        if (file.Length > MaxStudentPhotoBytes)
+            return BadRequest("Photo is too large. Maximum allowed size is 5 MB.");
         var ext = Path.GetExtension(file.FileName);
         if (string.IsNullOrEmpty(ext)) ext = ".jpg";
         var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
@@ -1062,7 +1065,15 @@ public class StudentsController : ControllerBase
         {
             await file.CopyToAsync(ms, ct);
             ms.Position = 0;
-            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            try
+            {
+                await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload student photo for {StudentId} in school {SchoolId}.", student.Id, student.SchoolId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, "Photo storage is temporarily unavailable. Please retry.");
+            }
         }
 
         _db.FileAssets.Add(new FileAsset
@@ -1219,17 +1230,13 @@ public class StudentsController : ControllerBase
 
     private async Task<bool> IsCurrentParentLinkedToStudentAsync(Guid schoolId, Guid studentId, CancellationToken ct)
     {
-        var email = (_tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email))?.Trim();
+        var email = User.FindFirstValue(ClaimTypes.Email) ?? _tenant.CurrentUserEmail;
         if (string.IsNullOrWhiteSpace(email))
             return false;
 
-        var normalizedEmail = email.ToLowerInvariant();
-
         var parentId = await _db.Parents
             .AsNoTracking()
-            .Where(p => p.SchoolId == schoolId
-                && p.Email != null
-                && p.Email.ToLower() == normalizedEmail)
+            .Where(p => p.SchoolId == schoolId && p.Email == email)
             .Select(p => (Guid?)p.Id)
             .FirstOrDefaultAsync(ct);
 
