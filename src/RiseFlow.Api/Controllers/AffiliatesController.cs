@@ -101,6 +101,10 @@ public class AffiliatesController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "Headshot upload is temporarily unavailable. Please try again.");
+        }
     }
 
     [HttpPost("me/messages")]

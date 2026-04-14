@@ -171,11 +171,24 @@ export default function AffiliatePage() {
     setSaveState({ type: null, message: null });
     try {
       const res = await apiFetch('/api/affiliates/me/headshot', { method: 'POST', body: formData });
-      const data = await res.json().catch(() => null);
+      const raw = await res.text().catch(() => '');
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = raw;
+        }
+      }
+
       if (!res.ok) {
-        setSaveState({ type: 'error', message: data || 'Could not upload headshot.' });
+        const message = typeof data === 'string'
+          ? data
+          : (data?.message || data?.title || 'Could not upload headshot.');
+        setSaveState({ type: 'error', message });
         return;
       }
+
       setDashboard((current) => current ? { ...current, headshotPath: data?.headshotPath || current.headshotPath } : current);
       setSaveState({ type: 'success', message: 'Headshot uploaded.' });
     } catch {
