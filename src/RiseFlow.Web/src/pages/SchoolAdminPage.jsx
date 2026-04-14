@@ -433,6 +433,7 @@ export default function SchoolAdminPage() {
       if (logoPath) {
         setOnboardingSummary((current) => (current ? { ...current, logoPath } : current));
         setSchoolProfile((current) => ({ ...current, logoPath }));
+        window.dispatchEvent(new Event('riseflow:school-brand-updated'));
       }
 
       await loadData({ background: true });

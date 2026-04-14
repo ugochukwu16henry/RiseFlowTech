@@ -104,7 +104,14 @@ export default function PageLayout({
   const showSignOutButton = showSignOut ?? variant === 'app';
   const [schoolBrand, setSchoolBrand] = useState(null);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [brandReloadToken, setBrandReloadToken] = useState(0);
   const usesPlatformBrand = !role || role === 'super' || role === 'legal' || role === 'affiliate';
+
+  useEffect(() => {
+    const onBrandUpdated = () => setBrandReloadToken((n) => n + 1);
+    window.addEventListener('riseflow:school-brand-updated', onBrandUpdated);
+    return () => window.removeEventListener('riseflow:school-brand-updated', onBrandUpdated);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +136,12 @@ export default function PageLayout({
       setSchoolBrand({
         id: schoolId,
         name: data.name || data.schoolName || 'School',
-        logo: buildPublicUrl(data.logoPath || data.logoFileName),
+        logo: (() => {
+          const baseLogo = buildPublicUrl(data.logoPath || data.logoFileName);
+          if (!baseLogo) return null;
+          const sep = baseLogo.includes('?') ? '&' : '?';
+          return `${baseLogo}${sep}v=${Date.now()}`;
+        })(),
         registrationDocumentPath: data.registrationDocumentPath ? buildPublicUrl(data.registrationDocumentPath) : null,
       });
     };
@@ -166,7 +178,12 @@ export default function PageLayout({
       });
 
     return () => { cancelled = true; };
-  }, [usesPlatformBrand, variant]);
+  }, [usesPlatformBrand, variant, brandReloadToken]);
+
+  useEffect(() => {
+    // If a previous fetch failed and the logo URL changed, allow image rendering to retry.
+    setLogoFailed(false);
+  }, [schoolBrand?.logo]);
 
   const brandName = usesPlatformBrand
     ? 'RiseFlow'
