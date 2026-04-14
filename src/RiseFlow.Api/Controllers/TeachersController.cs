@@ -652,6 +652,21 @@ public class TeachersController : ControllerBase
             return File(bytes, detectedContentType);
         }
 
+        // Fallback for transient storage outages: serve the last persisted DB blob for this photo path.
+        var blob = await _db.FileAssets
+            .AsNoTracking()
+            .Where(a => a.SchoolId == teacher.SchoolId
+                && a.Category == "teacher-photo"
+                && a.RelativePath == teacher.ProfilePhotoFileName
+                && a.FileBytes != null)
+            .OrderByDescending(a => a.UploadedAtUtc)
+            .Select(a => new { a.FileBytes, a.ContentType })
+            .FirstOrDefaultAsync(ct);
+        if (blob?.FileBytes is { Length: > 0 })
+        {
+            return File(blob.FileBytes, string.IsNullOrWhiteSpace(blob.ContentType) ? "image/jpeg" : blob.ContentType);
+        }
+
         var root = _env.WebRootPath ?? _env.ContentRootPath;
         var path = Path.Combine(root, teacher.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
         if (!System.IO.File.Exists(path))
@@ -699,9 +714,11 @@ public class TeachersController : ControllerBase
         var fileName = $"{teacher.Id:N}{ext}";
         var relativePath = $"teachers/{teacher.SchoolId:N}/{fileName}";
 
+        byte[] photoBytes;
         await using (var ms = new MemoryStream())
         {
             await file.CopyToAsync(ms, ct);
+            photoBytes = ms.ToArray();
             ms.Position = 0;
             try
             {
@@ -709,8 +726,8 @@ public class TeachersController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to upload teacher photo for {TeacherId} in school {SchoolId}.", teacher.Id, teacher.SchoolId);
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, "Photo storage is temporarily unavailable. Please retry.");
+                // Keep uploads working when storage is temporarily unavailable by falling back to DB blob.
+                _logger.LogWarning(ex, "Storage upload failed for teacher photo {TeacherId} in school {SchoolId}; falling back to DB blob.", teacher.Id, teacher.SchoolId);
             }
         }
 
@@ -723,7 +740,7 @@ public class TeachersController : ControllerBase
             RelativePath = relativePath,
             ContentType = file.ContentType,
             SizeBytes = file.Length,
-            FileBytes = null,
+            FileBytes = photoBytes,
             Category = "teacher-photo",
             UploadedBy = _tenant.CurrentUserEmail,
             UploadedAtUtc = DateTime.UtcNow
