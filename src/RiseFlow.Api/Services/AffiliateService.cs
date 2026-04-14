@@ -486,19 +486,57 @@ public class AffiliateService
 
     public async Task<AffiliatePayoutSettingsDto?> UpdatePayoutSettingsAsync(Guid userId, UpdateAffiliatePayoutSettingsRequest request, CancellationToken ct = default)
     {
+        if (request == null)
+            throw new InvalidOperationException("Payout settings payload is required.");
+
         var affiliate = await GetOrCreateAffiliateAsync(userId, ct);
         if (affiliate == null)
             return null;
 
-        affiliate.BankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
-        affiliate.AccountNumber = string.IsNullOrWhiteSpace(request.AccountNumber) ? null : request.AccountNumber.Trim();
-        affiliate.AccountName = string.IsNullOrWhiteSpace(request.AccountName) ? null : request.AccountName.Trim();
-        affiliate.CountryCode = string.IsNullOrWhiteSpace(request.CountryCode) ? affiliate.CountryCode : request.CountryCode.Trim().ToUpperInvariant();
-        affiliate.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? affiliate.PhoneNumber : request.PhoneNumber.Trim();
+        var bankName = NormalizeNullable(request.BankName);
+        var accountNumber = NormalizeNullable(request.AccountNumber);
+        var accountName = NormalizeNullable(request.AccountName);
+        var countryCode = NormalizeCountryCode(request.CountryCode) ?? affiliate.CountryCode;
+        var phoneNumber = NormalizeNullable(request.PhoneNumber) ?? affiliate.PhoneNumber;
+
+        ValidateMaxLength(bankName, 128, "Bank name");
+        ValidateMaxLength(accountNumber, 64, "Account number");
+        ValidateMaxLength(accountName, 128, "Account name");
+        ValidateMaxLength(countryCode, 8, "Country");
+        ValidateMaxLength(phoneNumber, 64, "Phone number");
+
+        affiliate.BankName = bankName;
+        affiliate.AccountNumber = accountNumber;
+        affiliate.AccountName = accountName;
+        affiliate.CountryCode = countryCode;
+        affiliate.PhoneNumber = phoneNumber;
         affiliate.UpdatedAtUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         return new AffiliatePayoutSettingsDto(affiliate.BankName, affiliate.AccountNumber, affiliate.AccountName, affiliate.CountryCode, affiliate.PhoneNumber, affiliate.HeadshotPath);
+    }
+
+    private static string? NormalizeNullable(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string? NormalizeCountryCode(string? value)
+    {
+        var normalized = NormalizeNullable(value);
+        if (normalized == null)
+            return null;
+
+        if (string.Equals(normalized, "NIGERIA", StringComparison.OrdinalIgnoreCase))
+            return "NG";
+
+        return normalized.ToUpperInvariant();
+    }
+
+    private static void ValidateMaxLength(string? value, int maxLength, string label)
+    {
+        if (value != null && value.Length > maxLength)
+            throw new InvalidOperationException($"{label} is too long. Maximum {maxLength} characters.");
     }
 
     public async Task<string?> SaveHeadshotAsync(Guid userId, IFormFile file, CancellationToken ct = default)

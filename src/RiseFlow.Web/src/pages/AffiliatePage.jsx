@@ -115,18 +115,45 @@ export default function AffiliatePage() {
   const handleSettingsSave = async (event) => {
     event.preventDefault();
     setSaveState({ type: null, message: null });
+
+    const normalizedCountry = (() => {
+      const value = (settingsForm.countryCode || '').trim();
+      if (!value) return '';
+      if (value.toUpperCase() === 'NIGERIA') return 'NG';
+      return value.toUpperCase();
+    })();
+
+    const payload = {
+      ...settingsForm,
+      countryCode: normalizedCountry,
+    };
+
     try {
       const res = await apiFetch('/api/affiliates/me/payout-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settingsForm),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => null);
+      const raw = await res.text().catch(() => '');
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = raw;
+        }
+      }
+
       if (!res.ok) {
-        setSaveState({ type: 'error', message: data || 'Could not save payout settings.' });
+        const message = typeof data === 'string'
+          ? data
+          : (data?.message || data?.title || 'Could not save payout settings.');
+        setSaveState({ type: 'error', message });
         return;
       }
+
       setDashboard((current) => current ? { ...current, payoutSettings: data } : current);
+      setSettingsForm((current) => ({ ...current, countryCode: normalizedCountry || current.countryCode }));
       setSaveState({ type: 'success', message: 'Payout settings saved successfully.' });
     } catch {
       setSaveState({ type: 'error', message: 'Network error while saving payout settings.' });

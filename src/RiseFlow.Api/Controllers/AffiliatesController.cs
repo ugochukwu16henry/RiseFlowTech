@@ -71,10 +71,17 @@ public class AffiliatesController : ControllerBase
         if (!userId.HasValue)
             return Forbid();
 
-        var settings = await _affiliateService.UpdatePayoutSettingsAsync(userId.Value, request, ct);
-        if (settings == null)
-            return NotFound();
-        return Ok(settings);
+        try
+        {
+            var settings = await _affiliateService.UpdatePayoutSettingsAsync(userId.Value, request, ct);
+            if (settings == null)
+                return NotFound();
+            return Ok(settings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("me/headshot")]
