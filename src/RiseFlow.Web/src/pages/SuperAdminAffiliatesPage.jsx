@@ -37,6 +37,9 @@ export default function SuperAdminAffiliatesPage() {
   const [videos, setVideos] = useState([]);
   const [videoForm, setVideoForm] = useState(emptyVideoForm);
   const [editingVideoId, setEditingVideoId] = useState(null);
+  const [selectedAffiliateDetail, setSelectedAffiliateDetail] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [adminReplyMessage, setAdminReplyMessage] = useState('');
 
   const view = useMemo(() => {
     if (location.pathname.includes('/affiliate-requests')) return 'requests';
@@ -211,6 +214,62 @@ export default function SuperAdminAffiliatesPage() {
     }
   };
 
+  const loadAffiliateDetail = async (affiliateId) => {
+    setDetailsLoading(true);
+    setActionMessage(null);
+    try {
+      const res = await apiFetch(`/api/superadmin/affiliates/${affiliateId}`, { skipTenantHeader: true });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionMessage({ type: 'error', text: data || 'Could not load affiliate details.' });
+        return;
+      }
+      setSelectedAffiliateDetail(data);
+      setAdminReplyMessage('');
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error while loading affiliate details.' });
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleReplyToAffiliate = async (event) => {
+    event.preventDefault();
+    if (!selectedAffiliateDetail?.affiliate?.affiliateId) return;
+
+    const message = (adminReplyMessage || '').trim();
+    if (!message) {
+      setActionMessage({ type: 'error', text: 'Type a reply before sending.' });
+      return;
+    }
+
+    setActionMessage(null);
+    try {
+      const res = await apiFetch(`/api/superadmin/affiliates/${selectedAffiliateDetail.affiliate.affiliateId}/messages`, {
+        method: 'POST',
+        skipTenantHeader: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionMessage({ type: 'error', text: data || 'Could not send reply to affiliate.' });
+        return;
+      }
+
+      setSelectedAffiliateDetail((current) => {
+        if (!current) return current;
+        const notifications = [data, ...(current.notifications || [])].slice(0, 20);
+        return { ...current, notifications };
+      });
+      setAdminReplyMessage('');
+      setActionMessage({ type: 'success', text: 'Reply sent to affiliate.' });
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error while sending reply.' });
+    }
+  };
+
   const totals = affiliates.reduce((summary, affiliate) => {
     summary.pending += Number(affiliate.pendingPayoutAmount || 0);
     summary.paid += Number(affiliate.paidToDate || 0);
@@ -290,6 +349,7 @@ export default function SuperAdminAffiliatesPage() {
                     <th>Billable students</th>
                     <th>Pending payout</th>
                     <th>Status</th>
+                    <th>Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -318,6 +378,15 @@ export default function SuperAdminAffiliatesPage() {
                         <td>{affiliate.totalBillableStudents}</td>
                         <td>{formatMoney(affiliate.pendingPayoutAmount)}</td>
                         <td>{affiliate.isActive ? 'Active' : 'Inactive'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-primary-action btn-primary-action--ghost"
+                            onClick={() => loadAffiliateDetail(affiliate.affiliateId)}
+                          >
+                            View details
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -325,6 +394,111 @@ export default function SuperAdminAffiliatesPage() {
               </table>
             </div>
           )}
+
+          <section className="progress-section">
+            <div className="home-section-header">
+              <h3 className="section-title">Affiliate details</h3>
+              <p className="card-desc">Open an affiliate record to see profile, contacts, bank details, and questions.</p>
+            </div>
+
+            {detailsLoading && <p className="empty-state" aria-busy="true">Loading details…</p>}
+            {!detailsLoading && !selectedAffiliateDetail && (
+              <p className="empty-state">Select an affiliate and click "View details" to open their profile.</p>
+            )}
+
+            {!detailsLoading && selectedAffiliateDetail && (
+              <>
+                <div className="affiliate-profile-hero">
+                  <div className="affiliate-profile-identity">
+                    {buildPublicUrl(selectedAffiliateDetail?.contact?.headshotPath) ? (
+                      <img
+                        className="affiliate-headshot"
+                        src={buildPublicUrl(selectedAffiliateDetail.contact.headshotPath)}
+                        alt={selectedAffiliateDetail.contact.fullName}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="affiliate-headshot affiliate-headshot--placeholder" aria-hidden="true">
+                        {(selectedAffiliateDetail.contact.fullName || 'A').trim().charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="dashboard-label">Affiliate profile</p>
+                      <h3 className="card-title">{selectedAffiliateDetail.contact.fullName}</h3>
+                      <p className="card-desc">Code: {selectedAffiliateDetail.affiliate.uniqueCode}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="summary-cards">
+                  <div className="summary-card">
+                    <span className="summary-label">Email</span>
+                    <span className="summary-value" style={{ fontSize: '0.95rem' }}>{selectedAffiliateDetail.contact.email || '—'}</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-label">Phone number</span>
+                    <span className="summary-value" style={{ fontSize: '1rem' }}>{selectedAffiliateDetail.contact.phoneNumber || '—'}</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-label">WhatsApp number</span>
+                    <span className="summary-value" style={{ fontSize: '1rem' }}>{selectedAffiliateDetail.contact.whatsappNumber || '—'}</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-label">Bank</span>
+                    <span className="summary-value" style={{ fontSize: '1rem' }}>{selectedAffiliateDetail.payoutSettings.bankName || '—'}</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-label">Account name</span>
+                    <span className="summary-value" style={{ fontSize: '1rem' }}>{selectedAffiliateDetail.payoutSettings.accountName || '—'}</span>
+                  </div>
+                  <div className="summary-card">
+                    <span className="summary-label">Account number</span>
+                    <span className="summary-value" style={{ fontSize: '1rem' }}>{selectedAffiliateDetail.payoutSettings.accountNumber || '—'}</span>
+                  </div>
+                </div>
+
+                <section className="progress-section" style={{ marginTop: '1rem' }}>
+                  <h4 className="section-title">Latest question</h4>
+                  <p className="card-desc">{selectedAffiliateDetail.contact.latestQuestion || 'No question submitted yet.'}</p>
+                </section>
+
+                <section className="progress-section" style={{ marginTop: '1rem' }}>
+                  <h4 className="section-title">Chat thread</h4>
+                  {selectedAffiliateDetail.notifications?.length ? (
+                    <ul className="card-list">
+                      {selectedAffiliateDetail.notifications.map((item) => (
+                        <li key={item.id}>
+                          <p className="card-title">
+                            {item.type === 'QuestionToSuperAdmin' ? 'Affiliate question' : item.type === 'ReplyFromSuperAdmin' ? 'Super Admin reply' : item.title}
+                          </p>
+                          <p className="card-desc">{item.message}</p>
+                          <p className="dashboard-label">{new Date(item.createdAtUtc).toLocaleString()}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="empty-state">No chat messages yet.</p>
+                  )}
+
+                  <form className="affiliate-form-grid" onSubmit={handleReplyToAffiliate} style={{ marginTop: '1rem' }}>
+                    <label className="affiliate-form-grid__wide">
+                      <span className="dashboard-label">Reply to affiliate</span>
+                      <textarea
+                        className="form-input"
+                        rows="4"
+                        value={adminReplyMessage}
+                        onChange={(event) => setAdminReplyMessage(event.target.value)}
+                        placeholder="Type your response to this affiliate..."
+                      />
+                    </label>
+                    <div className="affiliate-form-grid__wide dashboard-actions">
+                      <button type="submit" className="btn-primary-action">Send reply</button>
+                    </div>
+                  </form>
+                </section>
+              </>
+            )}
+          </section>
 
           {requests.length > 0 && (
             <section className="progress-section">

@@ -75,6 +75,10 @@ public record UpdateAffiliatePayoutSettingsRequest(
     string? CountryCode,
     string? PhoneNumber);
 
+public record SendAffiliateQuestionRequest(string Message);
+
+public record SendSuperAdminAffiliateMessageRequest(string Message);
+
 public record AffiliateTrainingVideoDto(
     Guid Id,
     string Title,
@@ -151,7 +155,16 @@ public record AffiliateSummaryDto(
 
 public record AffiliateAdminDetailDto(
     AffiliateSummaryDto Affiliate,
+    AffiliateContactDetailsDto Contact,
     AffiliatePayoutSettingsDto PayoutSettings,
     IReadOnlyList<AffiliateSchoolSummaryDto> Schools,
     IReadOnlyList<AffiliatePayoutDto> Payouts,
     IReadOnlyList<AffiliateNotificationDto> Notifications);
+
+public record AffiliateContactDetailsDto(
+    string FullName,
+    string Email,
+    string? PhoneNumber,
+    string? WhatsappNumber,
+    string? HeadshotPath,
+    string? LatestQuestion);

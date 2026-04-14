@@ -56,6 +56,23 @@ public class SuperAdminAffiliatesController : ControllerBase
         return Ok(detail);
     }
 
+    [HttpPost("affiliates/{id:guid}/messages")]
+    [ProducesResponseType(typeof(AffiliateNotificationDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AffiliateNotificationDto>> SendMessageToAffiliate(Guid id, [FromBody] SendSuperAdminAffiliateMessageRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var message = await _affiliateService.SendMessageToAffiliateAsync(id, request.Message, ct);
+            if (message == null)
+                return NotFound();
+            return Ok(message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("affiliates/{id:guid}/schools")]
     [ProducesResponseType(typeof(IReadOnlyList<AffiliateSchoolSummaryDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AffiliateSchoolSummaryDto>>> GetAffiliateSchools(Guid id, CancellationToken ct)

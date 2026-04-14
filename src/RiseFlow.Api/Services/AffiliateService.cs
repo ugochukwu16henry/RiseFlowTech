@@ -419,9 +419,21 @@ public class AffiliateService
         var schools = await BuildSchoolSummariesAsync(affiliateId, ct);
         var payouts = await BuildPayoutHistoryAsync(affiliateId, ct);
         var notifications = await BuildNotificationsAsync(affiliateId, ct);
+        var latestQuestion = notifications
+            .Where(x => string.Equals(x.Type, "QuestionToSuperAdmin", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => x.Message)
+            .FirstOrDefault();
 
         return new AffiliateAdminDetailDto(
             summary,
+            new AffiliateContactDetailsDto(
+                affiliate.User.FullName ?? affiliate.User.Email ?? "Affiliate",
+                affiliate.User.Email ?? string.Empty,
+                affiliate.User.PhoneNumber,
+                affiliate.PhoneNumber,
+                affiliate.HeadshotPath,
+                latestQuestion),
             new AffiliatePayoutSettingsDto(affiliate.BankName, affiliate.AccountNumber, affiliate.AccountName, affiliate.CountryCode, affiliate.PhoneNumber, affiliate.HeadshotPath),
             schools,
             payouts,
@@ -770,6 +782,56 @@ public class AffiliateService
         _db.AffiliateNotifications.Add(notification);
         await _db.SaveChangesAsync(ct);
         return notification;
+    }
+
+    public async Task<AffiliateNotificationDto?> SendMessageToSuperAdminAsync(Guid userId, string message, CancellationToken ct = default)
+    {
+        var affiliate = await GetOrCreateAffiliateAsync(userId, ct);
+        if (affiliate == null)
+            return null;
+
+        var cleaned = NormalizeNullable(message) ?? throw new InvalidOperationException("Message is required.");
+        ValidateMaxLength(cleaned, 2000, "Message");
+
+        var notification = await CreateNotificationAsync(
+            affiliate.Id,
+            "Question for Super Admin",
+            cleaned,
+            "QuestionToSuperAdmin",
+            ct);
+
+        return new AffiliateNotificationDto(
+            notification.Id,
+            notification.Title,
+            notification.Message,
+            notification.Type,
+            notification.IsRead,
+            notification.CreatedAtUtc);
+    }
+
+    public async Task<AffiliateNotificationDto?> SendMessageToAffiliateAsync(Guid affiliateId, string message, CancellationToken ct = default)
+    {
+        var exists = await _db.Affiliates.AsNoTracking().AnyAsync(x => x.Id == affiliateId, ct);
+        if (!exists)
+            return null;
+
+        var cleaned = NormalizeNullable(message) ?? throw new InvalidOperationException("Message is required.");
+        ValidateMaxLength(cleaned, 2000, "Message");
+
+        var notification = await CreateNotificationAsync(
+            affiliateId,
+            "Super Admin reply",
+            cleaned,
+            "ReplyFromSuperAdmin",
+            ct);
+
+        return new AffiliateNotificationDto(
+            notification.Id,
+            notification.Title,
+            notification.Message,
+            notification.Type,
+            notification.IsRead,
+            notification.CreatedAtUtc);
     }
 
     private async Task<List<AffiliateSchoolSummaryDto>> BuildSchoolSummariesAsync(Guid affiliateId, CancellationToken ct)

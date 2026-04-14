@@ -103,6 +103,27 @@ public class AffiliatesController : ControllerBase
         }
     }
 
+    [HttpPost("me/messages")]
+    [ProducesResponseType(typeof(AffiliateNotificationDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AffiliateNotificationDto>> SendMessageToSuperAdmin([FromBody] SendAffiliateQuestionRequest request, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Forbid();
+
+        try
+        {
+            var message = await _affiliateService.SendMessageToSuperAdminAsync(userId.Value, request.Message, ct);
+            if (message == null)
+                return NotFound();
+            return Ok(message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("me/training-videos")]
     [ProducesResponseType(typeof(IReadOnlyList<AffiliateTrainingVideoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AffiliateTrainingVideoDto>>> GetTrainingVideos(CancellationToken ct)

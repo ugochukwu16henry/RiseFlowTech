@@ -25,6 +25,7 @@ export default function AffiliatePage() {
   const [error, setError] = useState(null);
   const [saveState, setSaveState] = useState({ type: null, message: null });
   const [settingsForm, setSettingsForm] = useState({ bankName: '', accountNumber: '', accountName: '', countryCode: 'NG', phoneNumber: '' });
+  const [questionMessage, setQuestionMessage] = useState('');
 
   const view = useMemo(() => {
     if (location.pathname.includes('/training')) return 'training';
@@ -182,6 +183,52 @@ export default function AffiliatePage() {
     }
   };
 
+  const handleQuestionSubmit = async (event) => {
+    event.preventDefault();
+    const message = (questionMessage || '').trim();
+    if (!message) {
+      setSaveState({ type: 'error', message: 'Please type your question before sending.' });
+      return;
+    }
+
+    setSaveState({ type: null, message: null });
+    try {
+      const res = await apiFetch('/api/affiliates/me/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+
+      const raw = await res.text().catch(() => '');
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = raw;
+        }
+      }
+
+      if (!res.ok) {
+        const messageText = typeof data === 'string'
+          ? data
+          : (data?.message || data?.title || 'Could not send your question.');
+        setSaveState({ type: 'error', message: messageText });
+        return;
+      }
+
+      setDashboard((current) => {
+        if (!current) return current;
+        const nextNotifications = [data, ...(current.notifications || [])].slice(0, 20);
+        return { ...current, notifications: nextNotifications };
+      });
+      setQuestionMessage('');
+      setSaveState({ type: 'success', message: 'Your question was sent to Super Admin.' });
+    } catch {
+      setSaveState({ type: 'error', message: 'Network error while sending your question.' });
+    }
+  };
+
   const headshotUrl = buildPublicUrl(dashboard?.headshotPath || dashboard?.payoutSettings?.headshotPath);
 
   return (
@@ -282,6 +329,25 @@ export default function AffiliatePage() {
                     </tbody>
                   </table>
                 </div>
+              </section>
+
+              <section className="progress-section">
+                <h3 className="section-title">Ask Super Admin</h3>
+                <form className="affiliate-form-grid" onSubmit={handleQuestionSubmit}>
+                  <label className="affiliate-form-grid__wide">
+                    <span className="dashboard-label">Your question</span>
+                    <textarea
+                      className="form-input"
+                      rows="4"
+                      placeholder="Type your question about payouts, referral schools, or account setup."
+                      value={questionMessage}
+                      onChange={(event) => setQuestionMessage(event.target.value)}
+                    />
+                  </label>
+                  <div className="affiliate-form-grid__wide dashboard-actions">
+                    <button type="submit" className="btn-primary-action">Send question</button>
+                  </div>
+                </form>
               </section>
 
               <section className="progress-section">
