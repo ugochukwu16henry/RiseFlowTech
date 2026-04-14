@@ -52,6 +52,28 @@ public class SchoolsController : ControllerBase
         return Ok(vm);
     }
 
+    /// <summary>Branding payload for current tenant (school name + logo + registration document URLs).</summary>
+    [HttpGet("branding")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
+    [ProducesResponseType(typeof(SchoolBrandingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolBrandingDto>> GetBranding(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        return Ok(new SchoolBrandingDto(
+            school.Id,
+            school.Name,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
+            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id)));
+    }
+
     /// <summary>Get school profile for the current SchoolAdmin tenant.</summary>
     [HttpGet("profile")]
     [Authorize(Roles = Roles.SchoolAdmin)]
@@ -404,7 +426,7 @@ public class SchoolsController : ControllerBase
 
     /// <summary>Get a school's logo file. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
     [HttpGet("{id:guid}/logo")]
-    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin}")]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLogo(Guid id, CancellationToken ct)
@@ -413,7 +435,7 @@ public class SchoolsController : ControllerBase
         if (school == null || string.IsNullOrWhiteSpace(school.LogoFileName))
             return NotFound();
 
-        if (User.IsInRole(Roles.SchoolAdmin) && !_tenant.CurrentSchoolId.HasValue || (User.IsInRole(Roles.SchoolAdmin) && _tenant.CurrentSchoolId!.Value != id))
+        if (!User.IsInRole(Roles.SuperAdmin) && (!_tenant.CurrentSchoolId.HasValue || _tenant.CurrentSchoolId.Value != id))
             return Forbid();
 
         var path = school.LogoFileName!;
@@ -514,7 +536,7 @@ public class SchoolsController : ControllerBase
 
     /// <summary>Get a school's registration/CAC document. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
     [HttpGet("{id:guid}/registration-document")]
-    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin}")]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRegistrationDocument(Guid id, CancellationToken ct)
@@ -523,7 +545,7 @@ public class SchoolsController : ControllerBase
         if (school == null || string.IsNullOrWhiteSpace(school.RegistrationDocumentPath))
             return NotFound();
 
-        if (User.IsInRole(Roles.SchoolAdmin) && !_tenant.CurrentSchoolId.HasValue || (User.IsInRole(Roles.SchoolAdmin) && _tenant.CurrentSchoolId!.Value != id))
+        if (!User.IsInRole(Roles.SuperAdmin) && (!_tenant.CurrentSchoolId.HasValue || _tenant.CurrentSchoolId.Value != id))
             return Forbid();
 
         var path = school.RegistrationDocumentPath!;
@@ -593,6 +615,9 @@ public class SchoolsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Entities.School>> GetById(Guid id, CancellationToken ct)
     {
+        if (!User.IsInRole(Roles.SuperAdmin) && (!_tenant.CurrentSchoolId.HasValue || _tenant.CurrentSchoolId.Value != id))
+            return Forbid();
+
         var school = await _onboarding.GetSchoolByIdAsync(id, ct);
         if (school == null)
             return NotFound();
@@ -661,3 +686,9 @@ public record SchoolProfileDto(
     string? LogoPath,
     string? RegistrationDocumentPath,
     DateTime? UpdatedAtUtc);
+
+public record SchoolBrandingDto(
+    Guid Id,
+    string Name,
+    string? LogoPath,
+    string? RegistrationDocumentPath);

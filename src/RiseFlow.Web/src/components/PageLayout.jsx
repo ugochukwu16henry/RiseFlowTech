@@ -115,30 +115,54 @@ export default function PageLayout({
       return undefined;
     }
 
-    let schoolId = null;
-    try {
-      schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
-    } catch {
-      schoolId = null;
-    }
+    const applyBrand = (data) => {
+      if (!data) return;
+      const schoolId = data.id || data.schoolId || null;
+      if (schoolId) {
+        try {
+          localStorage.setItem(STORAGE_TENANT_KEY, schoolId);
+        } catch {
+          // ignore
+        }
+      }
 
-    if (!schoolId) {
-      setSchoolBrand(null);
-      return undefined;
-    }
+      setSchoolBrand({
+        id: schoolId,
+        name: data.name || data.schoolName || 'School',
+        logo: buildPublicUrl(data.logoPath || data.logoFileName),
+        registrationDocumentPath: data.registrationDocumentPath ? buildPublicUrl(data.registrationDocumentPath) : null,
+      });
+    };
 
-    apiFetch(`/api/schools/${schoolId}`)
+    // Preferred source: tenant-aware branding endpoint for school/teacher/parent/student roles.
+    apiFetch('/api/schools/branding')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data) {
-          setSchoolBrand({
-            name: data.name || data.schoolName || 'School',
-            logo: buildPublicUrl(data.logoFileName),
-          });
-        }
+        if (cancelled || !data) return;
+        applyBrand(data);
       })
       .catch(() => {
-        if (!cancelled) setSchoolBrand(null);
+        // Fallback to explicit school lookup by local storage id.
+        let schoolId = null;
+        try {
+          schoolId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_TENANT_KEY) : null;
+        } catch {
+          schoolId = null;
+        }
+
+        if (!schoolId) {
+          if (!cancelled) setSchoolBrand(null);
+          return;
+        }
+
+        apiFetch(`/api/schools/${schoolId}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (!cancelled && data) applyBrand(data);
+          })
+          .catch(() => {
+            if (!cancelled) setSchoolBrand(null);
+          });
       });
 
     return () => { cancelled = true; };

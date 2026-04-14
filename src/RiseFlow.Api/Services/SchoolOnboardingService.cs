@@ -108,9 +108,13 @@ public class SchoolOnboardingService
         var cacDocumentPath = await SaveUploadedFileAsync(cacDocument, schoolId, "cac", new[] { ".pdf", ".png", ".jpg", ".jpeg", ".webp" }, ".pdf", ct);
 
         var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == result.SchoolId.Value, ct);
-        if (school != null && !string.IsNullOrWhiteSpace(logoPath))
+        if (school != null)
         {
-            school.LogoFileName = logoPath;
+            if (!string.IsNullOrWhiteSpace(logoPath))
+                school.LogoFileName = logoPath;
+            if (!string.IsNullOrWhiteSpace(cacDocumentPath))
+                school.RegistrationDocumentPath = cacDocumentPath;
+            school.UpdatedAtUtc = DateTime.UtcNow;
             await _db.SaveChangesAsync(ct);
         }
 
