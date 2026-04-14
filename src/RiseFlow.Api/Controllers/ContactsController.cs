@@ -67,6 +67,13 @@ public class ContactsController : ControllerBase
                 .Include(tcs => tcs.Subject)
                 .Where(tcs => classIds.Contains(tcs.ClassId) && tcs.Teacher.IsActive)
                 .ToListAsync(ct);
+
+            var directClassTeachers = await _db.TeacherClasses
+                .AsNoTracking()
+                .Include(tc => tc.Teacher)
+                .Where(tc => classIds.Contains(tc.ClassId) && tc.Teacher.IsActive)
+                .ToListAsync(ct);
+
             var list = tcsList
                 .Select(tcs => new TeacherContactDto(
                     tcs.TeacherId,
@@ -75,6 +82,15 @@ public class ContactsController : ControllerBase
                     tcs.Teacher.Email,
                     tcs.Teacher.Phone,
                     tcs.Teacher.WhatsAppNumber ?? tcs.Teacher.Phone))
+                .Concat(directClassTeachers.Select(tc => new TeacherContactDto(
+                    tc.TeacherId,
+                    (tc.Teacher.FirstName + " " + tc.Teacher.LastName + (tc.Teacher.MiddleName != null ? " " + tc.Teacher.MiddleName : "")).Trim(),
+                    tc.RoleInClass,
+                    tc.Teacher.Email,
+                    tc.Teacher.Phone,
+                    tc.Teacher.WhatsAppNumber ?? tc.Teacher.Phone)))
+                .GroupBy(x => new { x.TeacherId, Subject = x.Subject ?? string.Empty })
+                .Select(g => g.First())
                 .ToList();
             return Ok(list);
         }
@@ -102,12 +118,19 @@ public class ContactsController : ControllerBase
 
     private async Task<List<Guid>> GetParentLinkedStudentIdsAsync(CancellationToken ct)
     {
-        var email = _tenant.CurrentUserEmail;
+        var email = _tenant.CurrentUserEmail?.Trim();
         if (string.IsNullOrEmpty(email) || !_tenant.CurrentSchoolId.HasValue)
             return new List<Guid>();
+
+        var normalizedEmail = email.ToLowerInvariant();
+
         var parent = await _db.Parents
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == email, ct);
+            .FirstOrDefaultAsync(
+                p => p.SchoolId == _tenant.CurrentSchoolId
+                    && p.Email != null
+                    && p.Email.ToLower() == normalizedEmail,
+                ct);
         if (parent == null)
             return new List<Guid>();
         return await _db.StudentParents
