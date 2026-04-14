@@ -17,14 +17,16 @@ public class SchoolsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly SchoolDashboardService _dashboard;
+    private readonly FileStorageService _fileStorage;
     private readonly ILogger<SchoolsController> _logger;
 
-    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant, SchoolDashboardService dashboard, ILogger<SchoolsController> logger)
+    public SchoolsController(SchoolOnboardingService onboarding, RiseFlowDbContext db, ITenantContext tenant, SchoolDashboardService dashboard, FileStorageService fileStorage, ILogger<SchoolsController> logger)
     {
         _onboarding = onboarding;
         _db = db;
         _tenant = tenant;
         _dashboard = dashboard;
+        _fileStorage = fileStorage;
         _logger = logger;
     }
 
@@ -218,6 +220,64 @@ public class SchoolsController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
         return Ok(result);
+    }
+
+    /// <summary>Upload or replace current school logo. SchoolAdmin only.</summary>
+    [HttpPost("logo")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UploadLogo(IFormFile? file, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = ".png";
+
+        var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
+        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
+
+        var fileName = $"{schoolId:N}{ext}";
+        var relativePath = $"logos/{fileName}";
+
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
+
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = fileName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = "school-logo",
+            UploadedBy = _tenant.CurrentUserEmail,
+            UploadedAtUtc = DateTime.UtcNow
+        });
+
+        school.LogoFileName = relativePath;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { message = "Logo uploaded.", logoFileName = relativePath });
     }
 
     /// <summary>

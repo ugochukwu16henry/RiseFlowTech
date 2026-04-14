@@ -23,6 +23,8 @@ export default function SchoolAdminPage() {
   const [error, setError] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState(null);
   const [savingClassId, setSavingClassId] = useState(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [bulkClassId, setBulkClassId] = useState('');
@@ -35,6 +37,7 @@ export default function SchoolAdminPage() {
   const [newCustomField, setNewCustomField] = useState({ displayName: '', fieldKey: '' });
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
+  const schoolLogoInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
   const [activeView, setActiveView] = useState('overview');
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
@@ -296,6 +299,51 @@ export default function SchoolAdminPage() {
       alert('Could not upload file. Please try again.');
     } finally {
       setUploadingAsset(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const onSchoolLogoChange = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || uploadingLogo) return;
+
+    setUploadingLogo(true);
+    setLogoUploadError(null);
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await apiFetch('/api/schools/logo', { method: 'POST', body: form });
+      const text = await res.text().catch(() => '');
+
+      if (!res.ok) {
+        let message = text || 'Could not upload school logo.';
+        try {
+          const parsed = text ? JSON.parse(text) : null;
+          message = parsed?.message || parsed?.title || parsed?.error || message;
+        } catch {
+          // Keep plain-text fallback for non-JSON responses.
+        }
+        throw new Error(message);
+      }
+
+      let logoPath = null;
+      try {
+        logoPath = text ? JSON.parse(text)?.logoFileName : null;
+      } catch {
+        logoPath = null;
+      }
+
+      if (logoPath) {
+        setOnboardingSummary((current) => (current ? { ...current, logoPath } : current));
+      }
+
+      await loadData({ background: true });
+    } catch (err) {
+      setLogoUploadError(err?.message || 'Could not upload school logo.');
+    } finally {
+      setUploadingLogo(false);
       if (e.target) e.target.value = '';
     }
   };
@@ -913,6 +961,22 @@ export default function SchoolAdminPage() {
       </p>
       <input
         type="file"
+        ref={schoolLogoInputRef}
+        style={{ display: 'none' }}
+        onChange={onSchoolLogoChange}
+        accept=".jpg,.jpeg,.png,.gif,.webp"
+      />
+      <button
+        type="button"
+        className="btn-excel btn-download"
+        style={{ display: 'inline-flex', marginTop: '0.5rem', marginRight: '0.5rem' }}
+        onClick={() => schoolLogoInputRef.current?.click()}
+        disabled={uploadingLogo}
+      >
+        {uploadingLogo ? 'Updating logo…' : 'Update school logo'}
+      </button>
+      <input
+        type="file"
         ref={schoolFileInputRef}
         style={{ display: 'none' }}
         onChange={onSchoolFileChange}
@@ -927,6 +991,7 @@ export default function SchoolAdminPage() {
       >
         {uploadingAsset ? 'Uploading…' : 'Upload a file'}
       </button>
+      {logoUploadError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{logoUploadError}</p>}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
       <p className="card-desc">Import students from Excel with preview and validation. First 50 students free after you register your school.</p>

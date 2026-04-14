@@ -73,6 +73,9 @@ export default function ParentPage() {
   const [errorPortalAccess, setErrorPortalAccess] = useState(null);
   const [activeView, setActiveView] = useState('overview');
   const [showStudentDetails, setShowStudentDetails] = useState(false);
+  const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false);
+  const [childPhotoUploadError, setChildPhotoUploadError] = useState(null);
+  const [childPhotoCacheKey, setChildPhotoCacheKey] = useState('');
 
   const loadChildren = useCallback(async () => {
     const res = await apiFetch('/api/parents/my-children');
@@ -233,6 +236,7 @@ export default function ParentPage() {
 
   const selectedChild = children.find((c) => c.studentId === selectedChildId);
   const selectedPortalAccess = portalAccesses.find((item) => item.studentId === selectedChildId) || null;
+  const selectedChildUploadInputId = selectedChild ? `parent-child-photo-${selectedChild.studentId}` : 'parent-child-photo';
 
   useEffect(() => {
     if (!selectedPortalAccess) {
@@ -328,6 +332,45 @@ export default function ParentPage() {
     }
   };
 
+  const handleChildPhotoUpload = async (studentId, event) => {
+    const file = event?.target?.files?.[0];
+    if (!studentId || !file || uploadingChildPhoto) {
+      if (event?.target) event.target.value = '';
+      return;
+    }
+
+    setUploadingChildPhoto(true);
+    setChildPhotoUploadError(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await apiFetch(`/api/students/${studentId}/photo`, { method: 'POST', body: formData });
+      const text = await res.text().catch(() => '');
+
+      if (!res.ok) {
+        let message = text || 'Could not upload child photo.';
+        try {
+          const parsed = text ? JSON.parse(text) : null;
+          message = parsed?.message || parsed?.title || parsed?.error || message;
+        } catch {
+          // Keep text fallback when response is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      setChildPhotoCacheKey(String(Date.now()));
+      const refreshedChildren = await loadChildren();
+      setChildren(refreshedChildren);
+    } catch (error) {
+      setChildPhotoUploadError(error?.message || 'Could not upload child photo.');
+    } finally {
+      setUploadingChildPhoto(false);
+      if (event?.target) event.target.value = '';
+    }
+  };
+
   return (
     <PageLayout title="Family View — My children" role="parent">
       <div className="school-admin-shell">
@@ -402,7 +445,7 @@ export default function ParentPage() {
                       className={`child-avatar ${selectedChildId === child.studentId ? 'child-avatar--selected' : ''}`}
                       onClick={() => setSelectedChildId(child.studentId)}
                     >
-                      <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} />
+                      <StudentPhoto studentId={child.studentId} firstName={child.firstName} lastName={child.lastName} size={48} cacheKey={childPhotoCacheKey} />
                     </button>
                   ))}
                 </div>
@@ -426,7 +469,7 @@ export default function ParentPage() {
           {!loadingChildren && selectedChild && activeView === 'overview' && (
             <section className="family-view-card family-view-profile" aria-label="Student profile">
               <div className="family-view-profile-header">
-                <StudentPhoto studentId={selectedChild.studentId} firstName={selectedChild.firstName} lastName={selectedChild.lastName} size={56} />
+                <StudentPhoto studentId={selectedChild.studentId} firstName={selectedChild.firstName} lastName={selectedChild.lastName} size={56} cacheKey={childPhotoCacheKey} />
                 <h3 className="card-title" style={{ marginBottom: 0 }}>{displayName(selectedChild)}</h3>
               </div>
               <dl className="profile-dl">
@@ -440,6 +483,17 @@ export default function ParentPage() {
                 <dd>{selectedPortalAccess?.loginId || 'Generated once claimed'}</dd>
               </dl>
               <div className="dashboard-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                <label htmlFor={selectedChildUploadInputId} className="btn-primary-action btn-primary-action--ghost" style={{ cursor: uploadingChildPhoto ? 'not-allowed' : 'pointer', opacity: uploadingChildPhoto ? 0.7 : 1 }}>
+                  {uploadingChildPhoto ? 'Uploading photo…' : 'Upload child photo'}
+                </label>
+                <input
+                  id={selectedChildUploadInputId}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,image/*"
+                  onChange={(e) => handleChildPhotoUpload(selectedChild.studentId, e)}
+                  disabled={uploadingChildPhoto}
+                  style={{ display: 'none' }}
+                />
                 <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('access')}>
                   Open student access controls
                 </button>
@@ -447,6 +501,8 @@ export default function ParentPage() {
                   {showStudentDetails ? 'Hide details' : 'View details'}
                 </button>
               </div>
+
+              {childPhotoUploadError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{childPhotoUploadError}</p>}
 
               {showStudentDetails && (
                 <div style={{ marginTop: '1rem' }}>

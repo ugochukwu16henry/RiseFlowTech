@@ -1027,9 +1027,9 @@ public class StudentsController : ControllerBase
         return PhysicalFile(path, contentType, enableRangeProcessing: false);
     }
 
-    /// <summary>Upload passport-size profile photo for a student. SchoolAdmin only. Accepts .jpg, .jpeg, .png, .gif, .webp.</summary>
+    /// <summary>Upload passport-size profile photo for a student. SchoolAdmin or linked parent. Accepts .jpg, .jpeg, .png, .gif, .webp.</summary>
     [HttpPost("{id:guid}/photo")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Parent}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -1040,6 +1040,14 @@ public class StudentsController : ControllerBase
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
         if (student == null)
             return NotFound();
+
+        if (User.IsInRole(Roles.Parent))
+        {
+            var canUploadForStudent = await IsCurrentParentLinkedToStudentAsync(student.SchoolId, student.Id, ct);
+            if (!canUploadForStudent)
+                return Forbid();
+        }
+
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
         var ext = Path.GetExtension(file.FileName);
@@ -1183,16 +1191,50 @@ public class StudentsController : ControllerBase
 
     private async Task<bool> CanViewStudentAsync(Guid studentId, CancellationToken ct)
     {
-        if (_tenant.CurrentSchoolId.HasValue)
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return false;
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var inSchool = await _db.Students.AnyAsync(s => s.Id == studentId && s.SchoolId == schoolId, ct);
+        if (!inSchool)
+            return false;
+
+        if (User.IsInRole(Roles.SchoolAdmin))
+            return true;
+
+        if (User.IsInRole(Roles.Teacher))
+            return await CanTeacherAccessStudentAsync(schoolId, studentId, ct);
+
+        if (User.IsInRole(Roles.Parent))
+            return await IsCurrentParentLinkedToStudentAsync(schoolId, studentId, ct);
+
+        if (User.IsInRole(Roles.Student))
         {
-            var inSchool = await _db.Students.AnyAsync(s => s.Id == studentId && s.SchoolId == _tenant.CurrentSchoolId.Value, ct);
-            if (inSchool) return true;
+            var portalAccess = await GetCurrentStudentPortalAccessAsync(ct);
+            return portalAccess != null && portalAccess.StudentId == studentId;
         }
+
+        return false;
+    }
+
+    private async Task<bool> IsCurrentParentLinkedToStudentAsync(Guid schoolId, Guid studentId, CancellationToken ct)
+    {
         var email = User.FindFirstValue(ClaimTypes.Email) ?? _tenant.CurrentUserEmail;
-        if (string.IsNullOrEmpty(email) || !_tenant.CurrentSchoolId.HasValue) return false;
-        var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == _tenant.CurrentSchoolId && p.Email == email, ct);
-        if (parent == null) return false;
-        return await _db.StudentParents.AnyAsync(sp => sp.StudentId == studentId && sp.ParentId == parent.Id, ct);
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        var parentId = await _db.Parents
+            .AsNoTracking()
+            .Where(p => p.SchoolId == schoolId && p.Email == email)
+            .Select(p => (Guid?)p.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (!parentId.HasValue)
+            return false;
+
+        return await _db.StudentParents
+            .AsNoTracking()
+            .AnyAsync(sp => sp.StudentId == studentId && sp.ParentId == parentId.Value, ct);
     }
 
     private async Task<Guid?> GetCurrentTeacherIdAsync(Guid schoolId, CancellationToken ct)
