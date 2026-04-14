@@ -54,7 +54,12 @@ export default function StudentPromotionPage() {
     loadData();
   }, []);
 
-  const classStudents = students.filter((s) => s.classId === form.fromClassId);
+  const getStudentClassId = (student) => {
+    if (!student || typeof student !== 'object') return null;
+    return student.class?.id || student.classId || student.ClassId || null;
+  };
+
+  const classStudents = students.filter((s) => getStudentClassId(s) === form.fromClassId);
 
   useEffect(() => {
     setForm((prev) => ({
@@ -62,7 +67,7 @@ export default function StudentPromotionPage() {
       studentIds: prev.studentIds.filter((id) => classStudents.some((s) => s.id === id)),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.fromClassId, students.length]);
+  }, [form.fromClassId, students]);
 
   const toggleStudent = (id) => {
     setForm((prev) => {
