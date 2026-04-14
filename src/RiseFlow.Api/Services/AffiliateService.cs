@@ -721,7 +721,7 @@ public class AffiliateService
         AffiliateTrainingVideo entity;
         if (id.HasValue)
         {
-            entity = await _db.AffiliateTrainingVideos.FirstOrDefaultAsync(x => x.Id == id.Value, ct)
+            entity = await FindTrainingVideoByIdAsync(id.Value, ct)
                 ?? throw new InvalidOperationException("Training video not found.");
         }
         else
@@ -800,9 +800,7 @@ public class AffiliateService
         if (affiliate == null)
             return null;
 
-        var videoExists = await _db.AffiliateTrainingVideos
-            .AsNoTracking()
-            .AnyAsync(x => x.Id == trainingVideoId && x.IsPublished, ct);
+        var videoExists = await TrainingVideoExistsAsync(trainingVideoId, requirePublished: true, ct);
         if (!videoExists)
             throw new InvalidOperationException("Training video not found.");
 
@@ -842,13 +840,50 @@ public class AffiliateService
 
     public async Task<bool> DeleteTrainingVideoAsync(Guid id, CancellationToken ct = default)
     {
-        var entity = await _db.AffiliateTrainingVideos.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await FindTrainingVideoByIdAsync(id, ct);
         if (entity == null)
             return false;
 
         _db.AffiliateTrainingVideos.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    private async Task<AffiliateTrainingVideo?> FindTrainingVideoByIdAsync(Guid id, CancellationToken ct)
+    {
+        var direct = await _db.AffiliateTrainingVideos.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (direct != null)
+            return direct;
+
+        // SQLite can contain mixed-case legacy Guid text values that do not match case-sensitive equality.
+        // Fallback to in-memory Guid comparison so existing rows remain editable/deletable.
+        if (_db.Database.IsSqlite())
+        {
+            var all = await _db.AffiliateTrainingVideos.ToListAsync(ct);
+            return all.FirstOrDefault(x => x.Id == id);
+        }
+
+        return null;
+    }
+
+    private async Task<bool> TrainingVideoExistsAsync(Guid id, bool requirePublished, CancellationToken ct)
+    {
+        var query = _db.AffiliateTrainingVideos.AsNoTracking().Where(x => x.Id == id);
+        if (requirePublished)
+            query = query.Where(x => x.IsPublished);
+
+        if (await query.AnyAsync(ct))
+            return true;
+
+        if (_db.Database.IsSqlite())
+        {
+            var all = await _db.AffiliateTrainingVideos
+                .AsNoTracking()
+                .ToListAsync(ct);
+            return all.Any(x => x.Id == id && (!requirePublished || x.IsPublished));
+        }
+
+        return false;
     }
 
     public async Task<List<AffiliatePayoutDto>> GetPayoutsForSuperAdminAsync(CancellationToken ct = default)
