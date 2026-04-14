@@ -13,6 +13,8 @@ namespace RiseFlow.Api.Controllers;
 [Route("api/[controller]")]
 public class SchoolsController : ControllerBase
 {
+    private const long MaxSchoolLogoBytes = 5 * 1024 * 1024; // 5 MB
+    private const long MaxRegistrationDocumentBytes = 10 * 1024 * 1024; // 10 MB
     private readonly SchoolOnboardingService _onboarding;
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
@@ -327,7 +329,7 @@ public class SchoolsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> UploadLogo(IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult> UploadLogo([FromForm] IFormFile? file, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -339,6 +341,8 @@ public class SchoolsController : ControllerBase
 
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+        if (file.Length > MaxSchoolLogoBytes)
+            return BadRequest("School logo is too large. Maximum allowed size is 5 MB.");
 
         var ext = Path.GetExtension(file.FileName);
         if (string.IsNullOrWhiteSpace(ext))
@@ -351,11 +355,21 @@ public class SchoolsController : ControllerBase
         var fileName = $"{schoolId:N}{ext}";
         var relativePath = $"logos/{fileName}";
 
+        byte[] fileBytes;
         await using (var ms = new MemoryStream())
         {
             await file.CopyToAsync(ms, ct);
+            fileBytes = ms.ToArray();
             ms.Position = 0;
-            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            try
+            {
+                await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            }
+            catch (Exception ex)
+            {
+                // Keep school setup unblocked during transient storage outages.
+                _logger.LogWarning(ex, "Storage upload failed for school logo {SchoolId}; falling back to DB blob.", schoolId);
+            }
         }
 
         _db.FileAssets.Add(new FileAsset
@@ -367,7 +381,7 @@ public class SchoolsController : ControllerBase
             RelativePath = relativePath,
             ContentType = file.ContentType,
             SizeBytes = file.Length,
-            FileBytes = null,
+            FileBytes = fileBytes,
             Category = "school-logo",
             UploadedBy = _tenant.CurrentUserEmail,
             UploadedAtUtc = DateTime.UtcNow
@@ -385,7 +399,7 @@ public class SchoolsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> UploadRegistrationDocument(IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult> UploadRegistrationDocument([FromForm] IFormFile? file, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
@@ -397,6 +411,8 @@ public class SchoolsController : ControllerBase
 
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+        if (file.Length > MaxRegistrationDocumentBytes)
+            return BadRequest("Registration document is too large. Maximum allowed size is 10 MB.");
 
         var ext = Path.GetExtension(file.FileName);
         if (string.IsNullOrWhiteSpace(ext))
@@ -409,11 +425,21 @@ public class SchoolsController : ControllerBase
         var fileName = $"{schoolId:N}{ext}";
         var relativePath = $"cac/{fileName}";
 
+        byte[] fileBytes;
         await using (var ms = new MemoryStream())
         {
             await file.CopyToAsync(ms, ct);
+            fileBytes = ms.ToArray();
             ms.Position = 0;
-            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            try
+            {
+                await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            }
+            catch (Exception ex)
+            {
+                // Keep school setup unblocked during transient storage outages.
+                _logger.LogWarning(ex, "Storage upload failed for school registration document {SchoolId}; falling back to DB blob.", schoolId);
+            }
         }
 
         _db.FileAssets.Add(new FileAsset
@@ -425,7 +451,7 @@ public class SchoolsController : ControllerBase
             RelativePath = relativePath,
             ContentType = file.ContentType,
             SizeBytes = file.Length,
-            FileBytes = null,
+            FileBytes = fileBytes,
             Category = "school-registration-document",
             UploadedBy = _tenant.CurrentUserEmail,
             UploadedAtUtc = DateTime.UtcNow
