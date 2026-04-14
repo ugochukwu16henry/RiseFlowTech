@@ -412,6 +412,21 @@ export default function SuperAdminAffiliatesPage() {
               <p className="card-desc">Open an affiliate record to see profile, contacts, bank details, and questions.</p>
             </div>
 
+            {selectedAffiliateDetail && !detailsLoading && (
+              <div className="dashboard-actions" style={{ marginBottom: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn-primary-action btn-primary-action--ghost"
+                  onClick={() => {
+                    setSelectedAffiliateDetail(null);
+                    setAdminReplyMessage('');
+                  }}
+                >
+                  Close details
+                </button>
+              </div>
+            )}
+
             {detailsLoading && <p className="empty-state" aria-busy="true">Loading details…</p>}
             {!detailsLoading && !selectedAffiliateDetail && (
               <p className="empty-state">Select an affiliate and click "View details" to open their profile.</p>
