@@ -35,6 +35,7 @@ export default function SuperAdminAffiliatesPage() {
   const [requests, setRequests] = useState([]);
   const [payouts, setPayouts] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [trainingFilter, setTrainingFilter] = useState('all');
   const [videoForm, setVideoForm] = useState(emptyVideoForm);
   const [editingVideoId, setEditingVideoId] = useState(null);
   const [selectedAffiliateDetail, setSelectedAffiliateDetail] = useState(null);
@@ -213,6 +214,53 @@ export default function SuperAdminAffiliatesPage() {
       setActionMessage({ type: 'error', text: 'Network error while deleting the training video.' });
     }
   };
+
+  const handleToggleVideoPublish = async (video) => {
+    if (!video?.id) return;
+
+    setActionMessage(null);
+    try {
+      const res = await apiFetch(`/api/superadmin/affiliate-training-videos/${video.id}`, {
+        method: 'PUT',
+        skipTenantHeader: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: video.title,
+          topic: video.topic || '',
+          description: video.description || '',
+          youtubeUrl: video.youtubeUrl,
+          isPublished: !video.isPublished,
+          sortOrder: Number(video.sortOrder || 0),
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionMessage({ type: 'error', text: data || 'Could not update publish status.' });
+        return;
+      }
+
+      setActionMessage({
+        type: 'success',
+        text: data?.isPublished ? 'Video published for affiliates.' : 'Video moved to draft.',
+      });
+      await loadVideos();
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error while updating publish status.' });
+    }
+  };
+
+  const trainingCounts = useMemo(() => {
+    const published = videos.filter((video) => video.isPublished).length;
+    const drafts = videos.length - published;
+    return { total: videos.length, published, drafts };
+  }, [videos]);
+
+  const filteredVideos = useMemo(() => {
+    if (trainingFilter === 'published') return videos.filter((video) => video.isPublished);
+    if (trainingFilter === 'drafts') return videos.filter((video) => !video.isPublished);
+    return videos;
+  }, [videos, trainingFilter]);
 
   const loadAffiliateDetail = async (affiliateId) => {
     setDetailsLoading(true);
@@ -679,19 +727,60 @@ export default function SuperAdminAffiliatesPage() {
             </form>
           </section>
 
+          <section className="progress-section">
+            <div className="dashboard-actions" style={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <div className="dashboard-actions" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={trainingFilter === 'all' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}
+                  onClick={() => setTrainingFilter('all')}
+                >
+                  All ({trainingCounts.total})
+                </button>
+                <button
+                  type="button"
+                  className={trainingFilter === 'published' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}
+                  onClick={() => setTrainingFilter('published')}
+                >
+                  Published ({trainingCounts.published})
+                </button>
+                <button
+                  type="button"
+                  className={trainingFilter === 'drafts' ? 'btn-primary-action' : 'btn-primary-action btn-primary-action--ghost'}
+                  onClick={() => setTrainingFilter('drafts')}
+                >
+                  Drafts ({trainingCounts.drafts})
+                </button>
+              </div>
+            </div>
+          </section>
+
           <div className="affiliate-video-grid">
-            {videos.map((video) => (
+            {filteredVideos.map((video) => (
               <article key={video.id} className="affiliate-video-card">
                 <iframe className="affiliate-video-frame" src={video.youtubeUrl} title={video.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
                 <h4 className="card-title">{video.title}</h4>
                 <p className="card-desc">{video.topic || 'Training'} • {video.description || 'No description yet.'}</p>
+                <p className={video.isPublished ? 'affiliate-status-badge affiliate-status-badge--published' : 'affiliate-status-badge affiliate-status-badge--draft'}>
+                  {video.isPublished ? 'Published' : 'Draft'}
+                </p>
                 <div className="dashboard-actions">
                   <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => handleEditVideo(video)}>Edit</button>
+                  <button
+                    type="button"
+                    className="btn-primary-action btn-primary-action--ghost"
+                    onClick={() => handleToggleVideoPublish(video)}
+                  >
+                    {video.isPublished ? 'Unpublish' : 'Publish'}
+                  </button>
                   <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => handleDeleteVideo(video.id)}>Delete</button>
                 </div>
               </article>
             ))}
           </div>
+          {filteredVideos.length === 0 && (
+            <p className="empty-state">No videos match this filter yet.</p>
+          )}
         </div>
       )}
     </PageLayout>
