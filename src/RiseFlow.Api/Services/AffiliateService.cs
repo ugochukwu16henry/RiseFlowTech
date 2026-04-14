@@ -368,6 +368,29 @@ public class AffiliateService
                 .Select(g => new { AffiliateId = g.Key, Total = g.Sum(x => x.Amount) })
                 .ToDictionaryAsync(x => x.AffiliateId, x => x.Total, ct);
 
+            var latestSuperAdminReplies = await _db.AffiliateNotifications
+                .AsNoTracking()
+                .Where(x => x.Type == "ReplyFromSuperAdmin")
+                .GroupBy(x => x.AffiliateId)
+                .Select(g => new { AffiliateId = g.Key, LatestReplyAtUtc = g.Max(x => x.CreatedAtUtc) })
+                .ToDictionaryAsync(x => x.AffiliateId, x => (DateTime?)x.LatestReplyAtUtc, ct);
+
+            var questionEvents = await _db.AffiliateNotifications
+                .AsNoTracking()
+                .Where(x => x.Type == "QuestionToSuperAdmin")
+                .Select(x => new { x.AffiliateId, x.CreatedAtUtc })
+                .ToListAsync(ct);
+
+            var unansweredQuestionCounts = questionEvents
+                .GroupBy(x => x.AffiliateId)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        latestSuperAdminReplies.TryGetValue(g.Key, out var latestReplyAtUtc);
+                        return g.Count(x => !latestReplyAtUtc.HasValue || x.CreatedAtUtc > latestReplyAtUtc.Value);
+                    });
+
             return affiliates.Select(x => new AffiliateSummaryDto(
                 x.Id,
                 x.User.FullName ?? x.User.Email ?? "Affiliate",
@@ -381,7 +404,9 @@ public class AffiliateService
                 billableStudents.GetValueOrDefault(x.Id, 0),
                 pendingTotals.GetValueOrDefault(x.Id, 0m),
                 paidTotals.GetValueOrDefault(x.Id, 0m),
-                x.ApprovedAtUtc)).ToList();
+                x.ApprovedAtUtc,
+                unansweredQuestionCounts.GetValueOrDefault(x.Id, 0),
+                unansweredQuestionCounts.GetValueOrDefault(x.Id, 0) > 0)).ToList();
         }
         catch (Exception ex)
         {
@@ -415,7 +440,9 @@ public class AffiliateService
                 0,
                 0m,
                 0m,
-                affiliate.ApprovedAtUtc);
+                affiliate.ApprovedAtUtc,
+                0,
+                false);
         var schools = await BuildSchoolSummariesAsync(affiliateId, ct);
         var payouts = await BuildPayoutHistoryAsync(affiliateId, ct);
         var notifications = await BuildNotificationsAsync(affiliateId, ct);

@@ -274,8 +274,10 @@ export default function SuperAdminAffiliatesPage() {
     summary.pending += Number(affiliate.pendingPayoutAmount || 0);
     summary.paid += Number(affiliate.paidToDate || 0);
     summary.schools += Number(affiliate.referredSchoolCount || 0);
+    summary.unanswered += Number(affiliate.unreadQuestionCount || 0);
+    if (affiliate.hasUnansweredQuestion) summary.affiliatesWithUnread += 1;
     return summary;
-  }, { pending: 0, paid: 0, schools: 0 });
+  }, { pending: 0, paid: 0, schools: 0, unanswered: 0, affiliatesWithUnread: 0 });
 
   return (
     <PageLayout title="Super Admin — Affiliate Program" role="super">
@@ -330,6 +332,10 @@ export default function SuperAdminAffiliatesPage() {
               <span className="summary-value">{formatMoney(totals.paid)}</span>
               <span className="summary-label">Paid to date</span>
             </div>
+            <div className="summary-card">
+              <span className="summary-value">{totals.affiliatesWithUnread}</span>
+              <span className="summary-label">Affiliates with unread questions</span>
+            </div>
           </div>
 
           {affiliates.length === 0 ? (
@@ -368,6 +374,11 @@ export default function SuperAdminAffiliatesPage() {
                             )}
                             <div>
                               <strong>{affiliate.fullName}</strong>
+                              {affiliate.hasUnansweredQuestion && (
+                                <span className="affiliate-unread-badge">
+                                  {affiliate.unreadQuestionCount} new question{affiliate.unreadQuestionCount > 1 ? 's' : ''}
+                                </span>
+                              )}
                               <span className="sa-school-secondary">{affiliate.email}</span>
                             </div>
                           </div>

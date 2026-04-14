@@ -151,7 +151,9 @@ public record AffiliateSummaryDto(
     int TotalBillableStudents,
     decimal PendingPayoutAmount,
     decimal PaidToDate,
-    DateTime? ApprovedAtUtc);
+    DateTime? ApprovedAtUtc,
+    int UnreadQuestionCount,
+    bool HasUnansweredQuestion);
 
 public record AffiliateAdminDetailDto(
     AffiliateSummaryDto Affiliate,
