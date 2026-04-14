@@ -264,15 +264,37 @@ export default function TeacherPage() {
   const handlePhotoChange = async (e) => {
     const file = e.target?.files?.[0];
     if (!file || !me?.id) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      // eslint-disable-next-line no-alert
+      alert('Photo is too large. Please choose an image up to 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
     setUploadingPhoto(true);
     const form = new FormData();
     form.append('file', file);
     try {
       const res = await apiFetch(`/api/teachers/${me.id}/photo`, { method: 'POST', body: form });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        const message =
+          res.status === 401 ? 'Session expired. Sign in again and retry.' :
+          res.status === 403 ? 'You are not allowed to upload this teacher photo.' :
+          res.status === 404 ? 'Teacher profile not found. Refresh and try again.' :
+          res.status === 413 ? 'Photo is too large. Please use an image up to 5 MB.' :
+          res.status >= 500 ? 'Photo storage is temporarily unavailable. Please retry.' :
+          (text || 'Could not upload photo.');
+        throw new Error(message);
+      }
     } catch (err) {
       // eslint-disable-next-line no-alert
-      alert(err.message || 'Could not upload photo.');
+      const raw = String(err?.message || '');
+      const message = /blocked or unreachable|failed to fetch|networkerror/i.test(raw)
+        ? 'Could not reach the API while uploading photo. Check your connection and try again.'
+        : (raw || 'Could not upload photo.');
+      alert(message);
     } finally {
       setUploadingPhoto(false);
       e.target.value = '';

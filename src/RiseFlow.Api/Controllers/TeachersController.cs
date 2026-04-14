@@ -15,6 +15,7 @@ namespace RiseFlow.Api.Controllers;
 [Authorize]
 public class TeachersController : ControllerBase
 {
+    private const long MaxTeacherPhotoBytes = 5 * 1024 * 1024; // 5 MB
     private static readonly IReadOnlyList<(string FieldKey, string DisplayName, bool IsAdminOnly, bool IsVisibleToTeacher, bool IsEditableByTeacher, int SortOrder)> DefaultProfileFields =
     [
         ("firstName", "First Name", false, true, true, 10),
@@ -668,11 +669,11 @@ public class TeachersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult> UploadPhoto(Guid id, IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult> UploadPhoto(Guid id, [FromForm] IFormFile? file, CancellationToken ct)
     {
         var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (teacher == null)
-            return NotFound();
+            return NotFound("Teacher not found.");
         if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
 
@@ -686,6 +687,8 @@ public class TeachersController : ControllerBase
 
         if (file == null || file.Length == 0)
             return BadRequest("No file uploaded.");
+        if (file.Length > MaxTeacherPhotoBytes)
+            return BadRequest("Photo is too large. Maximum allowed size is 5 MB.");
 
         var ext = Path.GetExtension(file.FileName);
         if (string.IsNullOrEmpty(ext)) ext = ".jpg";
@@ -700,7 +703,15 @@ public class TeachersController : ControllerBase
         {
             await file.CopyToAsync(ms, ct);
             ms.Position = 0;
-            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            try
+            {
+                await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload teacher photo for {TeacherId} in school {SchoolId}.", teacher.Id, teacher.SchoolId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, "Photo storage is temporarily unavailable. Please retry.");
+            }
         }
 
         _db.FileAssets.Add(new FileAsset
