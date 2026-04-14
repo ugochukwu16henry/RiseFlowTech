@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,14 +14,14 @@ public class SchoolOnboardingService
 {
     private readonly RiseFlowDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
     private readonly AffiliateService _affiliateService;
 
-    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, AffiliateService affiliateService)
+    public SchoolOnboardingService(RiseFlowDbContext db, UserManager<ApplicationUser> userManager, FileStorageService fileStorage, AffiliateService affiliateService)
     {
         _db = db;
         _userManager = userManager;
-        _env = env;
+        _fileStorage = fileStorage;
         _affiliateService = affiliateService;
     }
 
@@ -133,17 +132,33 @@ public class SchoolOnboardingService
         if (!allowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return null;
 
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var dir = Path.Combine(root, folderName);
-        Directory.CreateDirectory(dir);
-
         var fileName = $"{schoolId:N}{ext}";
-        var fullPath = Path.Combine(dir, fileName);
+        var relativePath = $"{folderName}/{fileName}";
 
-        await using var stream = File.Create(fullPath);
-        await file.CopyToAsync(stream, ct);
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
 
-        return $"{folderName}/{fileName}";
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = fileName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = folderName,
+            UploadedBy = null,
+            UploadedAtUtc = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync(ct);
+
+        return relativePath;
     }
 
     public async Task<School?> GetSchoolByIdAsync(Guid schoolId, CancellationToken ct = default)

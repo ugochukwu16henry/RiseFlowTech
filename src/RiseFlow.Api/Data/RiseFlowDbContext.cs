@@ -558,6 +558,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.AccountNumber).HasMaxLength(64);
             e.Property(x => x.AccountName).HasMaxLength(128);
             e.Property(x => x.PaystackRecipientCode).HasMaxLength(128);
+            e.Property(x => x.HeadshotContentType).HasMaxLength(128);
             e.HasIndex(x => x.UniqueCode).IsUnique();
             e.HasIndex(x => x.UserId).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);

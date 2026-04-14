@@ -20,17 +20,19 @@ public class StudentsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IWebHostEnvironment _env;
+    private readonly FileStorageService _fileStorage;
     private readonly StudentBulkUploadService _bulkUpload;
     private readonly ExcelService _excelService;
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
     private readonly BillingService _billing;
     private readonly ILogger<StudentsController> _logger;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, ILogger<StudentsController> logger)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, FileStorageService fileStorage, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, ILogger<StudentsController> logger)
     {
         _db = db;
         _tenant = tenant;
         _env = env;
+        _fileStorage = fileStorage;
         _bulkUpload = bulkUpload;
         _excelService = excelService;
         _parentLetterPdf = parentLetterPdf;
@@ -1003,6 +1005,17 @@ public class StudentsController : ControllerBase
             return NotFound();
         if (!await CanViewStudentAsync(id, ct))
             return Forbid();
+
+        var bytes = await _fileStorage.TryReadBytesAsync(student.ProfilePhotoFileName, ct);
+        if (bytes != null && bytes.Length > 0)
+        {
+            var type = student.ProfilePhotoFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
+                : student.ProfilePhotoFileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "image/gif"
+                : student.ProfilePhotoFileName.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+                : "image/jpeg";
+            return File(bytes, type);
+        }
+
         var root = _env.WebRootPath ?? _env.ContentRootPath;
         var path = Path.Combine(root, student.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
         if (!System.IO.File.Exists(path))
@@ -1034,14 +1047,31 @@ public class StudentsController : ControllerBase
         var allowed = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp" };
         if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var studentsDir = Path.Combine(root, "students", student.SchoolId.ToString("N"));
-        Directory.CreateDirectory(studentsDir);
         var fileName = $"{student.Id:N}{ext}";
         var relativePath = $"students/{student.SchoolId:N}/{fileName}";
-        var fullPath = Path.Combine(studentsDir, fileName);
-        await using (var stream = System.IO.File.Create(fullPath))
-            await file.CopyToAsync(stream, ct);
+
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
+
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = student.SchoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = fileName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = "student-photo",
+            UploadedBy = _tenant.CurrentUserEmail,
+            UploadedAtUtc = DateTime.UtcNow
+        });
+
         student.ProfilePhotoFileName = relativePath;
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);

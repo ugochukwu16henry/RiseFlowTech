@@ -349,12 +349,24 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
         if (!studentResultColumns.Contains("ExamId"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"StudentResults\" ADD COLUMN \"ExamId\" TEXT NULL;");
 
+        var affiliateColumns = await GetColumnsAsync("Affiliates");
+        if (!affiliateColumns.Contains("HeadshotBytes"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Affiliates\" ADD COLUMN \"HeadshotBytes\" BLOB NULL;");
+        if (!affiliateColumns.Contains("HeadshotContentType"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Affiliates\" ADD COLUMN \"HeadshotContentType\" TEXT NULL;");
+
+        var fileAssetColumns = await GetColumnsAsync("FileAssets");
+        if (!fileAssetColumns.Contains("FileBytes"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"FileAssets\" ADD COLUMN \"FileBytes\" BLOB NULL;");
+
         await context.Database.ExecuteSqlRawAsync("""
 CREATE TABLE IF NOT EXISTS "Affiliates" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Affiliates" PRIMARY KEY,
     "UserId" TEXT NOT NULL,
     "UniqueCode" TEXT NOT NULL,
     "HeadshotPath" TEXT NULL,
+    "HeadshotBytes" BLOB NULL,
+    "HeadshotContentType" TEXT NULL,
     "PhoneNumber" TEXT NULL,
     "CountryCode" TEXT NULL,
     "BankName" TEXT NULL,
@@ -681,6 +693,8 @@ CREATE TABLE IF NOT EXISTS "Affiliates" (
     "UserId" uuid NOT NULL,
     "UniqueCode" text NOT NULL,
     "HeadshotPath" text NULL,
+    "HeadshotBytes" bytea NULL,
+    "HeadshotContentType" text NULL,
     "PhoneNumber" text NULL,
     "CountryCode" text NULL,
     "BankName" text NULL,
@@ -699,12 +713,16 @@ ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "BankName" text NULL
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "AccountNumber" text NULL;
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "AccountName" text NULL;
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "PaystackRecipientCode" text NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "HeadshotBytes" bytea NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "HeadshotContentType" text NULL;
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "ApprovedAtUtc" timestamp with time zone NULL;
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
 ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Affiliates_UniqueCode" ON "Affiliates" ("UniqueCode");
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Affiliates_UserId" ON "Affiliates" ("UserId");
+
+ALTER TABLE IF EXISTS "FileAssets" ADD COLUMN IF NOT EXISTS "FileBytes" bytea NULL;
 
 CREATE TABLE IF NOT EXISTS "AffiliateLeadRequests" (
     "Id" uuid NOT NULL PRIMARY KEY,

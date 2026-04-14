@@ -27,8 +27,8 @@ public class FileAssetsController : ControllerBase
     }
 
     /// <summary>
-    /// Upload a file for the current school (photos, documents). Stores on disk under wwwroot/uploads/{SchoolId}/
-    /// and records metadata in the FileAssets table.
+    /// Upload a file for the current school (photos, documents).
+    /// File bytes are persisted in PostgreSQL via FileAssets.FileBytes.
     /// </summary>
     [HttpPost("upload")]
     [RequestSizeLimit(20_000_000)] // 20 MB
@@ -42,29 +42,26 @@ public class FileAssetsController : ControllerBase
         if (!schoolId.HasValue)
             return Forbid();
 
-        // Ensure uploads folder exists in the stable storage root.
-        var uploadsRoot = Path.Combine(_fileStorage.RootPath, "uploads", schoolId.Value.ToString());
-        Directory.CreateDirectory(uploadsRoot);
-
         var storedName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
-        var fullPath = Path.Combine(uploadsRoot, storedName);
+        var relativePath = Path.Combine("uploads", schoolId.Value.ToString(), storedName).Replace("\\", "/");
 
-        await using (var stream = System.IO.File.Create(fullPath))
+        await using (var input = file.OpenReadStream())
         {
-            await file.CopyToAsync(stream, ct);
+            await _fileStorage.UploadAsync(relativePath, input, file.ContentType, ct);
         }
 
-        var relativePath = Path.Combine("uploads", schoolId.Value.ToString(), storedName).Replace("\\", "/");
+        var assetId = Guid.NewGuid();
 
         var asset = new FileAsset
         {
-            Id = Guid.NewGuid(),
+            Id = assetId,
             SchoolId = schoolId.Value,
             OriginalFileName = file.FileName,
             StoredFileName = storedName,
             RelativePath = relativePath,
             ContentType = file.ContentType,
             SizeBytes = file.Length,
+            FileBytes = null,
             Category = string.IsNullOrWhiteSpace(category) ? null : category,
             UploadedBy = _tenant.CurrentUserEmail,
             UploadedAtUtc = DateTime.UtcNow
@@ -103,6 +100,15 @@ public class FileAssetsController : ControllerBase
         if (asset == null)
             return NotFound();
 
+        var storageBytes = await _fileStorage.TryReadBytesAsync(asset.RelativePath, ct);
+        if (storageBytes != null && storageBytes.Length > 0)
+            return File(storageBytes, asset.ContentType ?? "application/octet-stream", asset.OriginalFileName);
+
+        if (asset.FileBytes != null && asset.FileBytes.Length > 0)
+        {
+            return File(asset.FileBytes, asset.ContentType ?? "application/octet-stream", asset.OriginalFileName);
+        }
+
         var fullPath = _fileStorage.ResolveReadPath(asset.RelativePath);
         if (!System.IO.File.Exists(fullPath))
             return NotFound("File not found on disk.");
@@ -110,6 +116,33 @@ public class FileAssetsController : ControllerBase
         var contentType = asset.ContentType ?? "application/octet-stream";
         var stream = System.IO.File.OpenRead(fullPath);
         return File(stream, contentType, asset.OriginalFileName);
+    }
+
+    /// <summary>Get inline content for a file asset (DB-first, disk fallback).</summary>
+    [HttpGet("content/{id:guid}")]
+    public async Task<IActionResult> Content(Guid id, CancellationToken ct)
+    {
+        var schoolId = _tenant.CurrentSchoolId;
+        if (!schoolId.HasValue)
+            return Forbid();
+
+        var asset = await _db.FileAssets.FirstOrDefaultAsync(f => f.Id == id && f.SchoolId == schoolId.Value, ct);
+        if (asset == null)
+            return NotFound();
+
+        var storageBytes = await _fileStorage.TryReadBytesAsync(asset.RelativePath, ct);
+        if (storageBytes != null && storageBytes.Length > 0)
+            return File(storageBytes, asset.ContentType ?? "application/octet-stream");
+
+        if (asset.FileBytes != null && asset.FileBytes.Length > 0)
+            return File(asset.FileBytes, asset.ContentType ?? "application/octet-stream");
+
+        var fullPath = _fileStorage.ResolveReadPath(asset.RelativePath);
+        if (!System.IO.File.Exists(fullPath))
+            return NotFound("File not found.");
+
+        var stream = System.IO.File.OpenRead(fullPath);
+        return File(stream, asset.ContentType ?? "application/octet-stream");
     }
 }
 

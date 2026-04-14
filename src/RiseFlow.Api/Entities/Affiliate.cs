@@ -14,6 +14,8 @@ public class Affiliate
     public string? AccountNumber { get; set; }
     public string? AccountName { get; set; }
     public string? PaystackRecipientCode { get; set; }
+    public byte[]? HeadshotBytes { get; set; }
+    public string? HeadshotContentType { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime? ApprovedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }

@@ -583,28 +583,65 @@ public class AffiliateService
         if (file == null || file.Length == 0)
             throw new InvalidOperationException("Headshot file is required.");
 
+        if (file.Length > 5_000_000)
+            throw new InvalidOperationException("Headshot is too large. Maximum size is 5 MB.");
+
+        var allowedExtensions = new[] { ".png", ".jpg", ".jpeg", ".webp" };
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext) || !allowedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Allowed headshot formats: .png, .jpg, .jpeg, .webp");
+
         var affiliate = await GetOrCreateAffiliateAsync(userId, ct)
             ?? throw new InvalidOperationException("Affiliate account not found.");
 
-        var ext = Path.GetExtension(file.FileName);
-        if (string.IsNullOrWhiteSpace(ext))
-            ext = ".png";
+        var storageKey = $"uploads/affiliates/{affiliate.Id:N}";
+        await using var uploadStream = file.OpenReadStream();
+        await _fileStorage.UploadAsync(storageKey, uploadStream, file.ContentType, ct);
 
-        var uploadsRoot = Path.Combine(_fileStorage.RootPath, "uploads", "affiliates");
-        Directory.CreateDirectory(uploadsRoot);
-
-        var storedName = $"{affiliate.Id:N}{ext}";
-        var fullPath = Path.Combine(uploadsRoot, storedName);
-
-        await using (var stream = File.Create(fullPath))
-        {
-            await file.CopyToAsync(stream, ct);
-        }
-
-        affiliate.HeadshotPath = $"uploads/affiliates/{storedName}";
+        affiliate.HeadshotBytes = null;
+        affiliate.HeadshotContentType = NormalizeNullable(file.ContentType) ?? GetContentTypeFromExtension(ext);
+        affiliate.HeadshotPath = $"api/affiliate-media/headshot/{affiliate.Id}";
         affiliate.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return affiliate.HeadshotPath;
+    }
+
+    public async Task<Guid?> GetAffiliateIdForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _db.Affiliates
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<(byte[] Bytes, string ContentType)?> GetHeadshotContentAsync(Guid affiliateId, CancellationToken ct = default)
+    {
+        var row = await _db.Affiliates
+            .AsNoTracking()
+            .Where(x => x.Id == affiliateId)
+            .Select(x => new { x.HeadshotPath, x.HeadshotBytes, x.HeadshotContentType })
+            .FirstOrDefaultAsync(ct);
+
+        var storageKey = $"uploads/affiliates/{affiliateId:N}";
+        var storageBytes = await _fileStorage.TryReadBytesAsync(storageKey, ct);
+        if (storageBytes != null && storageBytes.Length > 0)
+            return (storageBytes, row?.HeadshotContentType ?? "image/png");
+
+        if (row?.HeadshotBytes == null || row.HeadshotBytes.Length == 0)
+            return null;
+
+        return (row.HeadshotBytes, row.HeadshotContentType ?? "image/png");
+    }
+
+    private static string GetContentTypeFromExtension(string ext)
+    {
+        return ext.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            _ => "image/png",
+        };
     }
 
     public async Task<List<AffiliateTrainingVideoDto>> ListTrainingVideoDtosAsync(bool includeUnpublished, CancellationToken ct = default)

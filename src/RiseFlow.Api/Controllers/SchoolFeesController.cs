@@ -497,16 +497,30 @@ public class SchoolFeesController : ControllerBase
         if (!allowed.Contains(file.ContentType?.ToLowerInvariant()))
             return BadRequest("Only JPEG, PNG, WebP, or PDF receipts are accepted.");
 
-        var receiptsDir = Path.Combine(_fileStorage.RootPath, "receipts", schoolId.ToString());
-        Directory.CreateDirectory(receiptsDir);
-
         var storedName = $"receipt-{record.Id:N}{Path.GetExtension(file.FileName)}";
-        var fullPath = Path.Combine(receiptsDir, storedName);
-
-        await using (var stream = System.IO.File.Create(fullPath))
-            await file.CopyToAsync(stream, ct);
-
         var relativePath = $"receipts/{schoolId}/{storedName}";
+
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
+
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = storedName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = "fee-receipt",
+            UploadedBy = parent.Email,
+            UploadedAtUtc = DateTime.UtcNow
+        });
 
         record.ReceiptFilePath = relativePath;
         record.ReceiptFileName = file.FileName;

@@ -14,6 +14,7 @@ public class FileAsset : ITenantEntity
     public string RelativePath { get; set; } = string.Empty;
     public string? ContentType { get; set; }
     public long SizeBytes { get; set; }
+    public byte[]? FileBytes { get; set; }
 
     public string? Category { get; set; } // e.g. "student-photo", "document"
     public string? UploadedBy { get; set; }

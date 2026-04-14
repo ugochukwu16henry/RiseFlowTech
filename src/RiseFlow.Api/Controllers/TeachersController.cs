@@ -44,14 +44,16 @@ public class TeachersController : ControllerBase
     private readonly Services.ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
+    private readonly Services.FileStorageService _fileStorage;
     private readonly ILogger<TeachersController> _logger;
 
-    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, ILogger<TeachersController> logger)
+    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, Services.FileStorageService fileStorage, ILogger<TeachersController> logger)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
         _env = env;
+        _fileStorage = fileStorage;
         _logger = logger;
     }
 
@@ -638,6 +640,17 @@ public class TeachersController : ControllerBase
             return NotFound();
         if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
+
+        var bytes = await _fileStorage.TryReadBytesAsync(teacher.ProfilePhotoFileName, ct);
+        if (bytes != null && bytes.Length > 0)
+        {
+            var detectedContentType = teacher.ProfilePhotoFileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "image/png"
+                : teacher.ProfilePhotoFileName.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ? "image/gif"
+                : teacher.ProfilePhotoFileName.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ? "image/webp"
+                : "image/jpeg";
+            return File(bytes, detectedContentType);
+        }
+
         var root = _env.WebRootPath ?? _env.ContentRootPath;
         var path = Path.Combine(root, teacher.ProfilePhotoFileName.Replace('/', Path.DirectorySeparatorChar));
         if (!System.IO.File.Exists(path))
@@ -680,14 +693,30 @@ public class TeachersController : ControllerBase
         if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
             return BadRequest("Allowed formats: .jpg, .jpeg, .png, .gif, .webp");
 
-        var root = _env.WebRootPath ?? _env.ContentRootPath;
-        var dir = Path.Combine(root, "teachers", teacher.SchoolId.ToString("N"));
-        Directory.CreateDirectory(dir);
         var fileName = $"{teacher.Id:N}{ext}";
         var relativePath = $"teachers/{teacher.SchoolId:N}/{fileName}";
-        var fullPath = Path.Combine(dir, fileName);
-        await using (var stream = System.IO.File.Create(fullPath))
-            await file.CopyToAsync(stream, ct);
+
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
+
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = teacher.SchoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = fileName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = "teacher-photo",
+            UploadedBy = _tenant.CurrentUserEmail,
+            UploadedAtUtc = DateTime.UtcNow
+        });
 
         teacher.ProfilePhotoFileName = relativePath;
         teacher.UpdatedAtUtc = DateTime.UtcNow;
