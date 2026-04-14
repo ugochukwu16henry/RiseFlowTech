@@ -424,7 +424,8 @@ export default function SchoolAdminPage() {
 
       let logoPath = null;
       try {
-        logoPath = text ? JSON.parse(text)?.logoFileName : null;
+        const parsed = text ? JSON.parse(text) : null;
+        logoPath = parsed?.logoPath || parsed?.logoFileName || null;
       } catch {
         logoPath = null;
       }
@@ -518,7 +519,8 @@ export default function SchoolAdminPage() {
 
       let docPath = null;
       try {
-        docPath = text ? JSON.parse(text)?.registrationDocumentPath : null;
+        const parsed = text ? JSON.parse(text) : null;
+        docPath = parsed?.registrationDocumentPath || null;
       } catch {
         docPath = null;
       }

@@ -32,6 +32,10 @@ public class SchoolsController : ControllerBase
         _logger = logger;
     }
 
+    private static string BuildSchoolLogoPath(Guid schoolId) => $"api/schools/{schoolId}/logo";
+
+    private static string BuildRegistrationDocumentPath(Guid schoolId) => $"api/schools/{schoolId}/registration-document";
+
     /// <summary>
     /// School dashboard: nerve center view for SchoolAdmin.
     /// Aggregates students, teachers, pending results, billing, and recent activity.
@@ -75,8 +79,8 @@ public class SchoolsController : ControllerBase
             school.Phone,
             school.WhatsAppNumber,
             school.CacNumber,
-            school.LogoFileName,
-            school.RegistrationDocumentPath,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
+            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
             school.UpdatedAtUtc));
     }
 
@@ -142,8 +146,8 @@ public class SchoolsController : ControllerBase
             school.Phone,
             school.WhatsAppNumber,
             school.CacNumber,
-            school.LogoFileName,
-            school.RegistrationDocumentPath,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
+            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
             school.UpdatedAtUtc));
     }
 
@@ -390,7 +394,12 @@ public class SchoolsController : ControllerBase
         school.LogoFileName = relativePath;
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { message = "Logo uploaded.", logoFileName = relativePath });
+        return Ok(new
+        {
+            message = "Logo uploaded.",
+            logoFileName = relativePath, // backward compatibility
+            logoPath = BuildSchoolLogoPath(schoolId)
+        });
     }
 
     /// <summary>Get a school's logo file. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
@@ -496,7 +505,11 @@ public class SchoolsController : ControllerBase
         school.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { message = "Registration document uploaded.", registrationDocumentPath = relativePath });
+        return Ok(new
+        {
+            message = "Registration document uploaded.",
+            registrationDocumentPath = BuildRegistrationDocumentPath(schoolId)
+        });
     }
 
     /// <summary>Get a school's registration/CAC document. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
