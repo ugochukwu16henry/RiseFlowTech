@@ -46,6 +46,105 @@ public class SchoolsController : ControllerBase
         return Ok(vm);
     }
 
+    /// <summary>Get school profile for the current SchoolAdmin tenant.</summary>
+    [HttpGet("profile")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolProfileDto>> GetProfile(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        return Ok(new SchoolProfileDto(
+            school.Id,
+            school.Name,
+            school.OwnerName,
+            school.SchoolAdminName,
+            school.PrincipalName,
+            school.Address,
+            school.CountryCode,
+            school.Email,
+            school.Phone,
+            school.WhatsAppNumber,
+            school.CacNumber,
+            school.LogoFileName,
+            school.RegistrationDocumentPath,
+            school.UpdatedAtUtc));
+    }
+
+    /// <summary>Update school profile information for current SchoolAdmin tenant.</summary>
+    [HttpPut("profile")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolProfileDto>> UpdateProfile([FromBody] UpdateSchoolProfileRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        if (request == null)
+            return BadRequest("Profile payload is required.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        var name = (request.Name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest("School name is required.");
+        if (name.Length > 256)
+            return BadRequest("School name must be 256 characters or fewer.");
+
+        if (!string.IsNullOrWhiteSpace(request.CountryCode))
+        {
+            var normalizedCountry = request.CountryCode.Trim().ToUpperInvariant();
+            if (normalizedCountry.Length != 2)
+                return BadRequest("Country code must be a 2-letter ISO code (e.g. NG).");
+            school.CountryCode = normalizedCountry;
+        }
+        else
+        {
+            school.CountryCode = null;
+        }
+
+        school.Name = name;
+        school.OwnerName = TrimOrNull(request.OwnerName, 128);
+        school.SchoolAdminName = TrimOrNull(request.SchoolAdminName, 128);
+        school.PrincipalName = TrimOrNull(request.PrincipalName, 128);
+        school.Address = TrimOrNull(request.Address, 512);
+        school.Email = TrimOrNull(request.Email, 256);
+        school.Phone = TrimOrNull(request.Phone, 128);
+        school.WhatsAppNumber = TrimOrNull(request.WhatsAppNumber, 128);
+        school.CacNumber = TrimOrNull(request.CacNumber, 64);
+        school.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new SchoolProfileDto(
+            school.Id,
+            school.Name,
+            school.OwnerName,
+            school.SchoolAdminName,
+            school.PrincipalName,
+            school.Address,
+            school.CountryCode,
+            school.Email,
+            school.Phone,
+            school.WhatsAppNumber,
+            school.CacNumber,
+            school.LogoFileName,
+            school.RegistrationDocumentPath,
+            school.UpdatedAtUtc));
+    }
+
     /// <summary>List classes for the current school (for dropdowns e.g. Add student). SchoolAdmin/Teacher.</summary>
     [HttpGet("classes")]
     [Authorize]
@@ -280,6 +379,65 @@ public class SchoolsController : ControllerBase
         return Ok(new { message = "Logo uploaded.", logoFileName = relativePath });
     }
 
+    /// <summary>Upload or replace school registration/CAC document. SchoolAdmin only.</summary>
+    [HttpPost("registration-document")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UploadRegistrationDocument(IFormFile? file, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = ".pdf";
+
+        var allowed = new[] { ".pdf", ".png", ".jpg", ".jpeg", ".webp" };
+        if (!allowed.Contains(ext, StringComparer.OrdinalIgnoreCase))
+            return BadRequest("Allowed formats: .pdf, .png, .jpg, .jpeg, .webp");
+
+        var fileName = $"{schoolId:N}{ext}";
+        var relativePath = $"cac/{fileName}";
+
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms, ct);
+            ms.Position = 0;
+            await _fileStorage.UploadAsync(relativePath, ms, file.ContentType, ct);
+        }
+
+        _db.FileAssets.Add(new FileAsset
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = schoolId,
+            OriginalFileName = file.FileName,
+            StoredFileName = fileName,
+            RelativePath = relativePath,
+            ContentType = file.ContentType,
+            SizeBytes = file.Length,
+            FileBytes = null,
+            Category = "school-registration-document",
+            UploadedBy = _tenant.CurrentUserEmail,
+            UploadedAtUtc = DateTime.UtcNow
+        });
+
+        school.RegistrationDocumentPath = relativePath;
+        school.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { message = "Registration document uploaded.", registrationDocumentPath = relativePath });
+    }
+
     /// <summary>
     /// List all schools. SuperAdmin only.
     /// </summary>
@@ -323,6 +481,15 @@ public class SchoolsController : ControllerBase
         await _db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    private static string? TrimOrNull(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
 }
 
 public record SchoolClassDto(Guid Id, string Name, Guid GradeId, string GradeName, string? AcademicYear);
@@ -332,3 +499,31 @@ public record SchoolGradeDto(Guid Id, string Name, int LevelOrder);
 public record CreateSchoolGradeRequest(string Name, int LevelOrder = 0);
 
 public record CreateSchoolClassRequest(string Name, Guid GradeId, string? AcademicYear);
+
+public record UpdateSchoolProfileRequest(
+    string Name,
+    string? OwnerName,
+    string? SchoolAdminName,
+    string? PrincipalName,
+    string? Address,
+    string? CountryCode,
+    string? Email,
+    string? Phone,
+    string? WhatsAppNumber,
+    string? CacNumber);
+
+public record SchoolProfileDto(
+    Guid Id,
+    string Name,
+    string? OwnerName,
+    string? SchoolAdminName,
+    string? PrincipalName,
+    string? Address,
+    string? CountryCode,
+    string? Email,
+    string? Phone,
+    string? WhatsAppNumber,
+    string? CacNumber,
+    string? LogoPath,
+    string? RegistrationDocumentPath,
+    DateTime? UpdatedAtUtc);

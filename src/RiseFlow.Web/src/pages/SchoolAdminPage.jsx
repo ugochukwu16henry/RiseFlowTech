@@ -24,7 +24,24 @@ export default function SchoolAdminPage() {
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingAsset, setUploadingAsset] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingRegistrationDoc, setUploadingRegistrationDoc] = useState(false);
+  const [savingSchoolProfile, setSavingSchoolProfile] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState(null);
+  const [schoolProfileError, setSchoolProfileError] = useState(null);
+  const [schoolProfile, setSchoolProfile] = useState({
+    name: '',
+    ownerName: '',
+    schoolAdminName: '',
+    principalName: '',
+    address: '',
+    countryCode: '',
+    email: '',
+    phone: '',
+    whatsAppNumber: '',
+    cacNumber: '',
+    logoPath: null,
+    registrationDocumentPath: null,
+  });
   const [savingClassId, setSavingClassId] = useState(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [bulkClassId, setBulkClassId] = useState('');
@@ -41,6 +58,7 @@ export default function SchoolAdminPage() {
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const schoolLogoInputRef = useRef(null);
+  const registrationDocInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
   const [activeView, setActiveView] = useState('overview');
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
@@ -73,6 +91,7 @@ export default function SchoolAdminPage() {
     setError(null);
     return Promise.allSettled([
       apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
+      apiFetch('/api/schools/profile').then((r) => readJsonOrThrow(r, 'Failed to load school profile.')),
       apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
       apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
@@ -80,8 +99,9 @@ export default function SchoolAdminPage() {
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
     ])
       .then((results) => {
-        const [dashResult, teacherResult, studentResult, classResult, parentResult, billingResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, parentResult, billingResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
+        const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
         if (!dash) {
           const failure = results.find((result) => result.status === 'rejected');
@@ -89,6 +109,22 @@ export default function SchoolAdminPage() {
         }
 
         setDashboard(dash);
+        if (profile) {
+          setSchoolProfile({
+            name: profile.name || '',
+            ownerName: profile.ownerName || '',
+            schoolAdminName: profile.schoolAdminName || '',
+            principalName: profile.principalName || '',
+            address: profile.address || '',
+            countryCode: profile.countryCode || '',
+            email: profile.email || '',
+            phone: profile.phone || '',
+            whatsAppNumber: profile.whatsAppNumber || '',
+            cacNumber: profile.cacNumber || '',
+            logoPath: profile.logoPath || null,
+            registrationDocumentPath: profile.registrationDocumentPath || null,
+          });
+        }
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
         setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
         setClasses(classResult.status === 'fulfilled' && Array.isArray(classResult.value) ? classResult.value : []);
@@ -383,6 +419,7 @@ export default function SchoolAdminPage() {
 
       if (logoPath) {
         setOnboardingSummary((current) => (current ? { ...current, logoPath } : current));
+        setSchoolProfile((current) => ({ ...current, logoPath }));
       }
 
       await loadData({ background: true });
@@ -390,6 +427,99 @@ export default function SchoolAdminPage() {
       setLogoUploadError(err?.message || 'Could not upload school logo.');
     } finally {
       setUploadingLogo(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const onSchoolProfileFieldChange = (field, value) => {
+    setSchoolProfile((current) => ({ ...current, [field]: value }));
+  };
+
+  const saveSchoolProfile = async () => {
+    if (savingSchoolProfile) return;
+
+    setSavingSchoolProfile(true);
+    setSchoolProfileError(null);
+    try {
+      const payload = {
+        name: (schoolProfile.name || '').trim(),
+        ownerName: schoolProfile.ownerName || null,
+        schoolAdminName: schoolProfile.schoolAdminName || null,
+        principalName: schoolProfile.principalName || null,
+        address: schoolProfile.address || null,
+        countryCode: schoolProfile.countryCode || null,
+        email: schoolProfile.email || null,
+        phone: schoolProfile.phone || null,
+        whatsAppNumber: schoolProfile.whatsAppNumber || null,
+        cacNumber: schoolProfile.cacNumber || null,
+      };
+
+      const res = await apiFetch('/api/schools/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not update school profile.');
+
+      const updated = text ? JSON.parse(text) : null;
+      if (updated) {
+        setSchoolProfile((current) => ({
+          ...current,
+          name: updated.name || current.name,
+          ownerName: updated.ownerName || '',
+          schoolAdminName: updated.schoolAdminName || '',
+          principalName: updated.principalName || '',
+          address: updated.address || '',
+          countryCode: updated.countryCode || '',
+          email: updated.email || '',
+          phone: updated.phone || '',
+          whatsAppNumber: updated.whatsAppNumber || '',
+          cacNumber: updated.cacNumber || '',
+          logoPath: updated.logoPath || current.logoPath,
+          registrationDocumentPath: updated.registrationDocumentPath || current.registrationDocumentPath,
+        }));
+      }
+
+      await loadData({ background: true });
+    } catch (e) {
+      setSchoolProfileError(e.message || 'Could not update school profile.');
+    } finally {
+      setSavingSchoolProfile(false);
+    }
+  };
+
+  const onRegistrationDocumentChange = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || uploadingRegistrationDoc) return;
+
+    setUploadingRegistrationDoc(true);
+    setSchoolProfileError(null);
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await apiFetch('/api/schools/registration-document', { method: 'POST', body: form });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not upload registration document.');
+
+      let docPath = null;
+      try {
+        docPath = text ? JSON.parse(text)?.registrationDocumentPath : null;
+      } catch {
+        docPath = null;
+      }
+
+      if (docPath) {
+        setSchoolProfile((current) => ({ ...current, registrationDocumentPath: docPath }));
+      }
+
+      await loadData({ background: true });
+    } catch (e1) {
+      setSchoolProfileError(e1.message || 'Could not upload registration document.');
+    } finally {
+      setUploadingRegistrationDoc(false);
       if (e.target) e.target.value = '';
     }
   };
@@ -1057,6 +1187,48 @@ export default function SchoolAdminPage() {
       <p className="card-desc">
         Upload photos or documents (e.g. letterhead, logo variations) so they are stored safely in your RiseFlow account.
       </p>
+      <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="School profile information">
+        <h3 className="card-title">School information</h3>
+        <p className="card-desc">Update your school profile, contacts, compliance details, and leadership names shown to Super Admin.</p>
+        <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+          <label className="form-field">School name
+            <input className="form-input" value={schoolProfile.name} onChange={(e) => onSchoolProfileFieldChange('name', e.target.value)} placeholder="School name" />
+          </label>
+          <label className="form-field">Owner name
+            <input className="form-input" value={schoolProfile.ownerName} onChange={(e) => onSchoolProfileFieldChange('ownerName', e.target.value)} placeholder="School owner name" />
+          </label>
+          <label className="form-field">School admin name
+            <input className="form-input" value={schoolProfile.schoolAdminName} onChange={(e) => onSchoolProfileFieldChange('schoolAdminName', e.target.value)} placeholder="School admin full name" />
+          </label>
+          <label className="form-field">Principal name
+            <input className="form-input" value={schoolProfile.principalName} onChange={(e) => onSchoolProfileFieldChange('principalName', e.target.value)} placeholder="Principal name" />
+          </label>
+          <label className="form-field">School email
+            <input className="form-input" type="email" value={schoolProfile.email} onChange={(e) => onSchoolProfileFieldChange('email', e.target.value)} placeholder="school@example.com" />
+          </label>
+          <label className="form-field">Phone
+            <input className="form-input" value={schoolProfile.phone} onChange={(e) => onSchoolProfileFieldChange('phone', e.target.value)} placeholder="+234..." />
+          </label>
+          <label className="form-field">WhatsApp number
+            <input className="form-input" value={schoolProfile.whatsAppNumber} onChange={(e) => onSchoolProfileFieldChange('whatsAppNumber', e.target.value)} placeholder="+234..." />
+          </label>
+          <label className="form-field">Country code (ISO2)
+            <input className="form-input" value={schoolProfile.countryCode} onChange={(e) => onSchoolProfileFieldChange('countryCode', e.target.value.toUpperCase())} maxLength={2} placeholder="NG" />
+          </label>
+          <label className="form-field">CAC / registration number
+            <input className="form-input" value={schoolProfile.cacNumber} onChange={(e) => onSchoolProfileFieldChange('cacNumber', e.target.value)} placeholder="RC1234567" />
+          </label>
+          <label className="form-field form-field--full">School address
+            <textarea className="form-input" rows={3} value={schoolProfile.address} onChange={(e) => onSchoolProfileFieldChange('address', e.target.value)} placeholder="Street, city, state, country" />
+          </label>
+        </div>
+        <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button type="button" className="btn-primary-action" onClick={saveSchoolProfile} disabled={savingSchoolProfile}>
+            {savingSchoolProfile ? 'Saving profile…' : 'Save school information'}
+          </button>
+        </div>
+      </section>
+
       <input
         type="file"
         ref={schoolLogoInputRef}
@@ -1075,6 +1247,22 @@ export default function SchoolAdminPage() {
       </button>
       <input
         type="file"
+        ref={registrationDocInputRef}
+        style={{ display: 'none' }}
+        onChange={onRegistrationDocumentChange}
+        accept=".pdf,.png,.jpg,.jpeg,.webp"
+      />
+      <button
+        type="button"
+        className="btn-excel btn-download"
+        style={{ display: 'inline-flex', marginTop: '0.5rem', marginRight: '0.5rem' }}
+        onClick={() => registrationDocInputRef.current?.click()}
+        disabled={uploadingRegistrationDoc}
+      >
+        {uploadingRegistrationDoc ? 'Uploading registration doc…' : 'Update registration document'}
+      </button>
+      <input
+        type="file"
         ref={schoolFileInputRef}
         style={{ display: 'none' }}
         onChange={onSchoolFileChange}
@@ -1090,6 +1278,14 @@ export default function SchoolAdminPage() {
         {uploadingAsset ? 'Uploading…' : 'Upload a file'}
       </button>
       {logoUploadError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{logoUploadError}</p>}
+      {schoolProfileError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{schoolProfileError}</p>}
+      {(schoolProfile.logoPath || schoolProfile.registrationDocumentPath) && (
+        <p className="card-desc" style={{ marginTop: '0.75rem' }}>
+          {schoolProfile.logoPath && <a href={buildPublicUrl(schoolProfile.logoPath)} target="_blank" rel="noopener noreferrer">View current logo</a>}
+          {schoolProfile.logoPath && schoolProfile.registrationDocumentPath ? ' • ' : ''}
+          {schoolProfile.registrationDocumentPath && <a href={buildPublicUrl(schoolProfile.registrationDocumentPath)} target="_blank" rel="noopener noreferrer">View registration document</a>}
+        </p>
+      )}
 
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Bulk upload</h2>
       <p className="card-desc">Import students from Excel with preview and validation. First 50 students free after you register your school.</p>

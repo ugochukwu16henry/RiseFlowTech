@@ -195,15 +195,18 @@ public class SuperAdminController : ControllerBase
                     ParentCount: parentCounts.GetValueOrDefault(x.Id, 0),
                     CreatedAtUtc: x.CreatedAtUtc,
                     OwnerEmail: x.Email,
-                    OwnerName: x.PrincipalName,
+                    OwnerName: string.IsNullOrWhiteSpace(x.OwnerName) ? x.PrincipalName : x.OwnerName,
                     Phone: x.Phone,
-                    WhatsAppNumber: x.Phone,
+                    WhatsAppNumber: string.IsNullOrWhiteSpace(x.WhatsAppNumber) ? x.Phone : x.WhatsAppNumber,
                     Address: x.Address,
                     SchoolEmail: x.Email,
                     PrincipalName: x.PrincipalName,
+                    SchoolAdminName: x.SchoolAdminName,
                     LogoPath: x.LogoFileName,
                     CacNumber: x.CacNumber,
-                    RegistrationDocumentPath: ResolveRegistrationDocumentPath(x.Id)))
+                    RegistrationDocumentPath: string.IsNullOrWhiteSpace(x.RegistrationDocumentPath)
+                        ? ResolveRegistrationDocumentPath(x.Id)
+                        : x.RegistrationDocumentPath))
                 .ToList();
 
             return Ok(rows);
@@ -247,6 +250,7 @@ public class SuperAdminController : ControllerBase
                     Address: null,
                     SchoolEmail: null,
                     PrincipalName: null,
+                    SchoolAdminName: null,
                     LogoPath: null,
                     CacNumber: null,
                     RegistrationDocumentPath: ResolveRegistrationDocumentPath(x.Id)))

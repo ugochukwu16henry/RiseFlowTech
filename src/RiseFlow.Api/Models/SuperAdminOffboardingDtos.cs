@@ -18,6 +18,7 @@ public record SuperAdminSchoolRowDto(
     string? Address,
     string? SchoolEmail,
     string? PrincipalName,
+    string? SchoolAdminName,
     string? LogoPath,
     string? CacNumber,
     string? RegistrationDocumentPath);

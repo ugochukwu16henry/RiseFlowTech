@@ -92,13 +92,17 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Address).HasMaxLength(512);
             e.Property(x => x.SchoolType).HasMaxLength(64);
             e.Property(x => x.PrincipalName).HasMaxLength(128);
+            e.Property(x => x.OwnerName).HasMaxLength(128);
+            e.Property(x => x.SchoolAdminName).HasMaxLength(128);
             e.Property(x => x.Phone).HasMaxLength(512).HasConversion(sensitiveConverter);
+            e.Property(x => x.WhatsAppNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CacNumber).HasMaxLength(64);
             e.Property(x => x.AffiliateReferralCodeUsed).HasMaxLength(64);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);
+            e.Property(x => x.RegistrationDocumentPath).HasMaxLength(512);
             e.HasOne(x => x.Affiliate)
                 .WithMany(x => x.ReferredSchools)
                 .HasForeignKey(x => x.AffiliateId)

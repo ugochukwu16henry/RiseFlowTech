@@ -11,7 +11,10 @@ public class School
     /// <summary>School type aligned with Nigerian standards (e.g. Primary, Secondary).</summary>
     public string? SchoolType { get; set; }
     public string? PrincipalName { get; set; }
+    public string? OwnerName { get; set; }
+    public string? SchoolAdminName { get; set; }
     public string? Phone { get; set; }
+    public string? WhatsAppNumber { get; set; }
     public string? Email { get; set; }
     /// <summary>CAC registration number for Nigerian business verification.</summary>
     public string? CacNumber { get; set; }
@@ -23,6 +26,7 @@ public class School
     public string CurrencyCode { get; set; } = "NGN";
     /// <summary>Stored logo file name (e.g. under wwwroot/logos) or relative path. Set during onboarding or via logo upload.</summary>
     public string? LogoFileName { get; set; }
+    public string? RegistrationDocumentPath { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
