@@ -242,6 +242,57 @@ export default function AffiliatePage() {
     }
   };
 
+  const handleTrainingCompletionUpdate = async (videoId, isCompleted) => {
+    setSaveState({ type: null, message: null });
+    try {
+      const res = await apiFetch(`/api/affiliates/me/training-videos/${videoId}/completion`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isCompleted }),
+      });
+
+      const raw = await res.text().catch(() => '');
+      let data = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = raw;
+        }
+      }
+
+      if (!res.ok) {
+        const message = typeof data === 'string'
+          ? data
+          : (data?.message || data?.title || 'Could not update module completion.');
+        setSaveState({ type: 'error', message });
+        return;
+      }
+
+      setDashboard((current) => {
+        if (!current) return current;
+        const progressList = Array.isArray(current.trainingProgress) ? current.trainingProgress : [];
+        const existingIndex = progressList.findIndex((item) => item.trainingVideoId === videoId);
+        let updatedProgress;
+        if (existingIndex >= 0) {
+          updatedProgress = [...progressList];
+          updatedProgress[existingIndex] = data;
+        } else {
+          updatedProgress = [...progressList, data];
+        }
+
+        return {
+          ...current,
+          trainingProgress: updatedProgress,
+        };
+      });
+
+      setSaveState({ type: 'success', message: isCompleted ? 'Module marked as completed.' : 'Module marked as incomplete.' });
+    } catch {
+      setSaveState({ type: 'error', message: 'Network error while updating module completion.' });
+    }
+  };
+
   const headshotUrl = buildPublicUrl(dashboard?.headshotPath || dashboard?.payoutSettings?.headshotPath);
 
   return (
@@ -256,6 +307,20 @@ export default function AffiliatePage() {
 
       {!loading && dashboard && (
         <>
+          {(() => {
+            const progressList = Array.isArray(dashboard.trainingProgress) ? dashboard.trainingProgress : [];
+            const totalModules = Array.isArray(dashboard.trainingVideos) ? dashboard.trainingVideos.length : 0;
+            const completedModules = progressList.filter((item) => item.isCompleted).length;
+            if (view !== 'training' || totalModules === 0) return null;
+
+            return (
+              <section className="progress-section" style={{ marginBottom: '1rem' }}>
+                <p className="dashboard-label">Training progress</p>
+                <h3 className="card-title">{completedModules}/{totalModules} modules completed</h3>
+              </section>
+            );
+          })()}
+
           {saveState.message && (
             <p className={saveState.type === 'error' ? 'empty-state empty-state--error' : 'affiliate-note'}>
               {saveState.message}
@@ -500,17 +565,37 @@ export default function AffiliatePage() {
               ) : (
                 <div className="affiliate-video-grid">
                   {dashboard.trainingVideos.map((video) => (
-                    <article key={video.id} className="affiliate-video-card">
-                      <iframe
-                        className="affiliate-video-frame"
-                        src={video.youtubeUrl}
-                        title={video.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                      <h4 className="card-title">{video.title}</h4>
-                      <p className="card-desc">{video.topic || 'Training'} • {video.description || 'Affiliate onboarding and coaching from the RiseFlow team.'}</p>
-                    </article>
+                    (() => {
+                      const progress = (Array.isArray(dashboard.trainingProgress) ? dashboard.trainingProgress : [])
+                        .find((item) => item.trainingVideoId === video.id);
+                      const isCompleted = Boolean(progress?.isCompleted);
+
+                      return (
+                        <article key={video.id} className="affiliate-video-card">
+                          <iframe
+                            className="affiliate-video-frame"
+                            src={video.youtubeUrl}
+                            title={video.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                          <h4 className="card-title">{video.title}</h4>
+                          <p className="card-desc">{video.topic || 'Training'} • {video.description || 'Affiliate onboarding and coaching from the RiseFlow team.'}</p>
+                          <p className={isCompleted ? 'affiliate-status-badge affiliate-status-badge--published' : 'affiliate-status-badge affiliate-status-badge--draft'}>
+                            {isCompleted ? 'Completed' : 'Not completed'}
+                          </p>
+                          <div className="dashboard-actions">
+                            <button
+                              type="button"
+                              className="btn-primary-action btn-primary-action--ghost"
+                              onClick={() => handleTrainingCompletionUpdate(video.id, !isCompleted)}
+                            >
+                              {isCompleted ? 'Mark incomplete' : 'Mark complete'}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })()
                   ))}
                 </div>
               )}

@@ -426,6 +426,20 @@ CREATE TABLE IF NOT EXISTS "AffiliateTrainingVideos" (
 """);
 
         await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "AffiliateTrainingCompletions" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateTrainingCompletions" PRIMARY KEY,
+    "AffiliateId" TEXT NOT NULL,
+    "TrainingVideoId" TEXT NOT NULL,
+    "IsCompleted" INTEGER NOT NULL DEFAULT 0,
+    "CompletedAtUtc" TEXT NULL,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_AffiliateId_TrainingVideoId" ON "AffiliateTrainingCompletions" ("AffiliateId", "TrainingVideoId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_TrainingVideoId" ON "AffiliateTrainingCompletions" ("TrainingVideoId");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
 CREATE TABLE IF NOT EXISTS "AffiliatePayouts" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliatePayouts" PRIMARY KEY,
     "AffiliateId" TEXT NOT NULL,
@@ -808,6 +822,22 @@ ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "IsPubl
 ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "SortOrder" integer NOT NULL DEFAULT 0;
 ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
 ALTER TABLE IF EXISTS "AffiliateTrainingVideos" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+
+CREATE TABLE IF NOT EXISTS "AffiliateTrainingCompletions" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "AffiliateId" uuid NOT NULL,
+    "TrainingVideoId" uuid NOT NULL,
+    "IsCompleted" boolean NOT NULL DEFAULT FALSE,
+    "CompletedAtUtc" timestamp with time zone NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "AffiliateTrainingCompletions" ADD COLUMN IF NOT EXISTS "IsCompleted" boolean NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS "AffiliateTrainingCompletions" ADD COLUMN IF NOT EXISTS "CompletedAtUtc" timestamp with time zone NULL;
+ALTER TABLE IF EXISTS "AffiliateTrainingCompletions" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AffiliateTrainingCompletions" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_AffiliateId_TrainingVideoId" ON "AffiliateTrainingCompletions" ("AffiliateId", "TrainingVideoId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_TrainingVideoId" ON "AffiliateTrainingCompletions" ("TrainingVideoId");
 
 CREATE TABLE IF NOT EXISTS "AffiliatePayouts" (
     "Id" uuid NOT NULL PRIMARY KEY,

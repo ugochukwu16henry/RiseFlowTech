@@ -215,6 +215,60 @@ export default function SuperAdminAffiliatesPage() {
     }
   };
 
+  const handleBulkPublish = async (isPublished) => {
+    setActionMessage(null);
+    try {
+      const res = await apiFetch('/api/superadmin/affiliate-training-videos/bulk-publish', {
+        method: 'POST',
+        skipTenantHeader: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionMessage({ type: 'error', text: data || 'Could not apply bulk publish action.' });
+        return;
+      }
+
+      const updatedCount = Number(data?.updatedCount || 0);
+      setActionMessage({
+        type: 'success',
+        text: updatedCount > 0
+          ? (isPublished ? `Published ${updatedCount} draft video(s).` : `Unpublished ${updatedCount} video(s).`)
+          : 'No videos needed changes for that action.',
+      });
+      await loadVideos();
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error while applying bulk publish action.' });
+    }
+  };
+
+  const handleMoveVideo = async (videoId, direction) => {
+    setActionMessage(null);
+    try {
+      const endpoint = direction === 'up'
+        ? `/api/superadmin/affiliate-training-videos/${videoId}/move-up`
+        : `/api/superadmin/affiliate-training-videos/${videoId}/move-down`;
+
+      const res = await apiFetch(endpoint, {
+        method: 'POST',
+        skipTenantHeader: true,
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setActionMessage({ type: 'error', text: data || 'Could not reorder training video.' });
+        return;
+      }
+
+      setActionMessage({ type: 'success', text: 'Training sequence updated.' });
+      await loadVideos();
+    } catch {
+      setActionMessage({ type: 'error', text: 'Network error while reordering training videos.' });
+    }
+  };
+
   const handleToggleVideoPublish = async (video) => {
     if (!video?.id) return;
 
@@ -266,6 +320,10 @@ export default function SuperAdminAffiliatesPage() {
     setDetailsLoading(true);
     setActionMessage(null);
     try {
+      if (videos.length === 0) {
+        await loadVideos();
+      }
+
       const res = await apiFetch(`/api/superadmin/affiliates/${affiliateId}`, { skipTenantHeader: true });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -570,6 +628,39 @@ export default function SuperAdminAffiliatesPage() {
                     </div>
                   </form>
                 </section>
+
+                <section className="progress-section" style={{ marginTop: '1rem' }}>
+                  <h4 className="section-title">Training completion</h4>
+                  {selectedAffiliateDetail.trainingProgress?.length ? (
+                    <div className="data-table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Module</th>
+                            <th>Status</th>
+                            <th>Completed at</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {videos
+                            .filter((video) => selectedAffiliateDetail.trainingProgress.some((row) => row.trainingVideoId === video.id))
+                            .map((video) => {
+                              const row = selectedAffiliateDetail.trainingProgress.find((item) => item.trainingVideoId === video.id);
+                              return (
+                                <tr key={video.id}>
+                                  <td>{video.title}</td>
+                                  <td>{row?.isCompleted ? 'Completed' : 'Not completed'}</td>
+                                  <td>{row?.completedAtUtc ? new Date(row.completedAtUtc).toLocaleString() : '—'}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="empty-state">No training activity tracked yet for this affiliate.</p>
+                  )}
+                </section>
               </>
             )}
           </section>
@@ -752,6 +843,22 @@ export default function SuperAdminAffiliatesPage() {
                   Drafts ({trainingCounts.drafts})
                 </button>
               </div>
+              <div className="dashboard-actions" style={{ flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-primary-action btn-primary-action--ghost"
+                  onClick={() => handleBulkPublish(true)}
+                >
+                  Publish all drafts
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary-action btn-primary-action--ghost"
+                  onClick={() => handleBulkPublish(false)}
+                >
+                  Unpublish all
+                </button>
+              </div>
             </div>
           </section>
 
@@ -764,7 +871,28 @@ export default function SuperAdminAffiliatesPage() {
                 <p className={video.isPublished ? 'affiliate-status-badge affiliate-status-badge--published' : 'affiliate-status-badge affiliate-status-badge--draft'}>
                   {video.isPublished ? 'Published' : 'Draft'}
                 </p>
+                {typeof video.completedAffiliateCount === 'number' && typeof video.totalAffiliateCount === 'number' && (
+                  <p className="card-desc" style={{ marginTop: '-0.3rem' }}>
+                    Completed by {video.completedAffiliateCount}/{video.totalAffiliateCount} affiliates
+                  </p>
+                )}
                 <div className="dashboard-actions">
+                  <button
+                    type="button"
+                    className="btn-primary-action btn-primary-action--ghost"
+                    onClick={() => handleMoveVideo(video.id, 'up')}
+                    title="Move up"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary-action btn-primary-action--ghost"
+                    onClick={() => handleMoveVideo(video.id, 'down')}
+                    title="Move down"
+                  >
+                    Move down
+                  </button>
                   <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => handleEditVideo(video)}>Edit</button>
                   <button
                     type="button"

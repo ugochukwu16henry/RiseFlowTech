@@ -108,7 +108,14 @@ public class SuperAdminAffiliatesController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<AffiliateTrainingVideoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AffiliateTrainingVideoDto>>> GetTrainingVideos(CancellationToken ct)
     {
-        return Ok(await _affiliateService.ListTrainingVideoDtosAsync(includeUnpublished: true, ct));
+        return Ok(await _affiliateService.ListTrainingVideoDtosAsync(includeUnpublished: true, includeCompletionStats: true, ct));
+    }
+
+    [HttpPost("affiliate-training-videos/bulk-publish")]
+    [ProducesResponseType(typeof(BulkPublishAffiliateTrainingVideosResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<BulkPublishAffiliateTrainingVideosResult>> BulkPublishTrainingVideos([FromBody] BulkPublishAffiliateTrainingVideosRequest request, CancellationToken ct)
+    {
+        return Ok(await _affiliateService.BulkSetTrainingVideosPublishedAsync(request.IsPublished, ct));
     }
 
     [HttpPost("affiliate-training-videos")]
@@ -137,6 +144,26 @@ public class SuperAdminAffiliatesController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpPost("affiliate-training-videos/{id:guid}/move-up")]
+    [ProducesResponseType(typeof(AffiliateTrainingVideoDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AffiliateTrainingVideoDto>> MoveTrainingVideoUp(Guid id, CancellationToken ct)
+    {
+        var updated = await _affiliateService.MoveTrainingVideoAsync(id, moveUp: true, ct);
+        if (updated == null)
+            return NotFound();
+        return Ok(updated);
+    }
+
+    [HttpPost("affiliate-training-videos/{id:guid}/move-down")]
+    [ProducesResponseType(typeof(AffiliateTrainingVideoDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AffiliateTrainingVideoDto>> MoveTrainingVideoDown(Guid id, CancellationToken ct)
+    {
+        var updated = await _affiliateService.MoveTrainingVideoAsync(id, moveUp: false, ct);
+        if (updated == null)
+            return NotFound();
+        return Ok(updated);
     }
 
     [HttpDelete("affiliate-training-videos/{id:guid}")]

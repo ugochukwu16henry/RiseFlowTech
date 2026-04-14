@@ -61,6 +61,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AffiliateLeadRequest> AffiliateLeadRequests => Set<AffiliateLeadRequest>();
     public DbSet<AffiliateInvite> AffiliateInvites => Set<AffiliateInvite>();
     public DbSet<AffiliateTrainingVideo> AffiliateTrainingVideos => Set<AffiliateTrainingVideo>();
+    public DbSet<AffiliateTrainingCompletion> AffiliateTrainingCompletions => Set<AffiliateTrainingCompletion>();
     public DbSet<AffiliatePayout> AffiliatePayouts => Set<AffiliatePayout>();
     public DbSet<AffiliateCommissionLedger> AffiliateCommissionLedgers => Set<AffiliateCommissionLedger>();
     public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
@@ -626,6 +627,21 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Topic).HasMaxLength(128);
             e.Property(x => x.Description).HasMaxLength(2048);
             e.Property(x => x.YoutubeUrl).IsRequired().HasMaxLength(1024);
+            e.HasMany(x => x.Completions)
+                .WithOne(x => x.TrainingVideo)
+                .HasForeignKey(x => x.TrainingVideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AffiliateTrainingCompletion>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.AffiliateId, x.TrainingVideoId }).IsUnique();
+            e.HasIndex(x => x.TrainingVideoId);
+            e.HasOne(x => x.Affiliate)
+                .WithMany(x => x.TrainingCompletions)
+                .HasForeignKey(x => x.AffiliateId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<AffiliatePayout>(e =>

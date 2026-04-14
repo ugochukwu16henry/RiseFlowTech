@@ -445,6 +445,7 @@ public class AffiliateService
                 false);
         var schools = await BuildSchoolSummariesAsync(affiliateId, ct);
         var payouts = await BuildPayoutHistoryAsync(affiliateId, ct);
+        var trainingProgress = await BuildTrainingProgressAsync(affiliateId, includeUnpublished: true, ct);
         var notifications = await BuildNotificationsAsync(affiliateId, ct);
         var latestQuestion = notifications
             .Where(x => string.Equals(x.Type, "QuestionToSuperAdmin", StringComparison.OrdinalIgnoreCase))
@@ -464,6 +465,7 @@ public class AffiliateService
             new AffiliatePayoutSettingsDto(affiliate.BankName, affiliate.AccountNumber, affiliate.AccountName, affiliate.CountryCode, affiliate.PhoneNumber, affiliate.HeadshotPath),
             schools,
             payouts,
+                trainingProgress,
             notifications);
     }
 
@@ -477,7 +479,8 @@ public class AffiliateService
 
         var schoolSummaries = await BuildSchoolSummariesAsync(affiliate.Id, ct);
         var payoutHistory = await BuildPayoutHistoryAsync(affiliate.Id, ct);
-        var trainingVideos = await ListTrainingVideoDtosAsync(includeUnpublished: false, ct);
+        var trainingVideos = await ListTrainingVideoDtosAsync(includeUnpublished: false, includeCompletionStats: false, ct);
+        var trainingProgress = await BuildTrainingProgressAsync(affiliate.Id, includeUnpublished: false, ct);
         var notifications = await BuildNotificationsAsync(affiliate.Id, ct);
 
         var totalStudents = schoolSummaries.Sum(x => x.TotalStudents);
@@ -520,6 +523,7 @@ public class AffiliateService
             schoolSummaries,
             payoutHistory,
             trainingVideos,
+                trainingProgress,
             notifications);
     }
 
@@ -661,7 +665,7 @@ public class AffiliateService
         };
     }
 
-    public async Task<List<AffiliateTrainingVideoDto>> ListTrainingVideoDtosAsync(bool includeUnpublished, CancellationToken ct = default)
+    public async Task<List<AffiliateTrainingVideoDto>> ListTrainingVideoDtosAsync(bool includeUnpublished, bool includeCompletionStats = false, CancellationToken ct = default)
     {
         try
         {
@@ -669,9 +673,26 @@ public class AffiliateService
             if (!includeUnpublished)
                 query = query.Where(x => x.IsPublished);
 
-            return await query
+            var videos = await query
                 .OrderBy(x => x.SortOrder)
                 .ThenByDescending(x => x.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            Dictionary<Guid, int> completionCounts = new();
+            int? totalAffiliates = null;
+
+            if (includeCompletionStats)
+            {
+                totalAffiliates = await _db.Affiliates.AsNoTracking().CountAsync(x => x.IsActive, ct);
+                completionCounts = await _db.AffiliateTrainingCompletions
+                    .AsNoTracking()
+                    .Where(x => x.IsCompleted)
+                    .GroupBy(x => x.TrainingVideoId)
+                    .Select(g => new { TrainingVideoId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.TrainingVideoId, x => x.Count, ct);
+            }
+
+            return videos
                 .Select(x => new AffiliateTrainingVideoDto(
                     x.Id,
                     x.Title,
@@ -680,8 +701,10 @@ public class AffiliateService
                     NormalizeYoutubeUrl(x.YoutubeUrl),
                     x.IsPublished,
                     x.SortOrder,
-                    x.CreatedAtUtc))
-                .ToListAsync(ct);
+                    x.CreatedAtUtc,
+                    includeCompletionStats ? completionCounts.GetValueOrDefault(x.Id, 0) : null,
+                    includeCompletionStats ? totalAffiliates : null))
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -717,7 +740,104 @@ public class AffiliateService
 
         await _db.SaveChangesAsync(ct);
 
-        return new AffiliateTrainingVideoDto(entity.Id, entity.Title, entity.Topic, entity.Description, entity.YoutubeUrl, entity.IsPublished, entity.SortOrder, entity.CreatedAtUtc);
+        return new AffiliateTrainingVideoDto(entity.Id, entity.Title, entity.Topic, entity.Description, entity.YoutubeUrl, entity.IsPublished, entity.SortOrder, entity.CreatedAtUtc, null, null);
+    }
+
+    public async Task<BulkPublishAffiliateTrainingVideosResult> BulkSetTrainingVideosPublishedAsync(bool isPublished, CancellationToken ct = default)
+    {
+        var videos = await _db.AffiliateTrainingVideos
+            .Where(x => x.IsPublished != isPublished)
+            .ToListAsync(ct);
+
+        if (videos.Count == 0)
+            return new BulkPublishAffiliateTrainingVideosResult(0, isPublished);
+
+        var now = DateTime.UtcNow;
+        foreach (var video in videos)
+        {
+            video.IsPublished = isPublished;
+            video.UpdatedAtUtc = now;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new BulkPublishAffiliateTrainingVideosResult(videos.Count, isPublished);
+    }
+
+    public async Task<AffiliateTrainingVideoDto?> MoveTrainingVideoAsync(Guid videoId, bool moveUp, CancellationToken ct = default)
+    {
+        var videos = await _db.AffiliateTrainingVideos
+            .OrderBy(x => x.SortOrder)
+            .ThenBy(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        var currentIndex = videos.FindIndex(x => x.Id == videoId);
+        if (currentIndex < 0)
+            return null;
+
+        var swapIndex = moveUp ? currentIndex - 1 : currentIndex + 1;
+        if (swapIndex < 0 || swapIndex >= videos.Count)
+        {
+            var current = videos[currentIndex];
+            return new AffiliateTrainingVideoDto(current.Id, current.Title, current.Topic, current.Description, current.YoutubeUrl, current.IsPublished, current.SortOrder, current.CreatedAtUtc, null, null);
+        }
+
+        var currentVideo = videos[currentIndex];
+        var swapVideo = videos[swapIndex];
+        var now = DateTime.UtcNow;
+
+        (currentVideo.SortOrder, swapVideo.SortOrder) = (swapVideo.SortOrder, currentVideo.SortOrder);
+        currentVideo.UpdatedAtUtc = now;
+        swapVideo.UpdatedAtUtc = now;
+
+        await _db.SaveChangesAsync(ct);
+
+        return new AffiliateTrainingVideoDto(currentVideo.Id, currentVideo.Title, currentVideo.Topic, currentVideo.Description, currentVideo.YoutubeUrl, currentVideo.IsPublished, currentVideo.SortOrder, currentVideo.CreatedAtUtc, null, null);
+    }
+
+    public async Task<AffiliateTrainingCompletionDto?> UpdateTrainingCompletionAsync(Guid userId, Guid trainingVideoId, bool isCompleted, CancellationToken ct = default)
+    {
+        var affiliate = await GetOrCreateAffiliateAsync(userId, ct);
+        if (affiliate == null)
+            return null;
+
+        var videoExists = await _db.AffiliateTrainingVideos
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == trainingVideoId && x.IsPublished, ct);
+        if (!videoExists)
+            throw new InvalidOperationException("Training video not found.");
+
+        var completion = await _db.AffiliateTrainingCompletions
+            .FirstOrDefaultAsync(x => x.AffiliateId == affiliate.Id && x.TrainingVideoId == trainingVideoId, ct);
+
+        var now = DateTime.UtcNow;
+        if (completion == null)
+        {
+            completion = new AffiliateTrainingCompletion
+            {
+                Id = Guid.NewGuid(),
+                AffiliateId = affiliate.Id,
+                TrainingVideoId = trainingVideoId,
+                IsCompleted = isCompleted,
+                CompletedAtUtc = isCompleted ? now : null,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+            };
+            _db.AffiliateTrainingCompletions.Add(completion);
+        }
+        else
+        {
+            completion.IsCompleted = isCompleted;
+            completion.CompletedAtUtc = isCompleted ? now : null;
+            completion.UpdatedAtUtc = now;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return new AffiliateTrainingCompletionDto(
+            completion.TrainingVideoId,
+            completion.IsCompleted,
+            completion.CompletedAtUtc,
+            completion.UpdatedAtUtc);
     }
 
     public async Task<bool> DeleteTrainingVideoAsync(Guid id, CancellationToken ct = default)
@@ -1023,6 +1143,44 @@ public class AffiliateService
         {
             _logger.LogWarning(ex, "Affiliate notifications could not be loaded for affiliate {AffiliateId}. Returning an empty list instead.", affiliateId);
             return new List<AffiliateNotificationDto>();
+        }
+    }
+
+    private async Task<List<AffiliateTrainingCompletionDto>> BuildTrainingProgressAsync(Guid affiliateId, bool includeUnpublished, CancellationToken ct)
+    {
+        try
+        {
+            var completionMap = await _db.AffiliateTrainingCompletions
+                .AsNoTracking()
+                .Where(x => x.AffiliateId == affiliateId)
+                .ToDictionaryAsync(x => x.TrainingVideoId, x => x, ct);
+
+            IQueryable<AffiliateTrainingVideo> videosQuery = _db.AffiliateTrainingVideos.AsNoTracking();
+            if (!includeUnpublished)
+                videosQuery = videosQuery.Where(x => x.IsPublished);
+
+            var videos = await videosQuery
+                .OrderBy(x => x.SortOrder)
+                .ThenByDescending(x => x.CreatedAtUtc)
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+
+            return videos
+                .Select(videoId =>
+                {
+                    completionMap.TryGetValue(videoId, out var completion);
+                    return new AffiliateTrainingCompletionDto(
+                        videoId,
+                        completion?.IsCompleted ?? false,
+                        completion?.CompletedAtUtc,
+                        completion?.UpdatedAtUtc);
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Affiliate training progress could not be loaded for affiliate {AffiliateId}. Returning empty progress.", affiliateId);
+            return new List<AffiliateTrainingCompletionDto>();
         }
     }
 

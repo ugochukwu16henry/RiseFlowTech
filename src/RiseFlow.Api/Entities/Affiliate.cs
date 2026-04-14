@@ -26,4 +26,5 @@ public class Affiliate
     public ICollection<AffiliatePayout> Payouts { get; set; } = new List<AffiliatePayout>();
     public ICollection<AffiliateCommissionLedger> CommissionLedgers { get; set; } = new List<AffiliateCommissionLedger>();
     public ICollection<AffiliateNotification> Notifications { get; set; } = new List<AffiliateNotification>();
+    public ICollection<AffiliateTrainingCompletion> TrainingCompletions { get; set; } = new List<AffiliateTrainingCompletion>();
 }

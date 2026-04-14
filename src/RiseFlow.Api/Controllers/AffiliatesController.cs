@@ -132,7 +132,28 @@ public class AffiliatesController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<AffiliateTrainingVideoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AffiliateTrainingVideoDto>>> GetTrainingVideos(CancellationToken ct)
     {
-        return Ok(await _affiliateService.ListTrainingVideoDtosAsync(includeUnpublished: false, ct));
+        return Ok(await _affiliateService.ListTrainingVideoDtosAsync(includeUnpublished: false, includeCompletionStats: false, ct));
+    }
+
+    [HttpPut("me/training-videos/{videoId:guid}/completion")]
+    [ProducesResponseType(typeof(AffiliateTrainingCompletionDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AffiliateTrainingCompletionDto>> UpdateTrainingCompletion(Guid videoId, [FromBody] UpdateAffiliateTrainingCompletionRequest request, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Forbid();
+
+        try
+        {
+            var completion = await _affiliateService.UpdateTrainingCompletionAsync(userId.Value, videoId, request.IsCompleted, ct);
+            if (completion == null)
+                return NotFound();
+            return Ok(completion);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpGet("me/payout-history")]

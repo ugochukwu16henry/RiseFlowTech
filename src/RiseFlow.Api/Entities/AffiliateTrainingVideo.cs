@@ -11,4 +11,6 @@ public class AffiliateTrainingVideo
     public int SortOrder { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
+
+    public ICollection<AffiliateTrainingCompletion> Completions { get; set; } = new List<AffiliateTrainingCompletion>();
 }

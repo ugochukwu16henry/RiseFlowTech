@@ -87,7 +87,9 @@ public record AffiliateTrainingVideoDto(
     string YoutubeUrl,
     bool IsPublished,
     int SortOrder,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    int? CompletedAffiliateCount,
+    int? TotalAffiliateCount);
 
 public record SaveAffiliateTrainingVideoRequest(
     string Title,
@@ -96,6 +98,18 @@ public record SaveAffiliateTrainingVideoRequest(
     string YoutubeUrl,
     bool IsPublished,
     int SortOrder);
+
+public record BulkPublishAffiliateTrainingVideosRequest(bool IsPublished);
+
+public record BulkPublishAffiliateTrainingVideosResult(int UpdatedCount, bool IsPublished);
+
+public record UpdateAffiliateTrainingCompletionRequest(bool IsCompleted);
+
+public record AffiliateTrainingCompletionDto(
+    Guid TrainingVideoId,
+    bool IsCompleted,
+    DateTime? CompletedAtUtc,
+    DateTime? UpdatedAtUtc);
 
 public record AffiliatePayoutDto(
     Guid Id,
@@ -136,6 +150,7 @@ public record AffiliateDashboardDto(
     IReadOnlyList<AffiliateSchoolSummaryDto> ReferredSchools,
     IReadOnlyList<AffiliatePayoutDto> PayoutHistory,
     IReadOnlyList<AffiliateTrainingVideoDto> TrainingVideos,
+    IReadOnlyList<AffiliateTrainingCompletionDto> TrainingProgress,
     IReadOnlyList<AffiliateNotificationDto> Notifications);
 
 public record AffiliateSummaryDto(
@@ -161,6 +176,7 @@ public record AffiliateAdminDetailDto(
     AffiliatePayoutSettingsDto PayoutSettings,
     IReadOnlyList<AffiliateSchoolSummaryDto> Schools,
     IReadOnlyList<AffiliatePayoutDto> Payouts,
+    IReadOnlyList<AffiliateTrainingCompletionDto> TrainingProgress,
     IReadOnlyList<AffiliateNotificationDto> Notifications);
 
 public record AffiliateContactDetailsDto(
