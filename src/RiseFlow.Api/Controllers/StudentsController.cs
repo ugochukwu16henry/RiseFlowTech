@@ -873,21 +873,66 @@ public class StudentsController : ControllerBase
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var list = await _db.Students
-            .AsNoTracking()
-            .Where(s => s.SchoolId == schoolId)
-            .OrderBy(s => s.LastName)
-            .ThenBy(s => s.FirstName)
-            .Select(s => new StudentWithAccessCodeDto(
-                s.Id,
-                s.FirstName,
-                s.LastName,
-                s.MiddleName,
-                s.AdmissionNumber,
-                s.Class != null ? s.Class.Name : null,
-                s.ParentAccessCode))
-            .ToListAsync(ct);
-        return Ok(list);
+
+        try
+        {
+            var students = await _db.Students
+                .AsNoTracking()
+                .Where(s => s.SchoolId == schoolId)
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.FirstName)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.FirstName,
+                    s.LastName,
+                    s.MiddleName,
+                    s.AdmissionNumber,
+                    s.ClassId,
+                    s.ParentAccessCode
+                })
+                .ToListAsync(ct);
+
+            var classMap = await _db.Classes
+                .AsNoTracking()
+                .Where(c => c.SchoolId == schoolId)
+                .Select(c => new { c.Id, c.Name })
+                .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+
+            var list = students
+                .Select(s => new StudentWithAccessCodeDto(
+                    s.Id,
+                    s.FirstName,
+                    s.LastName,
+                    s.MiddleName,
+                    s.AdmissionNumber,
+                    s.ClassId.HasValue && classMap.TryGetValue(s.ClassId.Value, out var className) ? className : null,
+                    s.ParentAccessCode))
+                .ToList();
+
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Access-code student list could not be loaded for school {SchoolId}. Returning minimal fallback rows.", schoolId);
+
+            var fallback = await _db.Students
+                .AsNoTracking()
+                .Where(s => s.SchoolId == schoolId)
+                .OrderBy(s => s.LastName)
+                .ThenBy(s => s.FirstName)
+                .Select(s => new StudentWithAccessCodeDto(
+                    s.Id,
+                    s.FirstName,
+                    s.LastName,
+                    null,
+                    s.AdmissionNumber,
+                    null,
+                    s.ParentAccessCode))
+                .ToListAsync(ct);
+
+            return Ok(fallback);
+        }
     }
 
     /// <summary>Get or generate Parent Access Code for a student. Parent enters this code to link to the student. SchoolAdmin/Teacher.</summary>
