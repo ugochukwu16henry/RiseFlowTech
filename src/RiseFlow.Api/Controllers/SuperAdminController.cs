@@ -46,6 +46,10 @@ public class SuperAdminController : ControllerBase
         ["ZM"] = "Zambia",
     };
 
+    private string BuildSchoolLogoPath(Guid schoolId) => $"api/schools/{schoolId}/logo";
+
+    private string BuildRegistrationDocumentPath(Guid schoolId) => $"api/schools/{schoolId}/registration-document";
+
     private string? ResolveRegistrationDocumentPath(Guid schoolId)
     {
         try
@@ -59,7 +63,7 @@ public class SuperAdminController : ControllerBase
                 .Select(Path.GetFileName)
                 .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
 
-            return string.IsNullOrWhiteSpace(file) ? null : $"cac/{file}";
+            return string.IsNullOrWhiteSpace(file) ? null : BuildRegistrationDocumentPath(schoolId);
         }
         catch
         {
@@ -202,11 +206,11 @@ public class SuperAdminController : ControllerBase
                     SchoolEmail: x.Email,
                     PrincipalName: x.PrincipalName,
                     SchoolAdminName: x.SchoolAdminName,
-                    LogoPath: x.LogoFileName,
+                    LogoPath: !string.IsNullOrWhiteSpace(x.LogoFileName) ? BuildSchoolLogoPath(x.Id) : null,
                     CacNumber: x.CacNumber,
                     RegistrationDocumentPath: string.IsNullOrWhiteSpace(x.RegistrationDocumentPath)
                         ? ResolveRegistrationDocumentPath(x.Id)
-                        : x.RegistrationDocumentPath))
+                        : BuildRegistrationDocumentPath(x.Id)))
                 .ToList();
 
             return Ok(rows);

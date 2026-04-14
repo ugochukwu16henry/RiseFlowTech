@@ -393,6 +393,41 @@ public class SchoolsController : ControllerBase
         return Ok(new { message = "Logo uploaded.", logoFileName = relativePath });
     }
 
+    /// <summary>Get a school's logo file. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
+    [HttpGet("{id:guid}/logo")]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetLogo(Guid id, CancellationToken ct)
+    {
+        var school = await _db.Schools.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (school == null || string.IsNullOrWhiteSpace(school.LogoFileName))
+            return NotFound();
+
+        if (User.IsInRole(Roles.SchoolAdmin) && !_tenant.CurrentSchoolId.HasValue || (User.IsInRole(Roles.SchoolAdmin) && _tenant.CurrentSchoolId!.Value != id))
+            return Forbid();
+
+        var path = school.LogoFileName!;
+        var bytes = await _fileStorage.TryReadBytesAsync(path, ct);
+        if (bytes is { Length: > 0 })
+            return File(bytes, DetectImageContentType(path));
+
+        var blob = await _db.FileAssets
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(a => a.SchoolId == id
+                && a.Category == "school-logo"
+                && a.RelativePath == path
+                && a.FileBytes != null)
+            .OrderByDescending(a => a.UploadedAtUtc)
+            .Select(a => new { a.FileBytes, a.ContentType })
+            .FirstOrDefaultAsync(ct);
+        if (blob?.FileBytes is { Length: > 0 })
+            return File(blob.FileBytes, string.IsNullOrWhiteSpace(blob.ContentType) ? DetectImageContentType(path) : blob.ContentType);
+
+        return NotFound();
+    }
+
     /// <summary>Upload or replace school registration/CAC document. SchoolAdmin only.</summary>
     [HttpPost("registration-document")]
     [Authorize(Roles = Roles.SchoolAdmin)]
@@ -462,6 +497,66 @@ public class SchoolsController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { message = "Registration document uploaded.", registrationDocumentPath = relativePath });
+    }
+
+    /// <summary>Get a school's registration/CAC document. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
+    [HttpGet("{id:guid}/registration-document")]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRegistrationDocument(Guid id, CancellationToken ct)
+    {
+        var school = await _db.Schools.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (school == null || string.IsNullOrWhiteSpace(school.RegistrationDocumentPath))
+            return NotFound();
+
+        if (User.IsInRole(Roles.SchoolAdmin) && !_tenant.CurrentSchoolId.HasValue || (User.IsInRole(Roles.SchoolAdmin) && _tenant.CurrentSchoolId!.Value != id))
+            return Forbid();
+
+        var path = school.RegistrationDocumentPath!;
+        var bytes = await _fileStorage.TryReadBytesAsync(path, ct);
+        if (bytes is { Length: > 0 })
+            return File(bytes, DetectDocumentContentType(path));
+
+        var blob = await _db.FileAssets
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(a => a.SchoolId == id
+                && a.Category == "school-registration-document"
+                && a.RelativePath == path
+                && a.FileBytes != null)
+            .OrderByDescending(a => a.UploadedAtUtc)
+            .Select(a => new { a.FileBytes, a.ContentType })
+            .FirstOrDefaultAsync(ct);
+        if (blob?.FileBytes is { Length: > 0 })
+            return File(blob.FileBytes, string.IsNullOrWhiteSpace(blob.ContentType) ? DetectDocumentContentType(path) : blob.ContentType);
+
+        return NotFound();
+    }
+
+    private static string DetectImageContentType(string path)
+    {
+        var ext = Path.GetExtension(path);
+        return ext.ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "image/jpeg"
+        };
+    }
+
+    private static string DetectDocumentContentType(string path)
+    {
+        var ext = Path.GetExtension(path);
+        return ext.ToLowerInvariant() switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
     }
 
     /// <summary>
