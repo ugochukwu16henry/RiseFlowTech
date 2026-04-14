@@ -31,6 +31,9 @@ export default function SchoolAdminPage() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const [selectedTeacherProfile, setSelectedTeacherProfile] = useState(null);
+  const [teacherAssignClassId, setTeacherAssignClassId] = useState('');
+  const [assigningTeacherClass, setAssigningTeacherClass] = useState(false);
+  const [removingTeacherClassId, setRemovingTeacherClassId] = useState(null);
   const [teacherFieldSettings, setTeacherFieldSettings] = useState([]);
   const [loadingTeacherProfile, setLoadingTeacherProfile] = useState(false);
   const [savingFieldSettingKey, setSavingFieldSettingKey] = useState(null);
@@ -255,6 +258,49 @@ export default function SchoolAdminPage() {
   const selectedTeacherStudentCount = selectedTeacherClassIds.length === 0
     ? 0
     : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
+
+  const assignTeacherToClass = async () => {
+    if (!selectedTeacher?.id || !teacherAssignClassId || assigningTeacherClass) return;
+    setAssigningTeacherClass(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/teachers/${selectedTeacher.id}/classes/${teacherAssignClassId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roleInClass: null }),
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not assign teacher to class.');
+
+      setTeacherAssignClassId('');
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not assign teacher to class.');
+    } finally {
+      setAssigningTeacherClass(false);
+    }
+  };
+
+  const unassignTeacherFromClass = async (classId) => {
+    if (!selectedTeacher?.id || !classId || removingTeacherClassId === classId) return;
+    setRemovingTeacherClassId(classId);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/teachers/${selectedTeacher.id}/classes/${classId}`, {
+        method: 'DELETE',
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not unassign teacher from class.');
+
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not unassign teacher from class.');
+    } finally {
+      setRemovingTeacherClassId(null);
+    }
+  };
 
   const handlePayWithPaystack = async () => {
     if (!currentBilling || outstanding <= 0 || paying) return;
@@ -744,6 +790,58 @@ export default function SchoolAdminPage() {
                 <article className="dashboard-card"><p className="dashboard-label">Role</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.roleTitle || 'Teacher'}</p><p className="dashboard-sub">Department: {selectedTeacher.department || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Professional summary</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.highestQualification || selectedTeacher.subjectSpecialization || '—'}</p><p className="dashboard-sub">Experience: {selectedTeacher.yearsOfExperience ?? '—'} years</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Workload</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacherClassIds.length} class(es)</p><p className="dashboard-sub">Handling {selectedTeacherStudentCount} student(s)</p></article>
+                <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+                  <p className="dashboard-label">Class assignment</p>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={teacherAssignClassId}
+                      onChange={(e) => setTeacherAssignClassId(e.target.value)}
+                      disabled={assigningTeacherClass || classes.length === 0}
+                    >
+                      <option value="">— Assign teacher to class —</option>
+                      {classes
+                        .filter((schoolClass) => !selectedTeacherClassIds.includes(schoolClass.id))
+                        .map((schoolClass) => (
+                          <option key={schoolClass.id} value={schoolClass.id}>
+                            {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-primary-action"
+                      onClick={assignTeacherToClass}
+                      disabled={assigningTeacherClass || !teacherAssignClassId}
+                    >
+                      {assigningTeacherClass ? 'Assigning…' : 'Assign class'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    {selectedTeacherClassIds.length === 0 && (
+                      <span className="card-desc">No class assigned yet.</span>
+                    )}
+                    {selectedTeacherClassIds.map((classId) => {
+                      const assignedClass = classes.find((item) => item.id === classId);
+                      const label = assignedClass
+                        ? `${assignedClass.name}${assignedClass.gradeName ? ` (${assignedClass.gradeName})` : ''}`
+                        : classId;
+                      return (
+                        <button
+                          key={classId}
+                          type="button"
+                          className="btn-primary-action btn-primary-action--ghost"
+                          onClick={() => unassignTeacherFromClass(classId)}
+                          disabled={removingTeacherClassId === classId}
+                          title="Remove teacher from this class"
+                        >
+                          {removingTeacherClassId === classId ? 'Removing…' : `Remove ${label}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
                 <article className="dashboard-card"><p className="dashboard-label">Location / identity</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.nationality || '—'}</p><p className="dashboard-sub">State: {selectedTeacher.stateOfOrigin || '—'} • LGA: {selectedTeacher.lga || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Personal</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>Religion: {selectedTeacher.religion || '—'}</p><p className="dashboard-sub">Gender: {selectedTeacher.gender || '—'} • DOB: {selectedTeacher.dateOfBirth || '—'}</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Address</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.residentialAddress || '—'}</p><p className="dashboard-sub">Prev. schools: {selectedTeacher.previousSchools || '—'}</p></article>
