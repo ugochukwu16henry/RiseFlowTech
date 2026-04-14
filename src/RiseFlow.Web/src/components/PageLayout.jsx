@@ -6,6 +6,7 @@ import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
 const NAV_BY_ROLE = {
   school: [
     { to: '/school', label: 'Dashboard', end: true },
+    { to: '/school?tab=operations', label: 'School profile' },
     { to: '/school/students', label: 'People' },
     { to: '/school/students/add', label: 'Add student' },
     { to: '/school/classes', label: 'Classes' },

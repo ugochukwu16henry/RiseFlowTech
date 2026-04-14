@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
@@ -12,6 +12,14 @@ function formatMoney(amount, currencyCode) {
 }
 
 export default function SchoolAdminPage() {
+  const [searchParams] = useSearchParams();
+  const resolveTabView = useCallback((tab) => {
+    const normalized = String(tab || '').toLowerCase();
+    if (normalized === 'operations' || normalized === 'profile' || normalized === 'settings') return 'operations';
+    if (normalized === 'people') return 'people';
+    return 'overview';
+  }, []);
+
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
@@ -60,7 +68,7 @@ export default function SchoolAdminPage() {
   const schoolLogoInputRef = useRef(null);
   const registrationDocInputRef = useRef(null);
   const [paying, setPaying] = useState(false);
-  const [activeView, setActiveView] = useState('overview');
+  const [activeView, setActiveView] = useState(() => resolveTabView(searchParams.get('tab')));
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
@@ -147,6 +155,10 @@ export default function SchoolAdminPage() {
   }, [readJsonOrThrow]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    setActiveView(resolveTabView(searchParams.get('tab')));
+  }, [resolveTabView, searchParams]);
 
   const loadTeacherFieldSettings = useCallback(async () => {
     try {
@@ -649,6 +661,9 @@ export default function SchoolAdminPage() {
           <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
             Operations
           </button>
+          <Link to="/school?tab=operations" className="school-admin-nav-btn school-admin-nav-link">
+            School profile
+          </Link>
           <Link to="/school/promotions" className="school-admin-nav-btn school-admin-nav-link">
             Promotions
           </Link>
@@ -746,6 +761,7 @@ export default function SchoolAdminPage() {
         <Link to="/school/billing" className="btn-primary-action btn-primary-action--ghost">Billing</Link>
         <Link to="/school/reports" className="btn-primary-action btn-primary-action--ghost">Reports</Link>
         <Link to="/school/promotions" className="btn-primary-action btn-primary-action--ghost">Promotions</Link>
+        <Link to="/school?tab=operations" className="btn-primary-action btn-primary-action--ghost">School profile</Link>
         <Link to="/school/timetable" className="btn-primary-action btn-primary-action--ghost">Timetable</Link>
         <Link to="/school/communications" className="btn-primary-action btn-primary-action--ghost">Notices & events</Link>
         <Link to="/school/import" className="btn-primary-action btn-primary-action--ghost">Import</Link>
