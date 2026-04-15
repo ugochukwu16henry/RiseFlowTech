@@ -1279,6 +1279,7 @@ export default function SchoolAdminPage() {
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
   const activeStudents = dashboard?.studentCount ?? dashboard?.activeStudentCount ?? students.length;
+  const activeTeachers = dashboard?.teacherCount ?? teachers.length;
   const unpaidFees = dashboard?.unpaidFeesTotal ?? 0;
   const buildPublicUrl = (relativePath) => {
     if (!relativePath) return null;
@@ -1327,6 +1328,24 @@ export default function SchoolAdminPage() {
           </Link>
           <Link to="/school/communications" className="school-admin-nav-btn school-admin-nav-link">
             Notices &amp; events
+          </Link>
+          <Link to="/school/fees" className="school-admin-nav-btn school-admin-nav-link">
+            School fees
+          </Link>
+          <Link to="/school/terms" className="school-admin-nav-btn school-admin-nav-link">
+            Terms &amp; calendar
+          </Link>
+          <Link to="/school/billing" className="school-admin-nav-btn school-admin-nav-link">
+            Billing
+          </Link>
+          <Link to="/school/reports" className="school-admin-nav-btn school-admin-nav-link">
+            Reports
+          </Link>
+          <Link to="/school/import" className="school-admin-nav-btn school-admin-nav-link">
+            Import
+          </Link>
+          <Link to="/school/access-codes" className="school-admin-nav-btn school-admin-nav-link">
+            Access codes
           </Link>
         </aside>
 
@@ -1446,7 +1465,7 @@ export default function SchoolAdminPage() {
             <span className="summary-label">Active students</span>
           </div>
           <div className="summary-card">
-            <span className="summary-value">{teachers.length}</span>
+            <span className="summary-value">{activeTeachers}</span>
             <span className="summary-label">Teachers</span>
           </div>
           <div className="summary-card">
