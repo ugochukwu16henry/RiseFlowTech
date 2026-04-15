@@ -635,6 +635,8 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageTeachers, "TeacherClass", "AssignToClass.ManageTeachers", teacherId.ToString(), ct))
+            return Forbid();
         if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, "TeacherClass", "AssignToClass", teacherId.ToString(), ct))
             return Forbid();
         var existing = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
@@ -666,6 +668,8 @@ public class TeachersController : ControllerBase
     public async Task<ActionResult> UnassignFromClass(Guid teacherId, Guid classId, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageTeachers, "TeacherClass", "UnassignFromClass.ManageTeachers", teacherId.ToString(), ct))
             return Forbid();
         if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, "TeacherClass", "UnassignFromClass", teacherId.ToString(), ct))
             return Forbid();

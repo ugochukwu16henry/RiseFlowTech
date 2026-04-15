@@ -302,6 +302,49 @@ public class SchoolsController : ControllerBase
         return Ok(vm);
     }
 
+    /// <summary>Audit view for denied teacher actions in the current school.</summary>
+    [HttpGet("audit/denied-attempts")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<AuditLogDto>>> GetDeniedAttempts(
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        [FromQuery] string? entityType,
+        [FromQuery] string? userEmail,
+        [FromQuery] int limit = 200,
+        CancellationToken ct = default)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var cap = Math.Clamp(limit, 1, 1000);
+
+        IQueryable<AuditLog> query = _db.AuditLogs
+            .AsNoTracking()
+            .Where(a => a.SchoolId == schoolId && a.Action == "Denied");
+
+        if (fromUtc.HasValue)
+            query = query.Where(a => a.CreatedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(a => a.CreatedAtUtc <= toUtc.Value);
+        if (!string.IsNullOrWhiteSpace(entityType))
+            query = query.Where(a => a.EntityType == entityType.Trim());
+        if (!string.IsNullOrWhiteSpace(userEmail))
+        {
+            var normalizedEmail = userEmail.Trim();
+            query = query.Where(a => a.UserEmail != null && a.UserEmail == normalizedEmail);
+        }
+
+        var list = await query
+            .OrderByDescending(a => a.CreatedAtUtc)
+            .Take(cap)
+            .Select(a => new AuditLogDto(a.Id, a.SchoolId, a.Action, a.EntityType, a.EntityId, a.UserEmail, a.UserName, a.Details, a.CreatedAtUtc))
+            .ToListAsync(ct);
+
+        return Ok(list);
+    }
+
     /// <summary>Branding payload for current tenant (school name + logo + registration document URLs).</summary>
     [HttpGet("branding")]
     [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
