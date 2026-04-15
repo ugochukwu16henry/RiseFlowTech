@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
 import { apiFetch, getApiBase, STORAGE_ONBOARDING_KEY, STORAGE_TENANT_KEY } from '../api';
@@ -159,14 +159,15 @@ function resolvePeopleRole(person) {
   return looksStaff ? 'Staff' : 'Teacher';
 }
 
-export default function SchoolAdminPage() {
-  const [searchParams] = useSearchParams();
-  const resolveTabView = useCallback((tab) => {
-    const normalized = String(tab || '').toLowerCase();
-    if (normalized === 'operations' || normalized === 'profile' || normalized === 'settings') return 'operations';
-    if (normalized === 'people') return 'people';
-    return 'overview';
-  }, []);
+function resolveAdminView(view) {
+  const normalized = String(view || '').toLowerCase();
+  if (normalized === 'operations' || normalized === 'profile' || normalized === 'settings') return 'operations';
+  if (normalized === 'people') return 'people';
+  return 'overview';
+}
+
+export default function SchoolAdminPage({ view = 'overview' }) {
+  const activeView = useMemo(() => resolveAdminView(view), [view]);
 
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
@@ -272,7 +273,6 @@ export default function SchoolAdminPage() {
   const registrationDocInputRef = useRef(null);
   const deniedAttemptsSeenIdsRef = useRef(new Set());
   const [paying, setPaying] = useState(false);
-  const [activeView, setActiveView] = useState(() => resolveTabView(searchParams.get('tab')));
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_ONBOARDING_KEY);
@@ -377,10 +377,6 @@ export default function SchoolAdminPage() {
   }, [readJsonOrThrow]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  useEffect(() => {
-    setActiveView(resolveTabView(searchParams.get('tab')));
-  }, [resolveTabView, searchParams]);
 
   const loadTeacherFieldSettings = useCallback(async () => {
     try {
@@ -1738,56 +1734,7 @@ export default function SchoolAdminPage() {
 
   return (
     <PageLayout title="School Admin" role="school">
-      <div className="school-admin-shell">
-        <aside className="school-admin-nav">
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
-            Overview
-          </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'people' ? 'is-active' : ''}`} onClick={() => setActiveView('people')}>
-            People
-          </button>
-          <Link to="/school/classes" className="school-admin-nav-btn school-admin-nav-link">
-            Grades &amp; classes
-          </Link>
-          <Link to="/school/grading-systems" className="school-admin-nav-btn school-admin-nav-link">
-            Grading systems
-          </Link>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
-            Operations
-          </button>
-          <Link to="/school?tab=operations" className="school-admin-nav-btn school-admin-nav-link">
-            School profile
-          </Link>
-          <Link to="/school/promotions" className="school-admin-nav-btn school-admin-nav-link">
-            Promotions
-          </Link>
-          <Link to="/school/timetable" className="school-admin-nav-btn school-admin-nav-link">
-            Timetable
-          </Link>
-          <Link to="/school/communications" className="school-admin-nav-btn school-admin-nav-link">
-            Notices &amp; events
-          </Link>
-          <Link to="/school/fees" className="school-admin-nav-btn school-admin-nav-link">
-            School fees
-          </Link>
-          <Link to="/school/terms" className="school-admin-nav-btn school-admin-nav-link">
-            Terms &amp; calendar
-          </Link>
-          <Link to="/school/billing" className="school-admin-nav-btn school-admin-nav-link">
-            Billing
-          </Link>
-          <Link to="/school/reports" className="school-admin-nav-btn school-admin-nav-link">
-            Reports
-          </Link>
-          <Link to="/school/import" className="school-admin-nav-btn school-admin-nav-link">
-            Import
-          </Link>
-          <Link to="/school/access-codes" className="school-admin-nav-btn school-admin-nav-link">
-            Access codes
-          </Link>
-        </aside>
-
-        <section className="school-admin-view">
+      <section className="school-admin-view">
       {error && (
         <p className="empty-state empty-state--error" style={{ marginBottom: '1rem' }}>{error}</p>
       )}
@@ -1873,7 +1820,7 @@ export default function SchoolAdminPage() {
         <Link to="/school/billing" className="btn-primary-action btn-primary-action--ghost">Billing</Link>
         <Link to="/school/reports" className="btn-primary-action btn-primary-action--ghost">Reports</Link>
         <Link to="/school/promotions" className="btn-primary-action btn-primary-action--ghost">Promotions</Link>
-        <Link to="/school?tab=operations" className="btn-primary-action btn-primary-action--ghost">School profile</Link>
+        <Link to="/school/operations" className="btn-primary-action btn-primary-action--ghost">School profile</Link>
         <Link to="/school/timetable" className="btn-primary-action btn-primary-action--ghost">Timetable</Link>
         <Link to="/school/communications" className="btn-primary-action btn-primary-action--ghost">Notices & events</Link>
         <Link to="/school/import" className="btn-primary-action btn-primary-action--ghost">Import</Link>
@@ -3139,8 +3086,7 @@ export default function SchoolAdminPage() {
       )}
         </>
       )}
-        </section>
-      </div>
+      </section>
     </PageLayout>
   );
 }

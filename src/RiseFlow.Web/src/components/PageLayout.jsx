@@ -30,9 +30,10 @@ import {
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
   school: [
-    { to: '/school', label: 'Dashboard', end: true, icon: LayoutDashboard },
-    { to: '/school?tab=operations', label: 'School profile', icon: Building2 },
-    { to: '/school/students', label: 'People', icon: Users },
+    { to: '/school', label: 'Overview', end: true, icon: LayoutDashboard },
+    { to: '/school/people', label: 'People', icon: Users },
+    { to: '/school/operations', label: 'Operations', icon: Building2 },
+    { to: '/school/students', label: 'Students', icon: Users },
     { to: '/school/students/add', label: 'Add student', icon: UserPlus },
     { to: '/school/classes', label: 'Classes', icon: School },
     { to: '/school/fees', label: 'School fees', icon: Wallet },

@@ -81,8 +81,11 @@ createRoot(document.getElementById('root')).render(
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/staff/dashboard" element={<StaffPage />} />
         <Route path="/staff/signup" element={<StaffSignupPage />} />
-        <Route path="/school" element={<SchoolAdminPage />} />
-        <Route path="/school/dashboard" element={<SchoolAdminPage />} />
+        <Route path="/school" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/school/dashboard" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/school/overview" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/school/people" element={<SchoolAdminPage view="people" />} />
+        <Route path="/school/operations" element={<SchoolAdminPage view="operations" />} />
         <Route path="/school/students" element={<SchoolStudentsPage />} />
         <Route path="/school/billing" element={<SchoolBillingPage />} />
         <Route path="/school/reports" element={<SchoolReportsPage />} />
@@ -96,9 +99,12 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
         <Route path="/school/fees" element={<SchoolFeesPage />} />
         <Route path="/school/terms" element={<SchoolTermsPage />} />
-        <Route path="/admin" element={<SchoolAdminPage />} />
-        <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
-        <Route path="/admin/profile" element={<SchoolAdminPage />} />
+        <Route path="/admin" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/admin/dashboard" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/admin/profile" element={<SchoolAdminPage view="operations" />} />
+        <Route path="/admin/overview" element={<SchoolAdminPage view="overview" />} />
+        <Route path="/admin/people" element={<SchoolAdminPage view="people" />} />
+        <Route path="/admin/operations" element={<SchoolAdminPage view="operations" />} />
         <Route path="/admin/students" element={<SchoolStudentsPage />} />
         <Route path="/admin/students/add" element={<AddStudentPage />} />
         <Route path="/admin/classes" element={<SchoolClassesPage />} />
