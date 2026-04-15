@@ -117,6 +117,10 @@ const DASHBOARD_BY_ROLE = {
     card('billing', '/school/billing', 'Platform Billing', 'View RiseFlow subscription billing', IconPay, 'card--results'),
     card('people', '/school/students', 'Teachers & Students', 'Manage staff and students', IconUsers, 'card--pay'),
     card('reports', '/school/reports', 'Reports', 'View reports and analytics', IconChart, 'card--message'),
+    card('promotions', '/school/promotions', 'Promotions', 'Run class promotion workflows', IconSchool, 'card--message'),
+    card('communications', '/school/communications', 'Notices & Events', 'Send school-wide updates', IconMessage, 'card--message'),
+    card('import', '/school/import', 'Bulk Import', 'Import students in batches', IconUpload, 'card--pay'),
+    card('access-codes', '/school/access-codes', 'Access Codes', 'Generate parent/student portal codes', IconSettings, 'card--results'),
   ],
   [ROLES.Student]: [
     card('results', '/student/dashboard', 'My Results', 'View your grades', IconResults, 'card--results'),

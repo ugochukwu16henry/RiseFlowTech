@@ -91,9 +91,16 @@ createRoot(document.getElementById('root')).render(
         <Route path="/school/access-codes" element={<AccessCodesPage />} />
         <Route path="/school/fees" element={<SchoolFeesPage />} />
         <Route path="/school/terms" element={<SchoolTermsPage />} />
+        <Route path="/admin" element={<SchoolAdminPage />} />
         <Route path="/admin/dashboard" element={<SchoolAdminPage />} />
+        <Route path="/admin/profile" element={<SchoolAdminPage />} />
         <Route path="/admin/students" element={<SchoolStudentsPage />} />
+        <Route path="/admin/students/add" element={<AddStudentPage />} />
+        <Route path="/admin/classes" element={<SchoolClassesPage />} />
         <Route path="/admin/billing" element={<SchoolBillingPage />} />
+        <Route path="/admin/reports" element={<SchoolReportsPage />} />
+        <Route path="/admin/fees" element={<SchoolFeesPage />} />
+        <Route path="/admin/terms" element={<SchoolTermsPage />} />
         <Route path="/admin/import" element={<ExcelImportPage />} />
         <Route path="/admin/grading-systems" element={<GradingSystemPage />} />
         <Route path="/admin/promotions" element={<StudentPromotionPage />} />
