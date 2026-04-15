@@ -415,8 +415,51 @@ public class SchoolsController : ControllerBase
         school.Phone = TrimOrNull(request.Phone, 128);
         school.WhatsAppNumber = TrimOrNull(request.WhatsAppNumber, 128);
         school.CacNumber = TrimOrNull(request.CacNumber, 64);
+
+        if (request.TermsPerYear.HasValue)
+        {
+            if (request.TermsPerYear.Value < 1 || request.TermsPerYear.Value > 6)
+                return BadRequest("TermsPerYear must be between 1 and 6.");
+            school.TermsPerYear = request.TermsPerYear.Value;
+        }
+        else
+        {
+            school.TermsPerYear = null;
+        }
+
         school.UpdatedAtUtc = DateTime.UtcNow;
 
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(ToSchoolProfileDto(school));
+    }
+
+    /// <summary>Set school-level terms-per-year preference for planning and setup guidance.</summary>
+    [HttpPut("profile/terms-per-year")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolProfileDto>> UpdateTermsPerYear([FromBody] UpdateTermsPerYearRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        if (request == null)
+            return BadRequest("TermsPerYear payload is required.");
+
+        if (request.TermsPerYear.HasValue && (request.TermsPerYear.Value < 1 || request.TermsPerYear.Value > 6))
+            return BadRequest("TermsPerYear must be between 1 and 6.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        school.TermsPerYear = request.TermsPerYear;
+        school.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         return Ok(ToSchoolProfileDto(school));
@@ -1069,6 +1112,7 @@ public class SchoolsController : ControllerBase
             school.Phone,
             school.WhatsAppNumber,
             school.CacNumber,
+            school.TermsPerYear,
             string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
             string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
             school.AcademicSystemProfileId,
@@ -1210,7 +1254,8 @@ public record UpdateSchoolProfileRequest(
     string? Email,
     string? Phone,
     string? WhatsAppNumber,
-    string? CacNumber);
+    string? CacNumber,
+    int? TermsPerYear);
 
 public record SchoolProfileDto(
     Guid Id,
@@ -1224,6 +1269,7 @@ public record SchoolProfileDto(
     string? Phone,
     string? WhatsAppNumber,
     string? CacNumber,
+    int? TermsPerYear,
     string? LogoPath,
     string? RegistrationDocumentPath,
     Guid? AcademicSystemProfileId,
@@ -1233,6 +1279,8 @@ public record SchoolProfileDto(
     string? PromotionTransitionOverrideJson,
     string? EffectivePromotionTransitionJson,
     DateTime? UpdatedAtUtc);
+
+public record UpdateTermsPerYearRequest(int? TermsPerYear);
 
 public record SchoolBrandingDto(
     Guid Id,

@@ -348,6 +348,8 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
         if (!schoolColumns.Contains("AffiliateReferralCodeUsed"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateReferralCodeUsed\" TEXT NULL;");
+        if (!schoolColumns.Contains("TermsPerYear"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"TermsPerYear\" INTEGER NULL;");
 
         var studentResultColumns = await GetColumnsAsync("StudentResults");
         if (!studentResultColumns.Contains("ExamId"))
@@ -796,6 +798,7 @@ ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AcademicSystemProfileI
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "PromotionTransitionOverrideJson" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateId" uuid NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateReferralCodeUsed" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "TermsPerYear" integer NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "DataConsentFormReceivedAt" timestamp with time zone NULL;
 CREATE INDEX IF NOT EXISTS "IX_Schools_AcademicSystemProfileId" ON "Schools" ("AcademicSystemProfileId");
 CREATE INDEX IF NOT EXISTS "IX_Schools_AffiliateId" ON "Schools" ("AffiliateId");

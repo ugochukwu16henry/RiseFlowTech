@@ -24,6 +24,8 @@ public class School
     public string? AffiliateReferralCodeUsed { get; set; }
     /// <summary>ISO 3166-1 alpha-2 (e.g. NG, GH, KE). Used for billing and localization.</summary>
     public string? CountryCode { get; set; }
+    /// <summary>School-selected term structure preference (for example 2, 3, or 4 terms per year).</summary>
+    public int? TermsPerYear { get; set; }
     /// <summary>ISO 4217 (e.g. NGN, GHS, KES). Billing is in this currency.</summary>
     public string CurrencyCode { get; set; } = "NGN";
     /// <summary>Stored logo file name (e.g. under wwwroot/logos) or relative path. Set during onboarding or via logo upload.</summary>

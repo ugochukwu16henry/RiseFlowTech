@@ -105,6 +105,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.PromotionTransitionOverrideJson).HasMaxLength(12000);
             e.Property(x => x.AffiliateReferralCodeUsed).HasMaxLength(64);
             e.Property(x => x.CountryCode).HasMaxLength(2);
+            e.Property(x => x.TermsPerYear);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);
             e.Property(x => x.RegistrationDocumentPath).HasMaxLength(512);

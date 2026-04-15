@@ -23,12 +23,55 @@ function termColor(index) {
   return colors[index % colors.length];
 }
 
+function dedupeCaseInsensitive(values) {
+  const seen = new Set();
+  const output = [];
+  (values || []).forEach((value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push(normalized);
+  });
+  return output;
+}
+
+function subjectCodeFromName(name) {
+  const cleaned = String(name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  if (!cleaned) return 'SUBJ';
+  return cleaned.slice(0, 10);
+}
+
+function getTermNamingOptions(termCount) {
+  if (termCount === 2) return ['Semester 1', 'Semester 2'];
+  if (termCount === 4) return ['Quarter 1', 'Quarter 2', 'Quarter 3', 'Quarter 4'];
+  return ['First Term', 'Second Term', 'Third Term'];
+}
+
+function defaultTermsByCountry(countryCode) {
+  const normalized = String(countryCode || '').trim().toUpperCase();
+  if (normalized === 'MA') return 2;
+  if (normalized === 'EG' || normalized === 'TN' || normalized === 'DZ') return 2;
+  return 3;
+}
+
 export default function SchoolTermsPage() {
   const [terms, setTerms] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [schoolProfile, setSchoolProfile] = useState(null);
+  const [academicProfiles, setAcademicProfiles] = useState([]);
+  const [onboardingCountries, setOnboardingCountries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedTermsPerYear, setSelectedTermsPerYear] = useState(3);
+  const [savingTermsPreference, setSavingTermsPreference] = useState(false);
+  const [selectedPresetSubjects, setSelectedPresetSubjects] = useState([]);
+  const [customSubjects, setCustomSubjects] = useState([]);
+  const [customSubjectInput, setCustomSubjectInput] = useState('');
+  const [savingSubjects, setSavingSubjects] = useState(false);
 
   const emptyForm = {
     name: '', academicYear: '', startDate: '', endDate: '',
@@ -37,11 +80,69 @@ export default function SchoolTermsPage() {
   };
   const [form, setForm] = useState(emptyForm);
 
+  const currentCountry = onboardingCountries.find((country) =>
+    String(country.countryCode || '').toUpperCase() === String(schoolProfile?.countryCode || '').toUpperCase());
+
+  const selectedAcademicProfile = academicProfiles.find((profile) => profile.id === schoolProfile?.academicSystemProfileId);
+
+  const suggestedTermsFromProfile = Number(selectedAcademicProfile?.suggestedTermsPerYear || 0) || null;
+  const suggestedTermsFromCountry = defaultTermsByCountry(schoolProfile?.countryCode);
+  const savedTermsPreference = Number(schoolProfile?.termsPerYear || 0) || null;
+  const effectiveSuggestedTerms = suggestedTermsFromProfile || suggestedTermsFromCountry;
+
+  const termOptions = dedupeCaseInsensitive([
+    String(effectiveSuggestedTerms),
+    String(savedTermsPreference || ''),
+    '2',
+    '3',
+    '4',
+  ]).map((item) => Number(item)).filter((item) => Number.isFinite(item));
+
+  const availablePresetSubjects = dedupeCaseInsensitive(currentCountry?.defaultSubjects || []);
+
+  const termNameOptions = getTermNamingOptions(selectedTermsPerYear);
+
   const loadTerms = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('/api/academicterms');
-      setTerms(res.ok ? await res.json() : []);
+      const [termsRes, profileRes, profileOptionsRes, countriesRes, subjectsRes] = await Promise.all([
+        apiFetch('/api/academicterms'),
+        apiFetch('/api/schools/profile'),
+        apiFetch('/api/schools/academic-system-profiles'),
+        apiFetch('/api/schools/onboarding-options'),
+        apiFetch('/api/subjects'),
+      ]);
+
+      const termsData = termsRes.ok ? await termsRes.json() : [];
+      const profileData = profileRes.ok ? await profileRes.json() : null;
+      const profileOptionsData = profileOptionsRes.ok ? await profileOptionsRes.json() : [];
+      const countriesDataRaw = countriesRes.ok ? await countriesRes.json() : {};
+      const subjectsData = subjectsRes.ok ? await subjectsRes.json() : [];
+
+      const countriesData = Array.isArray(countriesDataRaw?.countries) ? countriesDataRaw.countries : [];
+
+      setTerms(Array.isArray(termsData) ? termsData : []);
+      setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
+      setSchoolProfile(profileData);
+      setAcademicProfiles(Array.isArray(profileOptionsData) ? profileOptionsData : []);
+      setOnboardingCountries(countriesData);
+
+      const selectedProfile = (Array.isArray(profileOptionsData) ? profileOptionsData : [])
+        .find((item) => item.id === profileData?.academicSystemProfileId);
+      const profileSuggested = Number(selectedProfile?.suggestedTermsPerYear || 0);
+      const schoolSelectedTerms = Number(profileData?.termsPerYear || 0);
+      if (schoolSelectedTerms > 0) {
+        setSelectedTermsPerYear(schoolSelectedTerms);
+      } else if (profileSuggested > 0) {
+        setSelectedTermsPerYear(profileSuggested);
+      } else {
+        setSelectedTermsPerYear(defaultTermsByCountry(profileData?.countryCode));
+      }
+
+      const countryMatch = countriesData.find((country) =>
+        String(country.countryCode || '').toUpperCase() === String(profileData?.countryCode || '').toUpperCase());
+      const defaultSubjects = dedupeCaseInsensitive(countryMatch?.defaultSubjects || []);
+      setSelectedPresetSubjects(defaultSubjects);
     } catch {
       setMessage('Could not load terms.');
     } finally {
@@ -52,6 +153,106 @@ export default function SchoolTermsPage() {
   useEffect(() => { loadTerms(); }, [loadTerms]);
 
   const setField = (key, value) => setForm(f => ({ ...f, [key]: value }));
+
+  const applySuggestedTermName = () => {
+    const scopedTerms = terms
+      .filter((term) => String(term.academicYear || '').trim() === String(form.academicYear || '').trim())
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    const nextIndex = scopedTerms.length;
+    const names = getTermNamingOptions(selectedTermsPerYear);
+    const suggestedName = names[nextIndex] || `Term ${nextIndex + 1}`;
+
+    setForm((current) => ({
+      ...current,
+      name: suggestedName,
+      sortOrder: String(nextIndex + 1),
+    }));
+  };
+
+  const addCustomSubject = () => {
+    const normalized = customSubjectInput.trim();
+    if (!normalized) return;
+    const combined = dedupeCaseInsensitive([...customSubjects, normalized]);
+    setCustomSubjects(combined);
+    setCustomSubjectInput('');
+  };
+
+  const removeCustomSubject = (name) => {
+    setCustomSubjects((current) => current.filter((item) => item.toLowerCase() !== String(name || '').toLowerCase()));
+  };
+
+  const togglePresetSubject = (name) => {
+    setSelectedPresetSubjects((current) => (
+      current.some((item) => item.toLowerCase() === String(name || '').toLowerCase())
+        ? current.filter((item) => item.toLowerCase() !== String(name || '').toLowerCase())
+        : [...current, name]
+    ));
+  };
+
+  const createSelectedSubjects = async () => {
+    if (savingSubjects) return;
+    setSavingSubjects(true);
+    setMessage(null);
+
+    try {
+      const existingNames = new Set((subjects || []).map((subject) => String(subject.name || '').trim().toLowerCase()));
+      const pending = dedupeCaseInsensitive([...selectedPresetSubjects, ...customSubjects])
+        .filter((name) => !existingNames.has(name.toLowerCase()));
+
+      if (pending.length === 0) {
+        setMessage('All selected subjects already exist.');
+        return;
+      }
+
+      for (const subjectName of pending) {
+        const res = await apiFetch('/api/subjects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: subjectName, code: subjectCodeFromName(subjectName) }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `Could not create subject: ${subjectName}`);
+        }
+      }
+
+      setMessage(`Created ${pending.length} subject${pending.length === 1 ? '' : 's'}.`);
+      setCustomSubjects([]);
+      await loadTerms();
+    } catch (err) {
+      setMessage(err.message || 'Could not create selected subjects.');
+    } finally {
+      setSavingSubjects(false);
+    }
+  };
+
+  const saveTermsPerYearPreference = async () => {
+    if (savingTermsPreference) return;
+    setSavingTermsPreference(true);
+    setMessage(null);
+
+    try {
+      const res = await apiFetch('/api/schools/profile/terms-per-year', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ termsPerYear: selectedTermsPerYear }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      const updated = await res.json();
+      setSchoolProfile(updated);
+      setMessage('Terms-per-year preference saved.');
+    } catch (err) {
+      setMessage(err.message || 'Could not save terms-per-year preference.');
+    } finally {
+      setSavingTermsPreference(false);
+    }
+  };
 
   const saveTerm = async (e) => {
     e.preventDefault();
@@ -130,6 +331,46 @@ export default function SchoolTermsPage() {
     <PageLayout title="Term Calendar" role="school">
       <h2 className="section-title">Academic Terms &amp; Calendar</h2>
 
+      <section className="dashboard-panel" style={{ marginBottom: '1rem' }}>
+        <h3 className="card-title">African term structure guide</h3>
+        <p className="card-desc">
+          Most African school systems use <strong>3 terms per year</strong> (trimester model). Some systems use <strong>2 terms</strong> (semester model), and a few private calendars run <strong>4 quarters</strong>.
+        </p>
+        <p className="card-desc" style={{ marginTop: '0.35rem' }}>
+          Suggested for your school: <strong>{effectiveSuggestedTerms}</strong> term(s) per year
+          {selectedAcademicProfile?.name ? ` from ${selectedAcademicProfile.name}` : ''}
+          {schoolProfile?.countryCode ? ` (${schoolProfile.countryCode})` : ''}.
+        </p>
+        <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+          <label className="form-field">Terms per year
+            <select
+              className="form-input"
+              value={selectedTermsPerYear}
+              onChange={(e) => setSelectedTermsPerYear(Number(e.target.value) || 3)}
+            >
+              {termOptions.sort((a, b) => a - b).map((option) => (
+                <option key={option} value={option}>{option} term(s) per year</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="form-actions" style={{ marginTop: '0.65rem' }}>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={saveTermsPerYearPreference}
+            disabled={savingTermsPreference}
+          >
+            {savingTermsPreference ? 'Saving preference…' : 'Save terms-per-year preference'}
+          </button>
+          {savedTermsPreference ? (
+            <span className="card-desc" style={{ alignSelf: 'center' }}>
+              Saved preference: {savedTermsPreference} term(s)
+            </span>
+          ) : null}
+        </div>
+      </section>
+
       <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
         <Link to="/school" className="btn-primary-action btn-primary-action--ghost">Dashboard</Link>
       </div>
@@ -144,6 +385,14 @@ export default function SchoolTermsPage() {
       <div className="card" style={{ maxWidth: 760, marginBottom: '2rem' }}>
         <h3 style={{ marginBottom: '0.75rem' }}>{editingId ? 'Edit term' : 'Add academic term'}</h3>
         <form onSubmit={saveTerm}>
+          <div className="form-actions" style={{ marginBottom: '0.6rem', gap: '0.5rem', display: 'flex', flexWrap: 'wrap' }}>
+            <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={applySuggestedTermName}>
+              Use next suggested term name
+            </button>
+            <span className="card-desc" style={{ alignSelf: 'center' }}>
+              Suggested names: {termNameOptions.join(', ')}
+            </span>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
               <label className="form-label">Term name *</label>
@@ -308,6 +557,64 @@ export default function SchoolTermsPage() {
             </div>
           </div>
         ))}
+
+      <section className="dashboard-panel" style={{ marginTop: '1.5rem' }}>
+        <h3 className="card-title">Subjects setup (preset + custom)</h3>
+        <p className="card-desc">
+          Start with recommended subjects for your country/profile, then add custom subjects unique to your school.
+        </p>
+
+        {availablePresetSubjects.length > 0 && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <p className="card-desc"><strong>Recommended subjects</strong></p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.45rem', marginTop: '0.35rem' }}>
+              {availablePresetSubjects.map((subject) => {
+                const checked = selectedPresetSubjects.some((item) => item.toLowerCase() === subject.toLowerCase());
+                return (
+                  <label key={subject} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border-color)', borderRadius: 8, padding: '0.45rem 0.55rem' }}>
+                    <input type="checkbox" checked={checked} onChange={() => togglePresetSubject(subject)} />
+                    <span>{subject}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: '0.85rem' }}>
+          <p className="card-desc"><strong>Custom subjects</strong></p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.5rem', marginTop: '0.35rem' }}>
+            <input
+              className="form-input"
+              value={customSubjectInput}
+              onChange={(e) => setCustomSubjectInput(e.target.value)}
+              placeholder="e.g. Robotics, French, Music Theory"
+            />
+            <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={addCustomSubject}>Add custom</button>
+          </div>
+          {customSubjects.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+              {customSubjects.map((subject) => (
+                <button
+                  key={subject}
+                  type="button"
+                  className="btn-primary-action btn-primary-action--ghost"
+                  style={{ padding: '0.2rem 0.55rem' }}
+                  onClick={() => removeCustomSubject(subject)}
+                >
+                  {subject} ×
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="form-actions" style={{ marginTop: '0.8rem' }}>
+          <button type="button" className="btn-primary-action" onClick={createSelectedSubjects} disabled={savingSubjects}>
+            {savingSubjects ? 'Saving subjects…' : 'Create selected subjects'}
+          </button>
+        </div>
+      </section>
     </PageLayout>
   );
 }
