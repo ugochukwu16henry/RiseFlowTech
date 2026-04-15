@@ -1,55 +1,80 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, NavLink, Link } from 'react-router-dom';
 import { apiFetch, getApiBase, STORAGE_TENANT_KEY } from '../api';
+import {
+  Activity,
+  BadgeDollarSign,
+  Bell,
+  BookOpen,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  CircleFadingArrowUp,
+  ClipboardList,
+  ContactRound,
+  CreditCard,
+  FileBarChart2,
+  FileCog,
+  GraduationCap,
+  LayoutDashboard,
+  MailCheck,
+  School,
+  Settings2,
+  ShieldCheck,
+  Upload,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react';
 
 /** Preset sidebar links (multi-tenant SaaS shell — one school’s data never mixed with another’s at the API). */
 const NAV_BY_ROLE = {
   school: [
-    { to: '/school', label: 'Dashboard', end: true },
-    { to: '/school?tab=operations', label: 'School profile' },
-    { to: '/school/students', label: 'People' },
-    { to: '/school/students/add', label: 'Add student' },
-    { to: '/school/classes', label: 'Classes' },
-    { to: '/school/fees', label: 'School fees' },
-    { to: '/school/terms', label: 'Terms & calendar' },
-    { to: '/school/grading-systems', label: 'Grading systems' },
-    { to: '/school/promotions', label: 'Promotions' },
-    { to: '/school/timetable', label: 'Timetable' },
-    { to: '/school/communications', label: 'Notices & events' },
-    { to: '/school/billing', label: 'Billing' },
-    { to: '/school/reports', label: 'Reports' },
-    { to: '/school/import', label: 'Import' },
-    { to: '/school/access-codes', label: 'Access codes' },
+    { to: '/school', label: 'Dashboard', end: true, icon: LayoutDashboard },
+    { to: '/school?tab=operations', label: 'School profile', icon: Building2 },
+    { to: '/school/students', label: 'People', icon: Users },
+    { to: '/school/students/add', label: 'Add student', icon: UserPlus },
+    { to: '/school/classes', label: 'Classes', icon: School },
+    { to: '/school/fees', label: 'School fees', icon: Wallet },
+    { to: '/school/terms', label: 'Terms & calendar', icon: CalendarDays },
+    { to: '/school/grading-systems', label: 'Grading systems', icon: Settings2 },
+    { to: '/school/promotions', label: 'Promotions', icon: CircleFadingArrowUp },
+    { to: '/school/timetable', label: 'Timetable', icon: ClipboardList },
+    { to: '/school/communications', label: 'Notices & events', icon: Bell },
+    { to: '/school/billing', label: 'Billing', icon: CreditCard },
+    { to: '/school/reports', label: 'Reports', icon: FileBarChart2 },
+    { to: '/school/import', label: 'Import', icon: Upload },
+    { to: '/school/access-codes', label: 'Access codes', icon: ShieldCheck },
   ],
   super: [
-    { to: '/super-admin', label: 'Control room', end: true },
-    { to: '/super-admin/schools', label: 'Schools' },
-    { to: '/super-admin/revenue', label: 'Revenue' },
-    { to: '/super-admin/affiliates', label: 'Affiliates' },
-    { to: '/super-admin/compliance', label: 'System settings' },
-    { to: '/super-admin/data-offboarding', label: 'Data offboarding' },
+    { to: '/super-admin', label: 'Control room', end: true, icon: LayoutDashboard },
+    { to: '/super-admin/schools', label: 'Schools', icon: Building2 },
+    { to: '/super-admin/revenue', label: 'Revenue', icon: BadgeDollarSign },
+    { to: '/super-admin/affiliates', label: 'Affiliates', icon: BriefcaseBusiness },
+    { to: '/super-admin/compliance', label: 'System settings', icon: FileCog },
+    { to: '/super-admin/data-offboarding', label: 'Data offboarding', icon: ShieldCheck },
   ],
   affiliate: [
-    { to: '/affiliate', label: 'Dashboard', end: true },
-    { to: '/affiliate/schools', label: 'My schools' },
-    { to: '/affiliate/payouts', label: 'Payouts' },
-    { to: '/affiliate/training', label: 'Training' },
+    { to: '/affiliate', label: 'Dashboard', end: true, icon: LayoutDashboard },
+    { to: '/affiliate/schools', label: 'My schools', icon: Building2 },
+    { to: '/affiliate/payouts', label: 'Payouts', icon: Wallet },
+    { to: '/affiliate/training', label: 'Training', icon: BookOpen },
   ],
   teacher: [
-    { to: '/teacher', label: 'Dashboard', end: true },
-    { to: '/teacher/grading', label: 'Grading' },
-    { to: '/teacher/promotions', label: 'Promotions' },
-    { to: '/teacher/assignments', label: 'Assignments' },
+    { to: '/teacher', label: 'Dashboard', end: true, icon: LayoutDashboard },
+    { to: '/teacher/grading', label: 'Grading', icon: GraduationCap },
+    { to: '/teacher/promotions', label: 'Promotions', icon: CircleFadingArrowUp },
+    { to: '/teacher/assignments', label: 'Assignments', icon: ClipboardList },
   ],
   parent: [
-    { to: '/parent', label: 'Family', end: true },
-    { to: '/parent/fees', label: 'School fees' },
-    { to: '/parent/dashboard', label: 'Dashboard' },
-    { to: '/parent/claim', label: 'Claim child' },
+    { to: '/parent', label: 'Family', end: true, icon: ContactRound },
+    { to: '/parent/fees', label: 'School fees', icon: Wallet },
+    { to: '/parent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/parent/claim', label: 'Claim child', icon: MailCheck },
   ],
   student: [
-    { to: '/student', label: 'My dashboard', end: true },
-    { to: '/student/dashboard', label: 'Dashboard' },
+    { to: '/student', label: 'My dashboard', end: true, icon: Activity },
+    { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ],
   legal: [
     { to: '/', label: 'Home' },
@@ -264,7 +289,10 @@ export default function PageLayout({
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5" aria-label="App">
           {items?.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
-              {item.label}
+              <span className="flex items-center gap-2">
+                {item.icon ? <item.icon size={16} strokeWidth={2} aria-hidden="true" /> : null}
+                <span>{item.label}</span>
+              </span>
             </NavLink>
           ))}
         </nav>
@@ -320,7 +348,10 @@ export default function PageLayout({
                     }`
                   }
                 >
-                  {item.label}
+                  <span className="inline-flex items-center gap-1.5">
+                    {item.icon ? <item.icon size={14} strokeWidth={2} aria-hidden="true" /> : null}
+                    <span>{item.label}</span>
+                  </span>
                 </NavLink>
               ))}
             </nav>
