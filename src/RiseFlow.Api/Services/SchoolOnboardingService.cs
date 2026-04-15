@@ -229,12 +229,12 @@ public class SchoolOnboardingService
             .Where(c => c.SchoolId == schoolId)
             .ToListAsync(ct);
         var classKeys = new HashSet<string>(
-            existingClasses.Select(c => $"{(c.Name ?? string.Empty).Trim()}::{(c.Level ?? string.Empty).Trim()}"),
+            existingClasses.Select(c => (c.Name ?? string.Empty).Trim()),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var classLevel in classLevels)
         {
-            var classKey = $"{classLevel}::{classLevel}";
+            var classKey = classLevel;
             if (classKeys.Contains(classKey))
                 continue;
 
@@ -245,7 +245,6 @@ public class SchoolOnboardingService
                 GradeId = gradeByName[classLevel].Id,
                 Grade = gradeByName[classLevel],
                 Name = classLevel,
-                Level = classLevel,
                 CreatedAtUtc = DateTime.UtcNow
             });
 
@@ -256,9 +255,11 @@ public class SchoolOnboardingService
             .Where(s => s.SchoolId == schoolId)
             .ToListAsync(ct);
         var existingSubjectNames = new HashSet<string>(existingSubjects.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
-        var existingSubjectCodes = new HashSet<string>(existingSubjects.Select(s => s.SubjectCode), StringComparer.OrdinalIgnoreCase);
-        var selectedSubjectSet = new HashSet<string>(selectedSubjects, StringComparer.OrdinalIgnoreCase);
-
+        var existingSubjectCodes = new HashSet<string>(
+            existingSubjects
+                .Where(s => !string.IsNullOrWhiteSpace(s.Code))
+                .Select(s => s.Code!),
+            StringComparer.OrdinalIgnoreCase);
         foreach (var subjectName in subjects)
         {
             if (existingSubjectNames.Contains(subjectName))
@@ -270,8 +271,8 @@ public class SchoolOnboardingService
                 Id = Guid.NewGuid(),
                 SchoolId = schoolId,
                 Name = subjectName,
-                SubjectCode = subjectCode,
-                IsCore = selectedSubjectSet.Contains(subjectName),
+                Code = subjectCode,
+                IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             });
 
