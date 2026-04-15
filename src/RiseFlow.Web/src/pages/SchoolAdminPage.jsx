@@ -172,6 +172,10 @@ export default function SchoolAdminPage() {
   const [assigningTeacherClass, setAssigningTeacherClass] = useState(false);
   const [removingTeacherClassId, setRemovingTeacherClassId] = useState(null);
   const [staffStructureOptions, setStaffStructureOptions] = useState(null);
+  const [staffStructureConfig, setStaffStructureConfig] = useState(null);
+  const [staffPermissionMatrixDraft, setStaffPermissionMatrixDraft] = useState([]);
+  const [customHierarchyRoleDraft, setCustomHierarchyRoleDraft] = useState({ roleTitle: '', stageScope: '', hierarchyOrder: '' });
+  const [savingStaffStructureConfig, setSavingStaffStructureConfig] = useState(false);
   const [selectedTeacherRoleTitle, setSelectedTeacherRoleTitle] = useState('');
   const [customTeacherRoleTitle, setCustomTeacherRoleTitle] = useState('');
   const [selectedTeacherDepartment, setSelectedTeacherDepartment] = useState('');
@@ -225,9 +229,10 @@ export default function SchoolAdminPage() {
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
       apiFetch('/api/schools/academic-system-profiles').then((r) => readJsonOrThrow(r, 'Failed to load academic system profiles.')),
       apiFetch('/api/schools/staff-structure-options').then((r) => readJsonOrThrow(r, 'Failed to load staff structure options.')),
+      apiFetch('/api/schools/staff-structure-config').then((r) => readJsonOrThrow(r, 'Failed to load staff structure config.')),
     ])
       .then((results) => {
-        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult, staffStructureResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult, staffStructureResult, staffStructureConfigResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
         const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
@@ -271,6 +276,7 @@ export default function SchoolAdminPage() {
         setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
         setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
         setStaffStructureOptions(staffStructureResult.status === 'fulfilled' ? staffStructureResult.value : null);
+        setStaffStructureConfig(staffStructureConfigResult.status === 'fulfilled' ? staffStructureConfigResult.value : null);
       })
       .catch((err) => {
         const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
@@ -541,20 +547,63 @@ export default function SchoolAdminPage() {
       }
     }, [currentSchoolId, terminalToggleHydratedSchoolId, treatTerminalGradesAsValid]);
   const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const staffCatalogRoles = useMemo(() => {
+    const configRoles = Array.isArray(staffStructureConfig?.roleCatalog)
+      ? staffStructureConfig.roleCatalog
+      : [];
+    const fallbackRoles = Array.isArray(staffStructureOptions?.roleOptions)
+      ? staffStructureOptions.roleOptions.map((role) => ({
+        roleCode: role.roleCode,
+        roleTitle: role.roleTitle,
+        stageScope: role.defaultStageScope,
+        hierarchyOrder: role.hierarchyOrder,
+        isSystemDefault: true,
+      }))
+      : [];
+
+    const source = configRoles.length > 0 ? configRoles : fallbackRoles;
+    return [...source].sort((a, b) => (a.hierarchyOrder || 0) - (b.hierarchyOrder || 0));
+  }, [staffStructureConfig?.roleCatalog, staffStructureOptions?.roleOptions]);
+
   const staffRoleTitles = useMemo(() => dedupeCaseInsensitive([
-    ...(Array.isArray(staffStructureOptions?.roleOptions) ? staffStructureOptions.roleOptions.map((role) => role?.roleTitle) : []),
+    ...staffCatalogRoles.map((role) => role?.roleTitle),
     ...teachers.map((teacher) => teacher?.roleTitle),
-  ]), [staffStructureOptions?.roleOptions, teachers]);
+  ]), [staffCatalogRoles, teachers]);
 
   const stageScopeOptions = useMemo(() => dedupeCaseInsensitive([
+    ...(Array.isArray(staffStructureConfig?.stageScopes) ? staffStructureConfig.stageScopes : []),
     ...(Array.isArray(staffStructureOptions?.stageScopes) ? staffStructureOptions.stageScopes : []),
     ...teachers.map((teacher) => teacher?.department),
-  ]), [staffStructureOptions?.stageScopes, teachers]);
+  ]), [staffStructureConfig?.stageScopes, staffStructureOptions?.stageScopes, teachers]);
 
   const classRoleOptions = useMemo(() => dedupeCaseInsensitive([
+    ...(Array.isArray(staffStructureConfig?.classAssignmentRoles) ? staffStructureConfig.classAssignmentRoles : []),
     ...(Array.isArray(staffStructureOptions?.classAssignmentRoles) ? staffStructureOptions.classAssignmentRoles : []),
     ...teachers.flatMap((teacher) => (teacher.teacherClasses || []).map((tc) => tc?.roleInClass)),
-  ]), [staffStructureOptions?.classAssignmentRoles, teachers]);
+  ]), [staffStructureConfig?.classAssignmentRoles, staffStructureOptions?.classAssignmentRoles, teachers]);
+
+  useEffect(() => {
+    if (!staffStructureConfig || !Array.isArray(staffStructureConfig.roleCatalog)) {
+      setStaffPermissionMatrixDraft([]);
+      return;
+    }
+
+    const matrixMap = new Map((staffStructureConfig.permissionMatrix || []).map((item) => [String(item.roleTitle || '').toLowerCase(), item]));
+    const draft = staffStructureConfig.roleCatalog.map((role) => {
+      const key = String(role.roleTitle || '').toLowerCase();
+      const existing = matrixMap.get(key);
+      return existing || {
+        roleTitle: role.roleTitle,
+        canManageTeachers: false,
+        canAssignClasses: false,
+        canApproveResults: false,
+        canSendParentBroadcasts: false,
+        canManageFees: false,
+      };
+    });
+
+    setStaffPermissionMatrixDraft(draft);
+  }, [staffStructureConfig?.roleCatalog, staffStructureConfig?.permissionMatrix]);
 
   useEffect(() => {
     if (!selectedTeacher) {
@@ -613,6 +662,102 @@ export default function SchoolAdminPage() {
       setError(e.message || 'Could not update teacher role profile.');
     } finally {
       setSavingTeacherRoleProfile(false);
+    }
+  };
+
+  const addCustomHierarchyRole = () => {
+    const roleTitle = (customHierarchyRoleDraft.roleTitle || '').trim();
+    if (!roleTitle) {
+      setError('Custom hierarchy role title is required.');
+      return;
+    }
+
+    const stageScope = (customHierarchyRoleDraft.stageScope || '').trim() || 'Whole School';
+    const orderRaw = Number.parseInt(customHierarchyRoleDraft.hierarchyOrder, 10);
+    const hierarchyOrder = Number.isFinite(orderRaw) && orderRaw > 0 ? orderRaw : 900;
+
+    setStaffStructureConfig((current) => {
+      if (!current) return current;
+      const exists = (current.roleCatalog || []).some((item) => String(item.roleTitle || '').toLowerCase() === roleTitle.toLowerCase());
+      if (exists) return current;
+
+      const roleCode = roleTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'custom_role';
+      const nextCatalog = [
+        ...(current.roleCatalog || []),
+        {
+          roleCode,
+          roleTitle,
+          stageScope,
+          hierarchyOrder,
+          isSystemDefault: false,
+        },
+      ].sort((a, b) => (a.hierarchyOrder || 0) - (b.hierarchyOrder || 0));
+
+      return { ...current, roleCatalog: nextCatalog };
+    });
+
+    setCustomHierarchyRoleDraft({ roleTitle: '', stageScope: '', hierarchyOrder: '' });
+    setError(null);
+  };
+
+  const removeCustomHierarchyRole = (roleTitle) => {
+    setStaffStructureConfig((current) => {
+      if (!current) return current;
+      const nextCatalog = (current.roleCatalog || []).filter((item) => {
+        if (String(item.roleTitle || '').toLowerCase() !== String(roleTitle || '').toLowerCase()) return true;
+        return !!item.isSystemDefault;
+      });
+      return { ...current, roleCatalog: nextCatalog };
+    });
+  };
+
+  const updatePermissionRule = (roleTitle, key, checked) => {
+    setStaffPermissionMatrixDraft((current) => current.map((item) => (
+      String(item.roleTitle || '').toLowerCase() === String(roleTitle || '').toLowerCase()
+        ? { ...item, [key]: checked }
+        : item
+    )));
+  };
+
+  const saveStaffStructureConfig = async () => {
+    if (!staffStructureConfig || savingStaffStructureConfig) return;
+
+    setSavingStaffStructureConfig(true);
+    setError(null);
+    try {
+      const payload = {
+        roleCatalog: (staffStructureConfig.roleCatalog || []).map((item) => ({
+          roleCode: item.roleCode || null,
+          roleTitle: (item.roleTitle || '').trim(),
+          stageScope: (item.stageScope || '').trim() || 'Whole School',
+          hierarchyOrder: Number(item.hierarchyOrder || 0),
+          isSystemDefault: !!item.isSystemDefault,
+        })).filter((item) => item.roleTitle),
+        permissionMatrix: (staffPermissionMatrixDraft || []).map((item) => ({
+          roleTitle: item.roleTitle,
+          canManageTeachers: !!item.canManageTeachers,
+          canAssignClasses: !!item.canAssignClasses,
+          canApproveResults: !!item.canApproveResults,
+          canSendParentBroadcasts: !!item.canSendParentBroadcasts,
+          canManageFees: !!item.canManageFees,
+        })).filter((item) => String(item.roleTitle || '').trim()),
+      };
+
+      const res = await apiFetch('/api/schools/staff-structure-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not save staff structure config.');
+
+      const updated = text ? JSON.parse(text) : null;
+      if (updated) setStaffStructureConfig(updated);
+      await loadData({ background: true });
+    } catch (e) {
+      setError(e.message || 'Could not save staff structure config.');
+    } finally {
+      setSavingStaffStructureConfig(false);
     }
   };
 
@@ -1677,6 +1822,124 @@ export default function SchoolAdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="School hierarchy catalog">
+            <h3 className="card-title">School hierarchy catalog</h3>
+            <p className="card-desc">
+              Manage your school&apos;s role catalog and governance matrix. These settings are saved for your school and reused across teacher assignments.
+            </p>
+
+            <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Role title</th>
+                    <th>Stage scope</th>
+                    <th>Order</th>
+                    <th>Source</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffCatalogRoles.map((role) => (
+                    <tr key={`${role.roleCode}-${role.roleTitle}`}>
+                      <td>{role.roleTitle}</td>
+                      <td>{role.stageScope || 'Whole School'}</td>
+                      <td>{role.hierarchyOrder || '—'}</td>
+                      <td>{role.isSystemDefault ? 'Default' : 'Custom'}</td>
+                      <td>
+                        {role.isSystemDefault ? '—' : (
+                          <button
+                            type="button"
+                            className="btn-primary-action btn-primary-action--ghost"
+                            onClick={() => removeCustomHierarchyRole(role.roleTitle)}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <input
+                className="form-input"
+                style={{ minWidth: '220px' }}
+                value={customHierarchyRoleDraft.roleTitle}
+                onChange={(e) => setCustomHierarchyRoleDraft((current) => ({ ...current, roleTitle: e.target.value }))}
+                placeholder="Custom role title"
+              />
+              <select
+                className="form-input"
+                style={{ minWidth: '220px' }}
+                value={customHierarchyRoleDraft.stageScope}
+                onChange={(e) => setCustomHierarchyRoleDraft((current) => ({ ...current, stageScope: e.target.value }))}
+              >
+                <option value="">— Stage scope —</option>
+                {stageScopeOptions.map((scope) => <option key={scope} value={scope}>{scope}</option>)}
+              </select>
+              <input
+                className="form-input"
+                style={{ width: '150px' }}
+                type="number"
+                min="1"
+                value={customHierarchyRoleDraft.hierarchyOrder}
+                onChange={(e) => setCustomHierarchyRoleDraft((current) => ({ ...current, hierarchyOrder: e.target.value }))}
+                placeholder="Order"
+              />
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={addCustomHierarchyRole}>
+                Add custom role
+              </button>
+            </div>
+
+            <h4 className="card-title" style={{ marginTop: '1rem' }}>Permission matrix</h4>
+            <div className="data-table-wrap" style={{ marginTop: '0.5rem' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Role</th>
+                    <th>Manage teachers</th>
+                    <th>Assign classes</th>
+                    <th>Approve results</th>
+                    <th>Broadcast to parents</th>
+                    <th>Manage fees</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffPermissionMatrixDraft.map((row) => (
+                    <tr key={`perm-${row.roleTitle}`}>
+                      <td>{row.roleTitle}</td>
+                      <td><input type="checkbox" checked={!!row.canManageTeachers} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageTeachers', e.target.checked)} /></td>
+                      <td><input type="checkbox" checked={!!row.canAssignClasses} onChange={(e) => updatePermissionRule(row.roleTitle, 'canAssignClasses', e.target.checked)} /></td>
+                      <td><input type="checkbox" checked={!!row.canApproveResults} onChange={(e) => updatePermissionRule(row.roleTitle, 'canApproveResults', e.target.checked)} /></td>
+                      <td><input type="checkbox" checked={!!row.canSendParentBroadcasts} onChange={(e) => updatePermissionRule(row.roleTitle, 'canSendParentBroadcasts', e.target.checked)} /></td>
+                      <td><input type="checkbox" checked={!!row.canManageFees} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageFees', e.target.checked)} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn-primary-action"
+                onClick={saveStaffStructureConfig}
+                disabled={savingStaffStructureConfig}
+              >
+                {savingStaffStructureConfig ? 'Saving hierarchy config…' : 'Save school hierarchy config'}
+              </button>
+              {staffStructureConfig?.updatedAtUtc && (
+                <span className="card-desc">
+                  Last updated: {new Date(staffStructureConfig.updatedAtUtc).toLocaleString()}
+                  {staffStructureConfig.updatedBy ? ` by ${staffStructureConfig.updatedBy}` : ''}
+                </span>
+              )}
             </div>
           </section>
 

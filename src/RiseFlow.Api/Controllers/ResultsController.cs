@@ -19,13 +19,15 @@ public class ResultsController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly IAuditLogService _audit;
     private readonly IConfiguration _configuration;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public ResultsController(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit, IConfiguration configuration)
+    public ResultsController(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit, IConfiguration configuration, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
         _audit = audit;
         _configuration = configuration;
+        _staffPermissions = staffPermissions;
     }
 
     /// <summary>Teachers/SchoolAdmin: upload or update a result. EnteredBy is set from current user (teacher by email).</summary>
@@ -37,6 +39,8 @@ public class ResultsController : ControllerBase
     public async Task<ActionResult<StudentResult>> Create([FromBody] CreateResultRequest request, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
             return Forbid();
 
         var submissionWindowBlock = await ValidateTeacherSubmissionWindowAsync(request.TermId, ct);
@@ -107,6 +111,8 @@ public class ResultsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
+            return Forbid();
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
             return NotFound();
@@ -147,6 +153,8 @@ public class ResultsController : ControllerBase
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
             return Forbid();
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)

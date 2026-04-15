@@ -18,12 +18,14 @@ public class NoticesController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IConfiguration _configuration;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public NoticesController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration)
+    public NoticesController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
         _configuration = configuration;
+        _staffPermissions = staffPermissions;
     }
 
     [HttpGet]
@@ -60,13 +62,15 @@ public class NoticesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult<SchoolNotice>> Create([FromBody] CreateSchoolNoticeRequest request, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
@@ -92,13 +96,15 @@ public class NoticesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult<SchoolNotice>> Update(Guid id, [FromBody] UpdateSchoolNoticeRequest request, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
@@ -120,13 +126,15 @@ public class NoticesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         var entity = await _db.SchoolNotices.FirstOrDefaultAsync(n => n.Id == id, ct);

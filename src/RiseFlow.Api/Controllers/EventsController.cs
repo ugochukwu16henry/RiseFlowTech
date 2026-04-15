@@ -18,12 +18,14 @@ public class EventsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IConfiguration _configuration;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public EventsController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration)
+    public EventsController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
         _configuration = configuration;
+        _staffPermissions = staffPermissions;
     }
 
     [HttpGet]
@@ -51,13 +53,15 @@ public class EventsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult<SchoolEvent>> Create([FromBody] CreateSchoolEventRequest request, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title))
@@ -84,13 +88,15 @@ public class EventsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult<SchoolEvent>> Update(Guid id, [FromBody] UpdateSchoolEventRequest request, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         var entity = await _db.SchoolEvents.FirstOrDefaultAsync(e => e.Id == id, ct);
@@ -115,13 +121,15 @@ public class EventsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = Roles.SchoolAdmin)]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher}")]
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
     {
         if (!IsFeatureEnabled())
             return NotFound();
 
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
             return Forbid();
 
         var entity = await _db.SchoolEvents.FirstOrDefaultAsync(e => e.Id == id, ct);

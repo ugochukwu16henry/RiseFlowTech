@@ -19,17 +19,20 @@ public class SchoolFeesController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly FileStorageService _fileStorage;
     private readonly IWebHostEnvironment _env;
+    private readonly StaffPermissionService _staffPermissions;
 
     public SchoolFeesController(
         RiseFlowDbContext db,
         ITenantContext tenant,
         FileStorageService fileStorage,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
         _fileStorage = fileStorage;
         _env = env;
+        _staffPermissions = staffPermissions;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -636,6 +639,9 @@ public class SchoolFeesController : ControllerBase
     {
         var schoolId = GetSchoolId();
         if (schoolId == Guid.Empty) return Forbid();
+
+        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageFees, ct))
+            return Forbid();
 
         if (!User.IsInRole(Roles.SchoolAdmin))
         {
