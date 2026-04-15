@@ -104,7 +104,8 @@ public record TeacherSignupRequest(
     string? PreviousSchools,
     string? ProfessionalBodies,
     string? RoleTitle,
-    string? Department);
+    string? Department,
+    bool IsStaffAccount = false);
 
 public record TeacherSignupResult(bool Success, string Message);
 

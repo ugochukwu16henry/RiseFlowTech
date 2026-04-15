@@ -310,6 +310,7 @@ public class TeachersController : ControllerBase
         var firstName = (request.FirstName ?? "").Trim();
         var lastName = (request.LastName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(firstName)) firstName = email.Split('@')[0];
+        var assignedRole = request.IsStaffAccount ? Constants.Roles.Staff : Constants.Roles.Teacher;
         var roleTitle = string.IsNullOrWhiteSpace(request.RoleTitle) ? "Teacher" : request.RoleTitle.Trim();
         var department = string.IsNullOrWhiteSpace(request.Department) ? null : request.Department.Trim();
 
@@ -329,7 +330,7 @@ public class TeachersController : ControllerBase
         if (!createResult.Succeeded)
             return BadRequest(string.Join(" ", createResult.Errors.Select(e => e.Description)));
 
-        await _userManager.AddToRoleAsync(user, Constants.Roles.Teacher);
+        await _userManager.AddToRoleAsync(user, assignedRole);
         await _userManager.AddClaimAsync(user, new Claim("SchoolId", request.SchoolId.ToString()));
 
         var teacher = new Teacher
@@ -367,12 +368,15 @@ public class TeachersController : ControllerBase
         _db.Teachers.Add(teacher);
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new TeacherSignupResult(true, "Account created. Sign in as a teacher. Your school admin will assign your classes and subjects."));
+        var successMessage = request.IsStaffAccount
+            ? "Account created. Sign in as staff. Your school admin can review your profile and assignments."
+            : "Account created. Sign in as a teacher. Your school admin will assign your classes and subjects.";
+        return Ok(new TeacherSignupResult(true, successMessage));
     }
 
     /// <summary>Current teacher profile (filtered by school-admin visibility settings). Teacher only.</summary>
     [HttpGet("me")]
-    [Authorize(Roles = Constants.Roles.Teacher)]
+    [Authorize(Roles = $"{Constants.Roles.Teacher},{Constants.Roles.Staff}")]
     [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TeacherProfileConfigDto>> Me(CancellationToken ct)
     {
@@ -396,7 +400,7 @@ public class TeachersController : ControllerBase
 
     /// <summary>Teacher profile plus field settings for self-edit dashboard.</summary>
     [HttpGet("me/profile-config")]
-    [Authorize(Roles = Constants.Roles.Teacher)]
+    [Authorize(Roles = $"{Constants.Roles.Teacher},{Constants.Roles.Staff}")]
     [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TeacherProfileConfigDto>> MeProfileConfig(CancellationToken ct) => await Me(ct);
 
@@ -477,7 +481,7 @@ public class TeachersController : ControllerBase
 
     /// <summary>Update current teacher profile respecting school-admin field locks and visibility.</summary>
     [HttpPut("me")]
-    [Authorize(Roles = Constants.Roles.Teacher)]
+    [Authorize(Roles = $"{Constants.Roles.Teacher},{Constants.Roles.Staff}")]
     [ProducesResponseType(typeof(TeacherProfileConfigDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TeacherProfileConfigDto>> UpdateMe([FromBody] UpdateTeacherSelfRequest request, CancellationToken ct)
@@ -739,7 +743,7 @@ public class TeachersController : ControllerBase
 
     /// <summary>Upload or update teacher passport photo. SchoolAdmin or the teacher themself.</summary>
     [HttpPost("{id:guid}/photo")]
-    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.Teacher}")]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.Teacher},{Constants.Roles.Staff}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -751,8 +755,8 @@ public class TeachersController : ControllerBase
         if (_tenant.CurrentSchoolId.HasValue && teacher.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
 
-        // If uploading as Teacher, ensure this is their own profile
-        if (User.IsInRole(Constants.Roles.Teacher))
+        // If uploading as Teacher/Staff, ensure this is their own profile
+        if (User.IsInRole(Constants.Roles.Teacher) || User.IsInRole(Constants.Roles.Staff))
         {
             var email = _tenant.CurrentUserEmail ?? User.FindFirstValue(ClaimTypes.Email);
             if (string.IsNullOrEmpty(email) || !string.Equals(email, teacher.Email, StringComparison.OrdinalIgnoreCase))

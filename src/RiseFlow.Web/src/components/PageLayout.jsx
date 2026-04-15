@@ -66,6 +66,10 @@ const NAV_BY_ROLE = {
     { to: '/teacher/promotions', label: 'Promotions', icon: CircleFadingArrowUp },
     { to: '/teacher/assignments', label: 'Assignments', icon: ClipboardList },
   ],
+  staff: [
+    { to: '/staff', label: 'Dashboard', end: true, icon: LayoutDashboard },
+    { to: '/staff/dashboard', label: 'Workspace', icon: Activity },
+  ],
   parent: [
     { to: '/parent', label: 'Family', end: true, icon: ContactRound },
     { to: '/parent/fees', label: 'School fees', icon: Wallet },
@@ -122,7 +126,7 @@ function getBrandInitials(name) {
 /**
  * Shared app shell: sidebar + top bar (homepage stays standalone elsewhere).
  * @param {'app'|'auth'} variant — app = full dashboard; auth = slim header for login/onboarding
- * @param {'school'|'super'|'affiliate'|'teacher'|'parent'|'student'|'legal'|undefined} role — sidebar links; omit for empty aside
+ * @param {'school'|'super'|'affiliate'|'teacher'|'staff'|'parent'|'student'|'legal'|undefined} role — sidebar links; omit for empty aside
  */
 export default function PageLayout({
   title,
@@ -230,6 +234,8 @@ export default function PageLayout({
         ? 'Admin dashboard'
         : role === 'teacher'
           ? 'Teacher workspace'
+          : role === 'staff'
+            ? 'Staff workspace'
           : role === 'parent'
             ? 'Family portal'
             : role === 'student'

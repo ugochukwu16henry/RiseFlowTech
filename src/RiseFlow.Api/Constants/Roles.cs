@@ -8,9 +8,10 @@ public static class Roles
     public const string SuperAdmin = "SuperAdmin";
     public const string SchoolAdmin = "SchoolAdmin";
     public const string Teacher = "Teacher";
+    public const string Staff = "Staff";
     public const string Parent = "Parent";
     public const string Student = "Student";
     public const string Affiliate = "Affiliate";
 
-    public static readonly IReadOnlyList<string> All = new[] { SuperAdmin, SchoolAdmin, Teacher, Parent, Student, Affiliate };
+    public static readonly IReadOnlyList<string> All = new[] { SuperAdmin, SchoolAdmin, Teacher, Staff, Parent, Student, Affiliate };
 }

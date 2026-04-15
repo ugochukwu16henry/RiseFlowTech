@@ -68,6 +68,7 @@ export default function StaffSignupPage() {
           professionalBodies: null,
           roleTitle: roleTitle.trim() || 'Support Staff',
           department: department.trim() || null,
+          isStaffAccount: true,
         }),
       });
 

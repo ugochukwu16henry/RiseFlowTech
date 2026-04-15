@@ -107,7 +107,7 @@ public class AuthController : ControllerBase
                         .FirstOrDefaultAsync();
                 }
 
-                if (!schoolId.HasValue && roles.Contains(Roles.Teacher))
+                if (!schoolId.HasValue && (roles.Contains(Roles.Teacher) || roles.Contains(Roles.Staff)))
                 {
                     schoolId = await _db.Teachers
                         .AsNoTracking()
