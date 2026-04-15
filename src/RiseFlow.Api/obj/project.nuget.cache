@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "6tIMEXMxM04=",
+  "dgSpecHash": "BuDnRtSAvpU=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
+  "projectFilePath": "c:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Dell\\.nuget\\packages\\awssdk.core\\4.0.0.13\\awssdk.core.4.0.0.13.nupkg.sha512",
-    "C:\\Users\\Dell\\.nuget\\packages\\awssdk.s3\\4.0.3.1\\awssdk.s3.4.0.3.1.nupkg.sha512",
+    "C:\\Users\\Dell\\.nuget\\packages\\awssdk.core\\4.0.3.29\\awssdk.core.4.0.3.29.nupkg.sha512",
+    "C:\\Users\\Dell\\.nuget\\packages\\awssdk.s3\\4.0.21.1\\awssdk.s3.4.0.21.1.nupkg.sha512",
     "C:\\Users\\Dell\\.nuget\\packages\\closedxml\\0.104.2\\closedxml.0.104.2.nupkg.sha512",
     "C:\\Users\\Dell\\.nuget\\packages\\closedxml.parser\\1.2.0\\closedxml.parser.1.2.0.nupkg.sha512",
     "C:\\Users\\Dell\\.nuget\\packages\\documentformat.openxml\\3.1.1\\documentformat.openxml.3.1.1.nupkg.sha512",
@@ -88,18 +88,5 @@
     "C:\\Users\\Dell\\.nuget\\packages\\system.security.permissions\\9.0.0\\system.security.permissions.9.0.0.nupkg.sha512",
     "C:\\Users\\Dell\\.nuget\\packages\\system.windows.extensions\\9.0.0\\system.windows.extensions.9.0.0.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1901",
-      "level": "Warning",
-      "message": "Package 'AWSSDK.Core' 4.0.0.13 has a known low severity vulnerability, https://github.com/advisories/GHSA-9cvc-h2w8-phrp",
-      "projectPath": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Users\\Dell\\Documents\\RiseFlowTech\\src\\RiseFlow.Api\\RiseFlow.Api.csproj",
-      "libraryId": "AWSSDK.Core",
-      "targetGraphs": [
-        "net10.0"
-      ]
-    }
-  ]
+  "logs": []
 }

@@ -231,6 +231,7 @@ export default function SchoolAdminPage() {
   const [deniedAttemptsNextCursor, setDeniedAttemptsNextCursor] = useState(null);
   const [deniedAttemptsHasMore, setDeniedAttemptsHasMore] = useState(false);
   const [deniedAttemptsCursorHistory, setDeniedAttemptsCursorHistory] = useState([]);
+  const [deniedAttemptsFetchedTotal, setDeniedAttemptsFetchedTotal] = useState(0);
   const [deniedAuditFilters, setDeniedAuditFilters] = useState(() => {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
@@ -248,6 +249,7 @@ export default function SchoolAdminPage() {
   const schoolFileInputRef = useRef(null);
   const schoolLogoInputRef = useRef(null);
   const registrationDocInputRef = useRef(null);
+  const deniedAttemptsSeenIdsRef = useRef(new Set());
   const [paying, setPaying] = useState(false);
   const [activeView, setActiveView] = useState(() => resolveTabView(searchParams.get('tab')));
   const [onboardingSummary, setOnboardingSummary] = useState(() => {
@@ -383,6 +385,8 @@ export default function SchoolAdminPage() {
     try {
       if (resetPaging) {
         setDeniedAttemptsCursorHistory([]);
+        deniedAttemptsSeenIdsRef.current = new Set();
+        setDeniedAttemptsFetchedTotal(0);
       }
 
       const params = new URLSearchParams();
@@ -415,6 +419,10 @@ export default function SchoolAdminPage() {
       const hasMoreRaw = payload && !Array.isArray(payload) ? payload.hasMore : false;
 
       setDeniedAttempts(items);
+      items.forEach((item) => {
+        if (item?.id != null) deniedAttemptsSeenIdsRef.current.add(item.id);
+      });
+      setDeniedAttemptsFetchedTotal(deniedAttemptsSeenIdsRef.current.size);
       setDeniedAttemptsCurrentCursor(Number.isFinite(cursor) && cursor > 0 ? cursor : null);
       setDeniedAttemptsNextCursor(Number.isFinite(nextCursorRaw) && nextCursorRaw > 0 ? nextCursorRaw : null);
       setDeniedAttemptsHasMore(Boolean(hasMoreRaw));
@@ -426,6 +434,8 @@ export default function SchoolAdminPage() {
       setDeniedAttemptsHasMore(false);
       if (resetPaging) {
         setDeniedAttemptsCursorHistory([]);
+        deniedAttemptsSeenIdsRef.current = new Set();
+        setDeniedAttemptsFetchedTotal(0);
       }
     } finally {
       setLoadingDeniedAttempts(false);
@@ -705,6 +715,7 @@ export default function SchoolAdminPage() {
   ]), [staffStructureConfig?.classAssignmentRoles, staffStructureOptions?.classAssignmentRoles, teachers]);
 
   const deniedEntityTypeOptions = useMemo(() => dedupeCaseInsensitive(deniedAttempts.map((item) => item?.entityType)), [deniedAttempts]);
+  const deniedAttemptsPageNumber = deniedAttemptsCursorHistory.length + 1;
 
   useEffect(() => {
     if (!staffStructureConfig || !Array.isArray(staffStructureConfig.roleCatalog)) {
@@ -2210,7 +2221,7 @@ export default function SchoolAdminPage() {
             </div>
 
             <p className="card-desc" style={{ marginTop: '0.35rem' }}>
-              Page size: {deniedAttempts.length} • Cursor depth: {deniedAttemptsCursorHistory.length} • {deniedAttemptsHasMore ? 'More results available.' : 'End of results.'}
+              Page {deniedAttemptsPageNumber} • Page size: {deniedAttempts.length} • Fetched this session: {deniedAttemptsFetchedTotal} • {deniedAttemptsHasMore ? 'More results available.' : 'End of results.'}
             </p>
 
             {deniedAttemptsError && (
