@@ -18,6 +18,7 @@ public class School
     public string? Email { get; set; }
     /// <summary>CAC registration number for Nigerian business verification.</summary>
     public string? CacNumber { get; set; }
+    public Guid? AcademicSystemProfileId { get; set; }
     public Guid? AffiliateId { get; set; }
     public string? AffiliateReferralCodeUsed { get; set; }
     /// <summary>ISO 3166-1 alpha-2 (e.g. NG, GH, KE). Used for billing and localization.</summary>
@@ -35,6 +36,7 @@ public class School
     /// <summary>When Super Admin recorded receipt of the school's signed Data Consent forms (NDPA compliance).</summary>
     public DateTime? DataConsentFormReceivedAt { get; set; }
 
+    public AcademicSystemProfile? AcademicSystemProfile { get; set; }
     public Affiliate? Affiliate { get; set; }
     public ICollection<Student> Students { get; set; } = new List<Student>();
     public ICollection<Teacher> Teachers { get; set; } = new List<Teacher>();

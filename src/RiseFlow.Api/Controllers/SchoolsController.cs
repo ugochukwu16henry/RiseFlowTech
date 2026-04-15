@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
@@ -63,7 +64,10 @@ public class SchoolsController : ControllerBase
             return Forbid();
 
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        var school = await _db.Schools
+            .AsNoTracking()
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         if (school == null)
             return NotFound();
 
@@ -103,7 +107,32 @@ public class SchoolsController : ControllerBase
             school.CacNumber,
             string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
             string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
+            school.AcademicSystemProfileId,
+            school.AcademicSystemProfile?.Code,
+            school.AcademicSystemProfile?.Name,
             school.UpdatedAtUtc));
+    }
+
+    /// <summary>List active academic system profiles for school setup.</summary>
+    [HttpGet("academic-system-profiles")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(List<AcademicSystemProfileOptionDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<AcademicSystemProfileOptionDto>>> GetAcademicSystemProfiles(CancellationToken ct)
+    {
+        var profiles = await _db.AcademicSystemProfiles
+            .AsNoTracking()
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Name)
+            .Select(p => new AcademicSystemProfileOptionDto(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.Description,
+                p.SuggestedTermsPerYear,
+                p.DefaultGradingScaleCode))
+            .ToListAsync(ct);
+
+        return Ok(profiles);
     }
 
     /// <summary>Update school profile information for current SchoolAdmin tenant.</summary>
@@ -121,7 +150,9 @@ public class SchoolsController : ControllerBase
             return BadRequest("Profile payload is required.");
 
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        var school = await _db.Schools
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         if (school == null)
             return NotFound();
 
@@ -170,6 +201,58 @@ public class SchoolsController : ControllerBase
             school.CacNumber,
             string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
             string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
+            school.AcademicSystemProfileId,
+            school.AcademicSystemProfile?.Code,
+            school.AcademicSystemProfile?.Name,
+            school.UpdatedAtUtc));
+    }
+
+    /// <summary>Set academic system profile for current school.</summary>
+    [HttpPut("profile/academic-system")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolProfileDto>> UpdateAcademicSystemProfile([FromBody] UpdateAcademicSystemProfileRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        if (request == null || request.AcademicSystemProfileId == Guid.Empty)
+            return BadRequest("AcademicSystemProfileId is required.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools.FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        var profile = await _db.AcademicSystemProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.AcademicSystemProfileId && p.IsActive, ct);
+        if (profile == null)
+            return BadRequest("Selected academic system profile was not found.");
+
+        school.AcademicSystemProfileId = profile.Id;
+        school.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new SchoolProfileDto(
+            school.Id,
+            school.Name,
+            school.OwnerName,
+            school.SchoolAdminName,
+            school.PrincipalName,
+            school.Address,
+            school.CountryCode,
+            school.Email,
+            school.Phone,
+            school.WhatsAppNumber,
+            school.CacNumber,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
+            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
+            profile.Id,
+            profile.Code,
+            profile.Name,
             school.UpdatedAtUtc));
     }
 
@@ -226,6 +309,63 @@ public class SchoolsController : ControllerBase
             .Select(g => new SchoolGradeDto(g.Id, g.Name, g.LevelOrder))
             .ToListAsync(ct);
         return Ok(list);
+    }
+
+    /// <summary>Get recommended quick grade templates based on the school's academic profile/country.</summary>
+    [HttpGet("grade-templates")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolGradeTemplateCatalogDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolGradeTemplateCatalogDto>> GetGradeTemplates(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .AsNoTracking()
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+
+        if (school == null)
+            return NotFound();
+
+        var profile = school.AcademicSystemProfile;
+        if (profile == null)
+        {
+            var inferredCode = InferProfileCodeFromCountry(school.CountryCode);
+            if (!string.IsNullOrWhiteSpace(inferredCode))
+            {
+                profile = await _db.AcademicSystemProfiles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Code == inferredCode && x.IsActive, ct);
+            }
+        }
+
+        if (profile != null)
+        {
+            var parsed = ParseGradeTemplates(profile.GradeTemplatesJson);
+            if (parsed.Count > 0)
+            {
+                return Ok(new SchoolGradeTemplateCatalogDto(
+                    profile.Code,
+                    profile.Name,
+                    profile.Description,
+                    parsed));
+            }
+        }
+
+        var fallbackCode = InferProfileCodeFromCountry(school.CountryCode) ?? "NG_6334";
+        var fallback = GetDefaultGradeTemplates(fallbackCode);
+        return Ok(new SchoolGradeTemplateCatalogDto(
+            fallbackCode,
+            fallbackCode switch
+            {
+                "GH_633" => "Ghana 6-3-3",
+                "KE_844" => "Kenya 8-4-4",
+                _ => "Nigeria 6-3-3-4"
+            },
+            "System-recommended quick grade templates.",
+            fallback));
     }
 
     /// <summary>Create a grade level (programme / stage). SchoolAdmin. Example names: Nursery, Primary 1, JSS 1, SS 2.</summary>
@@ -649,6 +789,73 @@ public class SchoolsController : ControllerBase
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
+
+    private static string? InferProfileCodeFromCountry(string? countryCode)
+    {
+        return (countryCode ?? string.Empty).Trim().ToUpperInvariant() switch
+        {
+            "GH" => "GH_633",
+            "KE" => "KE_844",
+            "NG" => "NG_6334",
+            _ => null,
+        };
+    }
+
+    private static List<SchoolGradeTemplateItemDto> ParseGradeTemplates(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new List<SchoolGradeTemplateItemDto>();
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<List<SchoolGradeTemplateItemDto>>(json);
+            return parsed?
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name) && x.LevelOrder > 0)
+                .DistinctBy(x => x.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x.LevelOrder)
+                .ToList()
+                ?? new List<SchoolGradeTemplateItemDto>();
+        }
+        catch
+        {
+            return new List<SchoolGradeTemplateItemDto>();
+        }
+    }
+
+    private static List<SchoolGradeTemplateItemDto> GetDefaultGradeTemplates(string code)
+    {
+        return code switch
+        {
+            "GH_633" =>
+            [
+                new("Kindergarten 1", "Kindergarten 1", 5),
+                new("Kindergarten 2", "Kindergarten 2", 6),
+                new("Primary 1", "Primary 1", 10),
+                new("Primary 6", "Primary 6", 15),
+                new("JHS 1", "JHS 1", 30),
+                new("JHS 3", "JHS 3", 32),
+                new("SHS 1", "SHS 1", 40),
+                new("SHS 3", "SHS 3", 42),
+            ],
+            "KE_844" =>
+            [
+                new("Grade 1", "Grade 1", 10),
+                new("Grade 8", "Grade 8", 18),
+                new("Form 1", "Form 1", 30),
+                new("Form 4", "Form 4", 34),
+            ],
+            _ =>
+            [
+                new("Nursery", "Nursery", 5),
+                new("Primary 1", "Primary 1", 10),
+                new("Primary 6", "Primary 6", 15),
+                new("JSS 1", "JSS 1", 30),
+                new("JSS 3", "JSS 3", 32),
+                new("SS1", "SS1", 40),
+                new("SS3", "SS3", 42),
+            ],
+        };
+    }
 }
 
 public record SchoolClassDto(Guid Id, string Name, Guid GradeId, string GradeName, string? AcademicYear);
@@ -685,6 +892,9 @@ public record SchoolProfileDto(
     string? CacNumber,
     string? LogoPath,
     string? RegistrationDocumentPath,
+    Guid? AcademicSystemProfileId,
+    string? AcademicSystemProfileCode,
+    string? AcademicSystemProfileName,
     DateTime? UpdatedAtUtc);
 
 public record SchoolBrandingDto(
@@ -692,3 +902,24 @@ public record SchoolBrandingDto(
     string Name,
     string? LogoPath,
     string? RegistrationDocumentPath);
+
+public record AcademicSystemProfileOptionDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string? Description,
+    int? SuggestedTermsPerYear,
+    string? DefaultGradingScaleCode);
+
+public record UpdateAcademicSystemProfileRequest(Guid AcademicSystemProfileId);
+
+public record SchoolGradeTemplateItemDto(
+    string Label,
+    string Name,
+    int LevelOrder);
+
+public record SchoolGradeTemplateCatalogDto(
+    string ProfileCode,
+    string ProfileName,
+    string? Description,
+    IReadOnlyList<SchoolGradeTemplateItemDto> Templates);

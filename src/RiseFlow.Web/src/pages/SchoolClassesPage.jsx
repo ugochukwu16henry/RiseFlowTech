@@ -5,8 +5,7 @@ import { apiFetch } from '../api';
 import './RolePages.css';
 import './SchoolClassesPage.css';
 
-/** Nigerian / WAEC-style examples — schools can use any names; these are shortcuts. */
-const QUICK_GRADE_TEMPLATES = [
+const FALLBACK_GRADE_TEMPLATES = [
   { label: 'Nursery', name: 'Nursery', levelOrder: 5 },
   { label: 'Primary 1', name: 'Primary 1', levelOrder: 10 },
   { label: 'Primary 6', name: 'Primary 6', levelOrder: 15 },
@@ -28,6 +27,8 @@ export default function SchoolClassesPage() {
   const [classGradeId, setClassGradeId] = useState('');
   const [academicYear, setAcademicYear] = useState('');
   const [savingClass, setSavingClass] = useState(false);
+  const [profileInfo, setProfileInfo] = useState({ profileCode: 'NG_6334', profileName: 'Nigeria 6-3-3-4' });
+  const [quickGradeTemplates, setQuickGradeTemplates] = useState(FALLBACK_GRADE_TEMPLATES);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,6 +38,7 @@ export default function SchoolClassesPage() {
         apiFetch('/api/schools/grades'),
         apiFetch('/api/schools/classes'),
       ]);
+      const tRes = await apiFetch('/api/schools/grade-templates');
       if (gRes.status === 401 || gRes.status === 403 || cRes.status === 401 || cRes.status === 403) {
         throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
       }
@@ -44,8 +46,18 @@ export default function SchoolClassesPage() {
       if (!cRes.ok) throw new Error(await cRes.text().catch(() => 'Could not load classes.'));
       const gData = await gRes.json();
       const cData = await cRes.json();
+      const tData = tRes.ok ? await tRes.json().catch(() => null) : null;
       setGrades(Array.isArray(gData) ? gData : []);
       setClasses(Array.isArray(cData) ? cData : []);
+      if (tData && Array.isArray(tData.templates) && tData.templates.length > 0) {
+        setQuickGradeTemplates(tData.templates);
+        setProfileInfo({
+          profileCode: tData.profileCode || 'NG_6334',
+          profileName: tData.profileName || 'Academic system profile',
+        });
+      } else {
+        setQuickGradeTemplates(FALLBACK_GRADE_TEMPLATES);
+      }
     } catch (e) {
       setError(e.message || 'Failed to load.');
     } finally {
@@ -162,9 +174,11 @@ export default function SchoolClassesPage() {
 
       <section className="school-classes-section" aria-labelledby="grades-heading">
         <h2 id="grades-heading" className="section-title">1. Grade levels (programmes)</h2>
-        <p className="card-desc">Quick add (Nigeria / common labels). You can still type any custom name below.</p>
+        <p className="card-desc">
+          Quick add ({profileInfo.profileName}). You can still type any custom name below.
+        </p>
         <div className="quick-grade-chips">
-          {QUICK_GRADE_TEMPLATES.map((t) => (
+          {quickGradeTemplates.map((t) => (
             <button
               key={t.name}
               type="button"

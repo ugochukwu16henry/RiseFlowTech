@@ -21,6 +21,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     }
 
     public DbSet<School> Schools => Set<School>();
+    public DbSet<AcademicSystemProfile> AcademicSystemProfiles => Set<AcademicSystemProfile>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<Parent> Parents => Set<Parent>();
@@ -106,10 +107,26 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
             e.Property(x => x.LogoFileName).HasMaxLength(256);
             e.Property(x => x.RegistrationDocumentPath).HasMaxLength(512);
+            e.HasOne(x => x.AcademicSystemProfile)
+                .WithMany(x => x.Schools)
+                .HasForeignKey(x => x.AcademicSystemProfileId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Affiliate)
                 .WithMany(x => x.ReferredSchools)
                 .HasForeignKey(x => x.AffiliateId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<AcademicSystemProfile>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Code).IsRequired().HasMaxLength(32);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            e.Property(x => x.Description).HasMaxLength(512);
+            e.Property(x => x.GradeTemplatesJson).IsRequired().HasMaxLength(12000);
+            e.Property(x => x.StageOrderJson).HasMaxLength(12000);
+            e.Property(x => x.DefaultGradingScaleCode).HasMaxLength(64);
+            e.HasIndex(x => x.Code).IsUnique();
         });
 
         // Grade

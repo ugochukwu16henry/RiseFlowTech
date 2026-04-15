@@ -36,6 +36,9 @@ export default function SchoolAdminPage() {
   const [savingSchoolProfile, setSavingSchoolProfile] = useState(false);
   const [logoUploadError, setLogoUploadError] = useState(null);
   const [schoolProfileError, setSchoolProfileError] = useState(null);
+  const [academicProfileError, setAcademicProfileError] = useState(null);
+  const [academicProfiles, setAcademicProfiles] = useState([]);
+  const [savingAcademicProfile, setSavingAcademicProfile] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
     ownerName: '',
@@ -49,6 +52,9 @@ export default function SchoolAdminPage() {
     cacNumber: '',
     logoPath: null,
     registrationDocumentPath: null,
+    academicSystemProfileId: null,
+    academicSystemProfileCode: null,
+    academicSystemProfileName: null,
   });
   const [savingClassId, setSavingClassId] = useState(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
@@ -105,9 +111,10 @@ export default function SchoolAdminPage() {
       apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
+      apiFetch('/api/schools/academic-system-profiles').then((r) => readJsonOrThrow(r, 'Failed to load academic system profiles.')),
     ])
       .then((results) => {
-        const [dashResult, profileResult, teacherResult, studentResult, classResult, parentResult, billingResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, parentResult, billingResult, profileOptionsResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
         const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
@@ -131,8 +138,12 @@ export default function SchoolAdminPage() {
             cacNumber: profile.cacNumber || '',
             logoPath: profile.logoPath || null,
             registrationDocumentPath: profile.registrationDocumentPath || null,
+            academicSystemProfileId: profile.academicSystemProfileId || null,
+            academicSystemProfileCode: profile.academicSystemProfileCode || null,
+            academicSystemProfileName: profile.academicSystemProfileName || null,
           });
         }
+        setAcademicProfiles(profileOptionsResult.status === 'fulfilled' && Array.isArray(profileOptionsResult.value) ? profileOptionsResult.value : []);
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
         setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
         setClasses(classResult.status === 'fulfilled' && Array.isArray(classResult.value) ? classResult.value : []);
@@ -492,6 +503,9 @@ export default function SchoolAdminPage() {
           cacNumber: updated.cacNumber || '',
           logoPath: updated.logoPath || current.logoPath,
           registrationDocumentPath: updated.registrationDocumentPath || current.registrationDocumentPath,
+          academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
+          academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
+          academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
         }));
       }
 
@@ -500,6 +514,39 @@ export default function SchoolAdminPage() {
       setSchoolProfileError(e.message || 'Could not update school profile.');
     } finally {
       setSavingSchoolProfile(false);
+    }
+  };
+
+  const saveAcademicSystemProfile = async () => {
+    if (savingAcademicProfile || !schoolProfile.academicSystemProfileId) return;
+
+    setSavingAcademicProfile(true);
+    setAcademicProfileError(null);
+    try {
+      const res = await apiFetch('/api/schools/profile/academic-system', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicSystemProfileId: schoolProfile.academicSystemProfileId }),
+      });
+
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not update academic system profile.');
+
+      const updated = text ? JSON.parse(text) : null;
+      if (updated) {
+        setSchoolProfile((current) => ({
+          ...current,
+          academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
+          academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
+          academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
+        }));
+      }
+
+      await loadData({ background: true });
+    } catch (e) {
+      setAcademicProfileError(e.message || 'Could not update academic system profile.');
+    } finally {
+      setSavingAcademicProfile(false);
     }
   };
 
@@ -1206,6 +1253,47 @@ export default function SchoolAdminPage() {
       <p className="card-desc">
         Upload photos or documents (e.g. letterhead, logo variations) so they are stored safely in your RiseFlow account.
       </p>
+      <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="Academic system profile">
+        <h3 className="card-title">Academic system profile</h3>
+        <p className="card-desc">
+          Choose the education system your school follows. Switching profiles can change grade quick templates and future validation rules.
+        </p>
+        <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+          <label className="form-field form-field--full">Profile
+            <select
+              className="form-input"
+              value={schoolProfile.academicSystemProfileId || ''}
+              onChange={(e) => {
+                const selected = academicProfiles.find((item) => item.id === e.target.value);
+                onSchoolProfileFieldChange('academicSystemProfileId', e.target.value || null);
+                onSchoolProfileFieldChange('academicSystemProfileCode', selected?.code || null);
+                onSchoolProfileFieldChange('academicSystemProfileName', selected?.name || null);
+              }}
+            >
+              <option value="">— Select academic system profile —</option>
+              {academicProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>{profile.name} ({profile.code})</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {schoolProfile.academicSystemProfileName && (
+          <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+            Current: <strong>{schoolProfile.academicSystemProfileName}</strong>
+            {schoolProfile.academicSystemProfileCode ? ` (${schoolProfile.academicSystemProfileCode})` : ''}
+          </p>
+        )}
+        <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+          Warning: if your school already has active grade/class data, review mappings before changing this profile.
+        </p>
+        <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button type="button" className="btn-primary-action" onClick={saveAcademicSystemProfile} disabled={savingAcademicProfile || !schoolProfile.academicSystemProfileId}>
+            {savingAcademicProfile ? 'Saving profile…' : 'Save academic system profile'}
+          </button>
+        </div>
+        {academicProfileError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{academicProfileError}</p>}
+      </section>
+
       <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="School profile information">
         <h3 className="card-title">School information</h3>
         <p className="card-desc">Update your school profile, contacts, compliance details, and leadership names shown to Super Admin.</p>

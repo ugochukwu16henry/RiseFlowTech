@@ -340,6 +340,8 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
         }
 
         var schoolColumns = await GetColumnsAsync("Schools");
+        if (!schoolColumns.Contains("AcademicSystemProfileId"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AcademicSystemProfileId\" TEXT NULL;");
         if (!schoolColumns.Contains("AffiliateId"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
         if (!schoolColumns.Contains("AffiliateReferralCodeUsed"))
@@ -423,6 +425,50 @@ CREATE TABLE IF NOT EXISTS "AffiliateTrainingVideos" (
     "CreatedAtUtc" TEXT NOT NULL,
     "UpdatedAtUtc" TEXT NULL
 );
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "AcademicSystemProfiles" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_AcademicSystemProfiles" PRIMARY KEY,
+    "Code" TEXT NOT NULL,
+    "Name" TEXT NOT NULL,
+    "Description" TEXT NULL,
+    "SuggestedTermsPerYear" INTEGER NULL,
+    "GradeTemplatesJson" TEXT NOT NULL DEFAULT '[]',
+    "StageOrderJson" TEXT NULL,
+    "DefaultGradingScaleCode" TEXT NULL,
+    "IsActive" INTEGER NOT NULL DEFAULT 1,
+    "CreatedAtUtc" TEXT NOT NULL,
+    "UpdatedAtUtc" TEXT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AcademicSystemProfiles_Code" ON "AcademicSystemProfiles" ("Code");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Schools_AcademicSystemProfileId\" ON \"Schools\" (\"AcademicSystemProfileId\");");
+
+        await context.Database.ExecuteSqlRawAsync("""
+INSERT OR IGNORE INTO "AcademicSystemProfiles" (
+    "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
+) VALUES
+('1F36EA95-4074-4A07-B4E2-02C5A79EA001', 'NG_6334', 'Nigeria 6-3-3-4', '6 years primary, 3 years junior secondary, 3 years senior secondary.', 3,
+ '[{"Label":"Nursery","Name":"Nursery","LevelOrder":5},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JSS 1","Name":"JSS 1","LevelOrder":30},{"Label":"JSS 3","Name":"JSS 3","LevelOrder":32},{"Label":"SS1","Name":"SS1","LevelOrder":40},{"Label":"SS3","Name":"SS3","LevelOrder":42}]',
+ '["Nursery","Primary","Junior Secondary","Senior Secondary"]', 'A1_F9', 1, CURRENT_TIMESTAMP),
+('1F36EA95-4074-4A07-B4E2-02C5A79EA002', 'GH_633', 'Ghana 6-3-3', '6 years primary, 3 years junior high, 3 years senior high.', 3,
+ '[{"Label":"Kindergarten 1","Name":"Kindergarten 1","LevelOrder":5},{"Label":"Kindergarten 2","Name":"Kindergarten 2","LevelOrder":6},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JHS 1","Name":"JHS 1","LevelOrder":30},{"Label":"JHS 3","Name":"JHS 3","LevelOrder":32},{"Label":"SHS 1","Name":"SHS 1","LevelOrder":40},{"Label":"SHS 3","Name":"SHS 3","LevelOrder":42}]',
+ '["Kindergarten","Primary","Junior High","Senior High"]', 'A_F', 1, CURRENT_TIMESTAMP),
+('1F36EA95-4074-4A07-B4E2-02C5A79EA003', 'KE_844', 'Kenya 8-4-4', '8 years primary, 4 years secondary, 4 years tertiary baseline.', 3,
+ '[{"Label":"Grade 1","Name":"Grade 1","LevelOrder":10},{"Label":"Grade 8","Name":"Grade 8","LevelOrder":18},{"Label":"Form 1","Name":"Form 1","LevelOrder":30},{"Label":"Form 4","Name":"Form 4","LevelOrder":34}]',
+ '["Primary","Secondary"]', 'A_E', 1, CURRENT_TIMESTAMP);
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
+UPDATE "Schools"
+SET "AcademicSystemProfileId" = CASE
+    WHEN UPPER(COALESCE("CountryCode", '')) = 'GH' THEN '1F36EA95-4074-4A07-B4E2-02C5A79EA002'
+    WHEN UPPER(COALESCE("CountryCode", '')) = 'KE' THEN '1F36EA95-4074-4A07-B4E2-02C5A79EA003'
+    ELSE '1F36EA95-4074-4A07-B4E2-02C5A79EA001'
+END
+WHERE "AcademicSystemProfileId" IS NULL;
 """);
 
         await context.Database.ExecuteSqlRawAsync("""
@@ -726,10 +772,57 @@ ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "LogoFileName" text NUL
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "CacNumber" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "WhatsAppNumber" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "RegistrationDocumentPath" text NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AcademicSystemProfileId" uuid NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateId" uuid NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateReferralCodeUsed" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "DataConsentFormReceivedAt" timestamp with time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_Schools_AcademicSystemProfileId" ON "Schools" ("AcademicSystemProfileId");
 CREATE INDEX IF NOT EXISTS "IX_Schools_AffiliateId" ON "Schools" ("AffiliateId");
+
+CREATE TABLE IF NOT EXISTS "AcademicSystemProfiles" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "Code" text NOT NULL,
+    "Name" text NOT NULL,
+    "Description" text NULL,
+    "SuggestedTermsPerYear" integer NULL,
+    "GradeTemplatesJson" text NOT NULL DEFAULT '[]',
+    "StageOrderJson" text NULL,
+    "DefaultGradingScaleCode" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT TRUE,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone NULL
+);
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "Description" text NULL;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "SuggestedTermsPerYear" integer NULL;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "GradeTemplatesJson" text NOT NULL DEFAULT '[]';
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "StageOrderJson" text NULL;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "DefaultGradingScaleCode" text NULL;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "UpdatedAtUtc" timestamp with time zone NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AcademicSystemProfiles_Code" ON "AcademicSystemProfiles" ("Code");
+
+INSERT INTO "AcademicSystemProfiles" (
+    "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
+) VALUES
+('1f36ea95-4074-4a07-b4e2-02c5a79ea001', 'NG_6334', 'Nigeria 6-3-3-4', '6 years primary, 3 years junior secondary, 3 years senior secondary.', 3,
+ '[{"Label":"Nursery","Name":"Nursery","LevelOrder":5},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JSS 1","Name":"JSS 1","LevelOrder":30},{"Label":"JSS 3","Name":"JSS 3","LevelOrder":32},{"Label":"SS1","Name":"SS1","LevelOrder":40},{"Label":"SS3","Name":"SS3","LevelOrder":42}]',
+ '["Nursery","Primary","Junior Secondary","Senior Secondary"]', 'A1_F9', TRUE, NOW()),
+('1f36ea95-4074-4a07-b4e2-02c5a79ea002', 'GH_633', 'Ghana 6-3-3', '6 years primary, 3 years junior high, 3 years senior high.', 3,
+ '[{"Label":"Kindergarten 1","Name":"Kindergarten 1","LevelOrder":5},{"Label":"Kindergarten 2","Name":"Kindergarten 2","LevelOrder":6},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JHS 1","Name":"JHS 1","LevelOrder":30},{"Label":"JHS 3","Name":"JHS 3","LevelOrder":32},{"Label":"SHS 1","Name":"SHS 1","LevelOrder":40},{"Label":"SHS 3","Name":"SHS 3","LevelOrder":42}]',
+ '["Kindergarten","Primary","Junior High","Senior High"]', 'A_F', TRUE, NOW()),
+('1f36ea95-4074-4a07-b4e2-02c5a79ea003', 'KE_844', 'Kenya 8-4-4', '8 years primary, 4 years secondary, 4 years tertiary baseline.', 3,
+ '[{"Label":"Grade 1","Name":"Grade 1","LevelOrder":10},{"Label":"Grade 8","Name":"Grade 8","LevelOrder":18},{"Label":"Form 1","Name":"Form 1","LevelOrder":30},{"Label":"Form 4","Name":"Form 4","LevelOrder":34}]',
+ '["Primary","Secondary"]', 'A_E', TRUE, NOW())
+ON CONFLICT ("Code") DO NOTHING;
+
+UPDATE "Schools"
+SET "AcademicSystemProfileId" = CASE
+    WHEN UPPER(COALESCE("CountryCode", '')) = 'GH' THEN '1f36ea95-4074-4a07-b4e2-02c5a79ea002'::uuid
+    WHEN UPPER(COALESCE("CountryCode", '')) = 'KE' THEN '1f36ea95-4074-4a07-b4e2-02c5a79ea003'::uuid
+    ELSE '1f36ea95-4074-4a07-b4e2-02c5a79ea001'::uuid
+END
+WHERE "AcademicSystemProfileId" IS NULL;
 
 CREATE TABLE IF NOT EXISTS "Affiliates" (
     "Id" uuid NOT NULL PRIMARY KEY,
