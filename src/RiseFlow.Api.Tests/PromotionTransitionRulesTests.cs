@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -164,6 +166,14 @@ public class PromotionTransitionRulesTests
             .Build();
 
         var controller = new PromotionsController(db, tenant, configuration);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity())
+            }
+        };
+
         return (controller, db, classAId, classBId, studentId);
     }
 
