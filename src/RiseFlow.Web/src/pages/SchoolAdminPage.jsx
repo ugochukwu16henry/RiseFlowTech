@@ -83,6 +83,10 @@ function buildTransitionDraftStorageKey(schoolId) {
   return `riseflow:promotion-transition-draft:${schoolId}`;
 }
 
+function buildTransitionDiffFilterStorageKey(schoolId) {
+  return `riseflow:promotion-transition-diff-filter:${schoolId}`;
+}
+
 function isLikelyTerminalGradeName(name) {
   const value = normalizeNameKey(name);
   return value.includes('ss3')
@@ -122,15 +126,18 @@ export default function SchoolAdminPage() {
   const [schoolProfileError, setSchoolProfileError] = useState(null);
   const [academicProfileError, setAcademicProfileError] = useState(null);
   const [promotionTransitionError, setPromotionTransitionError] = useState(null);
+  const [transitionPanelNotice, setTransitionPanelNotice] = useState(null);
   const [academicProfiles, setAcademicProfiles] = useState([]);
   const [savingAcademicProfile, setSavingAcademicProfile] = useState(false);
   const [savingPromotionTransition, setSavingPromotionTransition] = useState(false);
   const [promotionTransitionDraft, setPromotionTransitionDraft] = useState('');
   const [transitionSourceInput, setTransitionSourceInput] = useState('');
   const [transitionTargetInput, setTransitionTargetInput] = useState('');
+  const [transitionDiffFilter, setTransitionDiffFilter] = useState('all');
   const [treatTerminalGradesAsValid, setTreatTerminalGradesAsValid] = useState(true);
   const [terminalToggleHydratedSchoolId, setTerminalToggleHydratedSchoolId] = useState(null);
   const [transitionDraftHydratedSchoolId, setTransitionDraftHydratedSchoolId] = useState(null);
+  const [transitionDiffFilterHydratedSchoolId, setTransitionDiffFilterHydratedSchoolId] = useState(null);
   const [isTransitionDraftFromCache, setIsTransitionDraftFromCache] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
@@ -466,6 +473,35 @@ export default function SchoolAdminPage() {
     }
   }, [currentSchoolId, transitionDraftHydratedSchoolId, promotionTransitionDraft, serverTransitionDraftValue]);
 
+  useEffect(() => {
+    if (!currentSchoolId || transitionDiffFilterHydratedSchoolId === currentSchoolId) return;
+
+    let nextFilter = 'all';
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(buildTransitionDiffFilterStorageKey(currentSchoolId));
+        if (raw === 'all' || raw === 'added' || raw === 'removed' || raw === 'changed') {
+          nextFilter = raw;
+        }
+      } catch {
+        // ignore storage read errors
+      }
+    }
+
+    setTransitionDiffFilter(nextFilter);
+    setTransitionDiffFilterHydratedSchoolId(currentSchoolId);
+  }, [currentSchoolId, transitionDiffFilterHydratedSchoolId]);
+
+  useEffect(() => {
+    if (!currentSchoolId || transitionDiffFilterHydratedSchoolId !== currentSchoolId || typeof localStorage === 'undefined') return;
+
+    try {
+      localStorage.setItem(buildTransitionDiffFilterStorageKey(currentSchoolId), transitionDiffFilter);
+    } catch {
+      // ignore storage write errors
+    }
+  }, [currentSchoolId, transitionDiffFilterHydratedSchoolId, transitionDiffFilter]);
+
     useEffect(() => {
       if (!currentSchoolId || typeof localStorage === 'undefined') return;
 
@@ -753,6 +789,7 @@ export default function SchoolAdminPage() {
   const discardLocalTransitionDraft = () => {
     setPromotionTransitionDraft(serverTransitionDraftValue);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
     setIsTransitionDraftFromCache(false);
 
     if (currentSchoolId && typeof localStorage !== 'undefined') {
@@ -773,12 +810,37 @@ export default function SchoolAdminPage() {
 
     setPromotionTransitionDraft(profileDraft);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
     setIsTransitionDraftFromCache(false);
+  };
+
+  const resetTransitionPanelPreferences = () => {
+    setPromotionTransitionDraft(serverTransitionDraftValue);
+    setIsTransitionDraftFromCache(false);
+    setTreatTerminalGradesAsValid(true);
+    setTransitionDiffFilter('all');
+    setPromotionTransitionError(null);
+    setTransitionPanelNotice('Panel preferences reset.');
+
+    if (currentSchoolId && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
+        localStorage.removeItem(buildTerminalGradeToggleStorageKey(currentSchoolId));
+        localStorage.removeItem(buildTransitionDiffFilterStorageKey(currentSchoolId));
+      } catch {
+        // ignore storage write errors
+      }
+    }
   };
 
   const parsedTransitionDraft = useMemo(() => parseTransitionJson(promotionTransitionDraft), [promotionTransitionDraft]);
   const transitionMap = parsedTransitionDraft.map;
   const transitionParseError = parsedTransitionDraft.error;
+  const parsedProfileTransition = useMemo(
+    () => parseTransitionJson(schoolProfile.profilePromotionTransitionJson || ''),
+    [schoolProfile.profilePromotionTransitionJson],
+  );
+  const profileTransitionMap = parsedProfileTransition.map;
 
   const transitionGradeOptions = useMemo(() => {
     const values = [
@@ -862,6 +924,72 @@ export default function SchoolAdminPage() {
     };
   }, [classes, grades, transitionMap, treatTerminalGradesAsValid]);
 
+  const transitionDiff = useMemo(() => {
+    const draftSources = Object.keys(transitionMap || {});
+    const profileSources = Object.keys(profileTransitionMap || {});
+
+    const draftKeyToSource = new Map(draftSources.map((name) => [normalizeNameKey(name), name]));
+    const profileKeyToSource = new Map(profileSources.map((name) => [normalizeNameKey(name), name]));
+    const allSourceKeys = Array.from(new Set([...draftKeyToSource.keys(), ...profileKeyToSource.keys()]));
+
+    const addedSources = [];
+    const removedSources = [];
+    const changedSources = [];
+
+    allSourceKeys.forEach((sourceKey) => {
+      const draftSource = draftKeyToSource.get(sourceKey);
+      const profileSource = profileKeyToSource.get(sourceKey);
+
+      const draftTargets = draftSource
+        ? dedupeCaseInsensitive(transitionMap[draftSource] || []).map((x) => normalizeNameKey(x))
+        : [];
+      const profileTargets = profileSource
+        ? dedupeCaseInsensitive(profileTransitionMap[profileSource] || []).map((x) => normalizeNameKey(x))
+        : [];
+
+      if (!profileSource && draftSource) {
+        addedSources.push(draftSource);
+        return;
+      }
+
+      if (profileSource && !draftSource) {
+        removedSources.push(profileSource);
+        return;
+      }
+
+      const draftSet = new Set(draftTargets);
+      const profileSet = new Set(profileTargets);
+      const sameSize = draftSet.size === profileSet.size;
+      const sameEntries = sameSize && [...draftSet].every((entry) => profileSet.has(entry));
+
+      if (!sameEntries) {
+        changedSources.push({
+          source: draftSource || profileSource,
+          draftTargets: dedupeCaseInsensitive(transitionMap[draftSource] || []),
+          profileTargets: dedupeCaseInsensitive(profileTransitionMap[profileSource] || []),
+        });
+      }
+    });
+
+    return {
+      addedSources: addedSources.sort((a, b) => a.localeCompare(b)),
+      removedSources: removedSources.sort((a, b) => a.localeCompare(b)),
+      changedSources: changedSources.sort((a, b) => String(a.source || '').localeCompare(String(b.source || ''))),
+      isDifferent: addedSources.length > 0 || removedSources.length > 0 || changedSources.length > 0,
+    };
+  }, [transitionMap, profileTransitionMap]);
+
+  const transitionDiffCounts = useMemo(() => ({
+    added: transitionDiff.addedSources.length,
+    removed: transitionDiff.removedSources.length,
+    changed: transitionDiff.changedSources.length,
+    total: transitionDiff.addedSources.length + transitionDiff.removedSources.length + transitionDiff.changedSources.length,
+  }), [transitionDiff]);
+
+  const showAddedDiff = transitionDiffFilter === 'all' || transitionDiffFilter === 'added';
+  const showRemovedDiff = transitionDiffFilter === 'all' || transitionDiffFilter === 'removed';
+  const showChangedDiff = transitionDiffFilter === 'all' || transitionDiffFilter === 'changed';
+
   const applyTransitionMapDraft = (map) => {
     setPromotionTransitionDraft(toPrettyTransitionJson(map));
   };
@@ -885,6 +1013,7 @@ export default function SchoolAdminPage() {
     next[source] = dedupeCaseInsensitive([...existingTargets, target]);
     applyTransitionMapDraft(next);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
     setTransitionTargetInput('');
   };
 
@@ -899,6 +1028,7 @@ export default function SchoolAdminPage() {
       next[source] = remaining;
     }
     applyTransitionMapDraft(next);
+    setTransitionPanelNotice(null);
   };
 
   const removeTransitionSource = (source) => {
@@ -906,6 +1036,7 @@ export default function SchoolAdminPage() {
     const next = { ...transitionMap };
     delete next[source];
     applyTransitionMapDraft(next);
+    setTransitionPanelNotice(null);
   };
 
   const initializeTransitionFromSchoolGrades = () => {
@@ -933,6 +1064,7 @@ export default function SchoolAdminPage() {
 
     applyTransitionMapDraft(next);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
   };
 
   const savePromotionTransitionOverride = async () => {
@@ -940,6 +1072,7 @@ export default function SchoolAdminPage() {
 
     setSavingPromotionTransition(true);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
     try {
       const res = await apiFetch('/api/schools/profile/promotion-transition', {
         method: 'PUT',
@@ -983,6 +1116,7 @@ export default function SchoolAdminPage() {
 
     setSavingPromotionTransition(true);
     setPromotionTransitionError(null);
+    setTransitionPanelNotice(null);
     try {
       const res = await apiFetch('/api/schools/profile/promotion-transition', {
         method: 'PUT',
@@ -1908,6 +2042,92 @@ export default function SchoolAdminPage() {
               </p>
           )}
         </div>
+        <div className="dashboard-card" style={{ marginTop: '0.75rem' }}>
+          <p className="dashboard-label">Draft vs profile default</p>
+          {schoolProfile.profilePromotionTransitionJson && !parsedProfileTransition.error && transitionDiff.isDifferent && (
+            <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`btn-primary-action ${transitionDiffFilter === 'all' ? '' : 'btn-primary-action--ghost'}`}
+                onClick={() => setTransitionDiffFilter('all')}
+              >
+                All ({transitionDiffCounts.total})
+              </button>
+              <button
+                type="button"
+                className={`btn-primary-action ${transitionDiffFilter === 'added' ? '' : 'btn-primary-action--ghost'}`}
+                onClick={() => setTransitionDiffFilter('added')}
+              >
+                Added ({transitionDiffCounts.added})
+              </button>
+              <button
+                type="button"
+                className={`btn-primary-action ${transitionDiffFilter === 'removed' ? '' : 'btn-primary-action--ghost'}`}
+                onClick={() => setTransitionDiffFilter('removed')}
+              >
+                Removed ({transitionDiffCounts.removed})
+              </button>
+              <button
+                type="button"
+                className={`btn-primary-action ${transitionDiffFilter === 'changed' ? '' : 'btn-primary-action--ghost'}`}
+                onClick={() => setTransitionDiffFilter('changed')}
+              >
+                Changed ({transitionDiffCounts.changed})
+              </button>
+            </div>
+          )}
+          {!schoolProfile.profilePromotionTransitionJson && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              No profile default transition map available for comparison.
+            </p>
+          )}
+          {schoolProfile.profilePromotionTransitionJson && parsedProfileTransition.error && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Profile default transition map could not be parsed for diff.
+            </p>
+          )}
+          {schoolProfile.profilePromotionTransitionJson && !parsedProfileTransition.error && !transitionDiff.isDifferent && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Draft matches profile defaults.
+            </p>
+          )}
+          {schoolProfile.profilePromotionTransitionJson && !parsedProfileTransition.error && transitionDiff.isDifferent && (
+            <>
+              {showAddedDiff && transitionDiff.addedSources.length > 0 && (
+                <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+                  Added source grades: {transitionDiff.addedSources.join(', ')}
+                </p>
+              )}
+              {showRemovedDiff && transitionDiff.removedSources.length > 0 && (
+                <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+                  Removed source grades: {transitionDiff.removedSources.join(', ')}
+                </p>
+              )}
+              {showChangedDiff && transitionDiff.changedSources.length > 0 && (
+                <div style={{ marginTop: '0.35rem' }}>
+                  {transitionDiff.changedSources.slice(0, 6).map((item) => (
+                    <p key={item.source} className="dashboard-sub" style={{ marginTop: '0.2rem' }}>
+                      {item.source}: draft [{item.draftTargets.join(', ') || 'none'}] vs profile [{item.profileTargets.join(', ') || 'none'}]
+                    </p>
+                  ))}
+                  {transitionDiff.changedSources.length > 6 && (
+                    <p className="dashboard-sub" style={{ marginTop: '0.2rem' }}>
+                      +{transitionDiff.changedSources.length - 6} more changed source mappings
+                    </p>
+                  )}
+                </div>
+              )}
+              {((showAddedDiff && transitionDiff.addedSources.length === 0)
+                || (showRemovedDiff && transitionDiff.removedSources.length === 0)
+                || (showChangedDiff && transitionDiff.changedSources.length === 0))
+                && transitionDiffFilter !== 'all' && (
+                  <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+                    No {transitionDiffFilter} differences.
+                  </p>
+              )}
+            </>
+          )}
+        </div>
         <label className="form-field form-field--full" style={{ marginTop: '0.75rem' }}>Transition map JSON
           <textarea
             className="form-input"
@@ -1921,8 +2141,17 @@ export default function SchoolAdminPage() {
         <p className="card-desc" style={{ marginTop: '0.5rem' }}>
           Current mode: {schoolProfile.promotionTransitionOverrideJson ? 'Custom school override' : 'Using academic profile defaults'}.
         </p>
+        {transitionPanelNotice && <p className="card-desc card-desc--success" style={{ marginTop: '0.35rem' }}>{transitionPanelNotice}</p>}
         {transitionParseError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{transitionParseError}</p>}
         <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={resetTransitionPanelPreferences}
+            disabled={savingPromotionTransition}
+          >
+            Reset panel preferences
+          </button>
           <button
             type="button"
             className="btn-primary-action btn-primary-action--ghost"

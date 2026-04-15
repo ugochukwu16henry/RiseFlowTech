@@ -53,6 +53,13 @@
 .section-title { font-size: 1rem; font-weight: 600; margin: 0 0 var(--gap); }
 .card-title { font-size: 1.0625rem; font-weight: 600; color: var(--color-deep-blue); margin: 0 0 0.25rem; }
 .card-desc { font-size: 0.875rem; color: var(--color-neutral-text-secondary); margin: 0; }
+.card-desc--success {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+}
 
 .btn-whatsapp {
   display: inline-flex; align-items: center; min-height: 44px; padding: 0.5rem 1rem;
