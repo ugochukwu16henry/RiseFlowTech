@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -642,54 +641,28 @@ public class StudentsController : ControllerBase
     [HttpGet("bulk-upload-template")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
-    public ActionResult DownloadBulkUploadTemplate()
+    public async Task<ActionResult> DownloadBulkUploadTemplate([FromQuery] string? profileCode = null, CancellationToken ct = default)
     {
-        using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Students");
-        ws.Cell(1, 1).Value = "FirstName";
-        ws.Cell(1, 2).Value = "LastName";
-        ws.Cell(1, 3).Value = "MiddleName";
-        ws.Cell(1, 4).Value = "Gender";
-        ws.Cell(1, 5).Value = "DateOfBirth";
-        ws.Cell(1, 6).Value = "NIN";
-        ws.Cell(1, 7).Value = "NationalIdType";
-        ws.Cell(1, 8).Value = "NationalIdNumber";
-        ws.Cell(1, 9).Value = "Class";
-        ws.Cell(1, 10).Value = "AdmissionNumber";
-        ws.Cell(1, 11).Value = "StateOfOrigin";
-        ws.Cell(1, 12).Value = "LGA";
-        ws.Cell(1, 13).Value = "Nationality";
-        ws.Cell(1, 14).Value = "ParentName";
-        ws.Cell(1, 15).Value = "ParentPhone";
-        ws.Cell(1, 16).Value = "BloodGroup";
-        ws.Cell(1, 17).Value = "Genotype";
-        ws.Cell(1, 18).Value = "EmergencyContactName";
-        ws.Cell(1, 19).Value = "EmergencyContactPhone";
-        ws.Row(1).Style.Font.Bold = true;
-        ws.Cell(2, 1).Value = "John";
-        ws.Cell(2, 2).Value = "Doe";
-        ws.Cell(2, 4).Value = "Male";
-        ws.Cell(2, 5).Value = "2015-09-01";
-        ws.Cell(2, 9).Value = "Grade 1A";
-        ws.Cell(2, 14).Value = "Jane Doe";
-        ws.Cell(2, 15).Value = "+2348012345678";
-        var countrySheet = workbook.Worksheets.Add("Country_Columns");
-        countrySheet.Cell(1, 1).Value = "Country";
-        countrySheet.Cell(1, 2).Value = "Required / Recommended columns";
-        countrySheet.Row(1).Style.Font.Bold = true;
-        countrySheet.Cell(2, 1).Value = "Nigeria";
-        countrySheet.Cell(2, 2).Value = "NIN (National ID), StateOfOrigin, LGA required for ministry alignment.";
-        countrySheet.Cell(3, 1).Value = "Ghana";
-        countrySheet.Cell(3, 2).Value = "NationalIdType=GHANA_CARD, NationalIdNumber.";
-        countrySheet.Cell(4, 1).Value = "Kenya";
-        countrySheet.Cell(4, 2).Value = "NationalIdType=KENYA_ID, NationalIdNumber.";
-        countrySheet.Cell(5, 1).Value = "All";
-        countrySheet.Cell(5, 2).Value = "FirstName, LastName required. Class = class name (create class in RiseFlow first). ParentName, ParentPhone for guardian.";
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream, false);
-        stream.Position = 0;
+        var resolvedProfileCode = profileCode;
+        if (_tenant.CurrentSchoolId.HasValue)
+        {
+            var school = await _db.Schools
+                .AsNoTracking()
+                .Include(s => s.AcademicSystemProfile)
+                .FirstOrDefaultAsync(s => s.Id == _tenant.CurrentSchoolId.Value, ct);
+
+            resolvedProfileCode = school?.AcademicSystemProfile?.Code
+                ?? (school?.CountryCode ?? string.Empty).Trim().ToUpperInvariant() switch
+                {
+                    "GH" => ExcelService.GhanaProfileCode,
+                    "KE" => ExcelService.KenyaProfileCode,
+                    _ => ExcelService.NigeriaProfileCode,
+                };
+        }
+
+        var bytes = _excelService.CreateBulkUploadTemplate(resolvedProfileCode);
         const string fileName = "RiseFlow-Students-Template.xlsx";
-        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
     /// <summary>Preview Excel import: first 5 rows and validation errors. Does not save.</summary>

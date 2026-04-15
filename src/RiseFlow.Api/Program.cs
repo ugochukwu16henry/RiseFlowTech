@@ -446,20 +446,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS "IX_AcademicSystemProfiles_Code" ON "AcademicS
 
         await context.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS \"IX_Schools_AcademicSystemProfileId\" ON \"Schools\" (\"AcademicSystemProfileId\");");
 
+        var academicProfileColumns = await GetColumnsAsync("AcademicSystemProfiles");
+        if (!academicProfileColumns.Contains("PromotionTransitionJson"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"AcademicSystemProfiles\" ADD COLUMN \"PromotionTransitionJson\" TEXT NULL;");
+
         await context.Database.ExecuteSqlRawAsync("""
 INSERT OR IGNORE INTO "AcademicSystemProfiles" (
-    "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
+        "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "PromotionTransitionJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
 ) VALUES
 ('1F36EA95-4074-4A07-B4E2-02C5A79EA001', 'NG_6334', 'Nigeria 6-3-3-4', '6 years primary, 3 years junior secondary, 3 years senior secondary.', 3,
  '[{"Label":"Nursery","Name":"Nursery","LevelOrder":5},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JSS 1","Name":"JSS 1","LevelOrder":30},{"Label":"JSS 3","Name":"JSS 3","LevelOrder":32},{"Label":"SS1","Name":"SS1","LevelOrder":40},{"Label":"SS3","Name":"SS3","LevelOrder":42}]',
- '["Nursery","Primary","Junior Secondary","Senior Secondary"]', 'A1_F9', 1, CURRENT_TIMESTAMP),
+ '["Nursery","Primary","Junior Secondary","Senior Secondary"]', '{"Nursery":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JSS 1"],"JSS 1":["JSS 2"],"JSS 2":["JSS 3"],"JSS 3":["SS1"],"SS1":["SS2"],"SS2":["SS3"]}', 'A1_F9', 1, CURRENT_TIMESTAMP),
 ('1F36EA95-4074-4A07-B4E2-02C5A79EA002', 'GH_633', 'Ghana 6-3-3', '6 years primary, 3 years junior high, 3 years senior high.', 3,
  '[{"Label":"Kindergarten 1","Name":"Kindergarten 1","LevelOrder":5},{"Label":"Kindergarten 2","Name":"Kindergarten 2","LevelOrder":6},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JHS 1","Name":"JHS 1","LevelOrder":30},{"Label":"JHS 3","Name":"JHS 3","LevelOrder":32},{"Label":"SHS 1","Name":"SHS 1","LevelOrder":40},{"Label":"SHS 3","Name":"SHS 3","LevelOrder":42}]',
- '["Kindergarten","Primary","Junior High","Senior High"]', 'A_F', 1, CURRENT_TIMESTAMP),
+ '["Kindergarten","Primary","Junior High","Senior High"]', '{"Kindergarten 1":["Kindergarten 2"],"Kindergarten 2":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JHS 1"],"JHS 1":["JHS 2"],"JHS 2":["JHS 3"],"JHS 3":["SHS 1"],"SHS 1":["SHS 2"],"SHS 2":["SHS 3"]}', 'A_F', 1, CURRENT_TIMESTAMP),
 ('1F36EA95-4074-4A07-B4E2-02C5A79EA003', 'KE_844', 'Kenya 8-4-4', '8 years primary, 4 years secondary, 4 years tertiary baseline.', 3,
  '[{"Label":"Grade 1","Name":"Grade 1","LevelOrder":10},{"Label":"Grade 8","Name":"Grade 8","LevelOrder":18},{"Label":"Form 1","Name":"Form 1","LevelOrder":30},{"Label":"Form 4","Name":"Form 4","LevelOrder":34}]',
- '["Primary","Secondary"]', 'A_E', 1, CURRENT_TIMESTAMP);
+ '["Primary","Secondary"]', '{"Grade 1":["Grade 2"],"Grade 2":["Grade 3"],"Grade 3":["Grade 4"],"Grade 4":["Grade 5"],"Grade 5":["Grade 6"],"Grade 6":["Grade 7"],"Grade 7":["Grade 8"],"Grade 8":["Form 1"],"Form 1":["Form 2"],"Form 2":["Form 3"],"Form 3":["Form 4"]}', 'A_E', 1, CURRENT_TIMESTAMP);
 """);
+
+        await context.Database.ExecuteSqlRawAsync("""
+    UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+    '{"Nursery":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JSS 1"],"JSS 1":["JSS 2"],"JSS 2":["JSS 3"],"JSS 3":["SS1"],"SS1":["SS2"],"SS2":["SS3"]}'
+    WHERE "Code" = 'NG_6334' AND ("PromotionTransitionJson" IS NULL OR TRIM("PromotionTransitionJson") = '');
+
+    UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+    '{"Kindergarten 1":["Kindergarten 2"],"Kindergarten 2":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JHS 1"],"JHS 1":["JHS 2"],"JHS 2":["JHS 3"],"JHS 3":["SHS 1"],"SHS 1":["SHS 2"],"SHS 2":["SHS 3"]}'
+    WHERE "Code" = 'GH_633' AND ("PromotionTransitionJson" IS NULL OR TRIM("PromotionTransitionJson") = '');
+
+    UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+    '{"Grade 1":["Grade 2"],"Grade 2":["Grade 3"],"Grade 3":["Grade 4"],"Grade 4":["Grade 5"],"Grade 5":["Grade 6"],"Grade 6":["Grade 7"],"Grade 7":["Grade 8"],"Grade 8":["Form 1"],"Form 1":["Form 2"],"Form 2":["Form 3"],"Form 3":["Form 4"]}'
+    WHERE "Code" = 'KE_844' AND ("PromotionTransitionJson" IS NULL OR TRIM("PromotionTransitionJson") = '');
+    """);
 
         await context.Database.ExecuteSqlRawAsync("""
 UPDATE "Schools"
@@ -787,6 +805,7 @@ CREATE TABLE IF NOT EXISTS "AcademicSystemProfiles" (
     "SuggestedTermsPerYear" integer NULL,
     "GradeTemplatesJson" text NOT NULL DEFAULT '[]',
     "StageOrderJson" text NULL,
+    "PromotionTransitionJson" text NULL,
     "DefaultGradingScaleCode" text NULL,
     "IsActive" boolean NOT NULL DEFAULT TRUE,
     "CreatedAtUtc" timestamp with time zone NOT NULL,
@@ -796,6 +815,7 @@ ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "Descrip
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "SuggestedTermsPerYear" integer NULL;
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "GradeTemplatesJson" text NOT NULL DEFAULT '[]';
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "StageOrderJson" text NULL;
+ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "PromotionTransitionJson" text NULL;
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "DefaultGradingScaleCode" text NULL;
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT TRUE;
 ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamp with time zone NOT NULL DEFAULT NOW();
@@ -803,18 +823,30 @@ ALTER TABLE IF EXISTS "AcademicSystemProfiles" ADD COLUMN IF NOT EXISTS "Updated
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_AcademicSystemProfiles_Code" ON "AcademicSystemProfiles" ("Code");
 
 INSERT INTO "AcademicSystemProfiles" (
-    "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
+    "Id", "Code", "Name", "Description", "SuggestedTermsPerYear", "GradeTemplatesJson", "StageOrderJson", "PromotionTransitionJson", "DefaultGradingScaleCode", "IsActive", "CreatedAtUtc"
 ) VALUES
 ('1f36ea95-4074-4a07-b4e2-02c5a79ea001', 'NG_6334', 'Nigeria 6-3-3-4', '6 years primary, 3 years junior secondary, 3 years senior secondary.', 3,
  '[{"Label":"Nursery","Name":"Nursery","LevelOrder":5},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JSS 1","Name":"JSS 1","LevelOrder":30},{"Label":"JSS 3","Name":"JSS 3","LevelOrder":32},{"Label":"SS1","Name":"SS1","LevelOrder":40},{"Label":"SS3","Name":"SS3","LevelOrder":42}]',
- '["Nursery","Primary","Junior Secondary","Senior Secondary"]', 'A1_F9', TRUE, NOW()),
+ '["Nursery","Primary","Junior Secondary","Senior Secondary"]', '{"Nursery":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JSS 1"],"JSS 1":["JSS 2"],"JSS 2":["JSS 3"],"JSS 3":["SS1"],"SS1":["SS2"],"SS2":["SS3"]}', 'A1_F9', TRUE, NOW()),
 ('1f36ea95-4074-4a07-b4e2-02c5a79ea002', 'GH_633', 'Ghana 6-3-3', '6 years primary, 3 years junior high, 3 years senior high.', 3,
  '[{"Label":"Kindergarten 1","Name":"Kindergarten 1","LevelOrder":5},{"Label":"Kindergarten 2","Name":"Kindergarten 2","LevelOrder":6},{"Label":"Primary 1","Name":"Primary 1","LevelOrder":10},{"Label":"Primary 6","Name":"Primary 6","LevelOrder":15},{"Label":"JHS 1","Name":"JHS 1","LevelOrder":30},{"Label":"JHS 3","Name":"JHS 3","LevelOrder":32},{"Label":"SHS 1","Name":"SHS 1","LevelOrder":40},{"Label":"SHS 3","Name":"SHS 3","LevelOrder":42}]',
- '["Kindergarten","Primary","Junior High","Senior High"]', 'A_F', TRUE, NOW()),
+ '["Kindergarten","Primary","Junior High","Senior High"]', '{"Kindergarten 1":["Kindergarten 2"],"Kindergarten 2":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JHS 1"],"JHS 1":["JHS 2"],"JHS 2":["JHS 3"],"JHS 3":["SHS 1"],"SHS 1":["SHS 2"],"SHS 2":["SHS 3"]}', 'A_F', TRUE, NOW()),
 ('1f36ea95-4074-4a07-b4e2-02c5a79ea003', 'KE_844', 'Kenya 8-4-4', '8 years primary, 4 years secondary, 4 years tertiary baseline.', 3,
  '[{"Label":"Grade 1","Name":"Grade 1","LevelOrder":10},{"Label":"Grade 8","Name":"Grade 8","LevelOrder":18},{"Label":"Form 1","Name":"Form 1","LevelOrder":30},{"Label":"Form 4","Name":"Form 4","LevelOrder":34}]',
- '["Primary","Secondary"]', 'A_E', TRUE, NOW())
+ '["Primary","Secondary"]', '{"Grade 1":["Grade 2"],"Grade 2":["Grade 3"],"Grade 3":["Grade 4"],"Grade 4":["Grade 5"],"Grade 5":["Grade 6"],"Grade 6":["Grade 7"],"Grade 7":["Grade 8"],"Grade 8":["Form 1"],"Form 1":["Form 2"],"Form 2":["Form 3"],"Form 3":["Form 4"]}', 'A_E', TRUE, NOW())
 ON CONFLICT ("Code") DO NOTHING;
+
+UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+'{"Nursery":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JSS 1"],"JSS 1":["JSS 2"],"JSS 2":["JSS 3"],"JSS 3":["SS1"],"SS1":["SS2"],"SS2":["SS3"]}'
+WHERE "Code" = 'NG_6334' AND ("PromotionTransitionJson" IS NULL OR BTRIM("PromotionTransitionJson") = '');
+
+UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+'{"Kindergarten 1":["Kindergarten 2"],"Kindergarten 2":["Primary 1"],"Primary 1":["Primary 2"],"Primary 2":["Primary 3"],"Primary 3":["Primary 4"],"Primary 4":["Primary 5"],"Primary 5":["Primary 6"],"Primary 6":["JHS 1"],"JHS 1":["JHS 2"],"JHS 2":["JHS 3"],"JHS 3":["SHS 1"],"SHS 1":["SHS 2"],"SHS 2":["SHS 3"]}'
+WHERE "Code" = 'GH_633' AND ("PromotionTransitionJson" IS NULL OR BTRIM("PromotionTransitionJson") = '');
+
+UPDATE "AcademicSystemProfiles" SET "PromotionTransitionJson" =
+'{"Grade 1":["Grade 2"],"Grade 2":["Grade 3"],"Grade 3":["Grade 4"],"Grade 4":["Grade 5"],"Grade 5":["Grade 6"],"Grade 6":["Grade 7"],"Grade 7":["Grade 8"],"Grade 8":["Form 1"],"Form 1":["Form 2"],"Form 2":["Form 3"],"Form 3":["Form 4"]}'
+WHERE "Code" = 'KE_844' AND ("PromotionTransitionJson" IS NULL OR BTRIM("PromotionTransitionJson") = '');
 
 UPDATE "Schools"
 SET "AcademicSystemProfileId" = CASE

@@ -14,6 +14,10 @@ public class ExcelService
 {
     private readonly RiseFlowDbContext _db;
 
+    public const string NigeriaProfileCode = "NG_6334";
+    public const string GhanaProfileCode = "GH_633";
+    public const string KenyaProfileCode = "KE_844";
+
     // Column indices for template: FirstName, LastName, MiddleName, Gender, DateOfBirth, NIN, NationalIdType, NationalIdNumber, Class, AdmissionNumber, StateOfOrigin, LGA, Nationality, ParentName, ParentPhone, BloodGroup, Genotype, EmergencyContactName, EmergencyContactPhone
     private const int ColFirstName = 1, ColLastName = 2, ColMiddleName = 3, ColGender = 4, ColDateOfBirth = 5;
     private const int ColNIN = 6, ColNationalIdType = 7, ColNationalIdNumber = 8, ColClass = 9, ColAdmissionNumber = 10;
@@ -23,6 +27,52 @@ public class ExcelService
     public ExcelService(RiseFlowDbContext db)
     {
         _db = db;
+    }
+
+    /// <summary>Create a profile-aware template for student Excel upload.</summary>
+    public byte[] CreateBulkUploadTemplate(string? profileCode)
+    {
+        var code = NormalizeProfileCode(profileCode);
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Students");
+
+        var headers = GetTemplateHeaders(code);
+        for (var i = 0; i < headers.Count; i++)
+            ws.Cell(1, i + 1).Value = headers[i];
+
+        ws.Row(1).Style.Font.Bold = true;
+
+        // Sample row for quick orientation.
+        ws.Cell(2, 1).Value = "John";
+        ws.Cell(2, 2).Value = "Doe";
+        ws.Cell(2, 4).Value = "Male";
+        ws.Cell(2, 5).Value = "2015-09-01";
+        ws.Cell(2, 7).Value = code == GhanaProfileCode ? "GHANA_CARD" : code == KenyaProfileCode ? "KENYA_ID" : "NIN";
+        ws.Cell(2, 8).Value = code == GhanaProfileCode ? "GHA-123456789-0" : code == KenyaProfileCode ? "12345678" : "12345678901";
+        ws.Cell(2, 9).Value = code == KenyaProfileCode ? "Form 1" : code == GhanaProfileCode ? "JHS 1" : "JSS 1";
+        ws.Cell(2, 14).Value = "Jane Doe";
+        ws.Cell(2, 15).Value = "+2348012345678";
+
+        var countrySheet = workbook.Worksheets.Add("Country_Columns");
+        countrySheet.Cell(1, 1).Value = "Country / Profile";
+        countrySheet.Cell(1, 2).Value = "Required / Recommended columns";
+        countrySheet.Row(1).Style.Font.Bold = true;
+
+        countrySheet.Cell(2, 1).Value = "Nigeria (NG_6334)";
+        countrySheet.Cell(2, 2).Value = "NIN, StateOfOrigin, LGA are commonly used for ministry alignment.";
+        countrySheet.Cell(3, 1).Value = "Ghana (GH_633)";
+        countrySheet.Cell(3, 2).Value = "Use NationalIdType=GHANA_CARD and NationalIdNumber; Region/District columns are available.";
+        countrySheet.Cell(4, 1).Value = "Kenya (KE_844)";
+        countrySheet.Cell(4, 2).Value = "Use NationalIdType=KENYA_ID and NationalIdNumber; County/SubCounty columns are available.";
+        countrySheet.Cell(5, 1).Value = "All";
+        countrySheet.Cell(5, 2).Value = "FirstName and LastName are required. Class must match an existing class or be left blank.";
+        countrySheet.Cell(6, 1).Value = "Active template";
+        countrySheet.Cell(6, 2).Value = code;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream, false);
+        return stream.ToArray();
     }
 
     /// <summary>Parse and validate Excel; return preview rows and per-row errors. Marks rows that are duplicates (already in school) so admin knows they will be skipped on import. Does not save.</summary>
@@ -316,6 +366,45 @@ public class ExcelService
         db.Parents.Add(parent);
         cache[key] = parent;
         return parent;
+    }
+
+    private static string NormalizeProfileCode(string? profileCode)
+    {
+        var normalized = (profileCode ?? string.Empty).Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            GhanaProfileCode => GhanaProfileCode,
+            KenyaProfileCode => KenyaProfileCode,
+            _ => NigeriaProfileCode,
+        };
+    }
+
+    private static List<string> GetTemplateHeaders(string profileCode)
+    {
+        return profileCode switch
+        {
+            GhanaProfileCode =>
+            [
+                "FirstName", "LastName", "MiddleName", "Gender", "DateOfBirth",
+                "GhanaCardNumber", "NationalIdType", "NationalIdNumber", "Class", "AdmissionNumber",
+                "Region", "District", "Nationality", "ParentName", "ParentPhone",
+                "BloodGroup", "Genotype", "EmergencyContactName", "EmergencyContactPhone"
+            ],
+            KenyaProfileCode =>
+            [
+                "FirstName", "LastName", "MiddleName", "Gender", "DateOfBirth",
+                "KenyaNationalId", "NationalIdType", "NationalIdNumber", "Class", "AdmissionNumber",
+                "County", "SubCounty", "Nationality", "ParentName", "ParentPhone",
+                "BloodGroup", "Genotype", "EmergencyContactName", "EmergencyContactPhone"
+            ],
+            _ =>
+            [
+                "FirstName", "LastName", "MiddleName", "Gender", "DateOfBirth",
+                "NIN", "NationalIdType", "NationalIdNumber", "Class", "AdmissionNumber",
+                "StateOfOrigin", "LGA", "Nationality", "ParentName", "ParentPhone",
+                "BloodGroup", "Genotype", "EmergencyContactName", "EmergencyContactPhone"
+            ]
+        };
     }
 }
 

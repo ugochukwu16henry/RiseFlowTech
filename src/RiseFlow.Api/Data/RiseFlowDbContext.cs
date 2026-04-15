@@ -125,6 +125,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.Description).HasMaxLength(512);
             e.Property(x => x.GradeTemplatesJson).IsRequired().HasMaxLength(12000);
             e.Property(x => x.StageOrderJson).HasMaxLength(12000);
+            e.Property(x => x.PromotionTransitionJson).HasMaxLength(12000);
             e.Property(x => x.DefaultGradingScaleCode).HasMaxLength(64);
             e.HasIndex(x => x.Code).IsUnique();
         });

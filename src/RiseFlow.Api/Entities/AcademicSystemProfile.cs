@@ -9,6 +9,7 @@ public class AcademicSystemProfile
     public int? SuggestedTermsPerYear { get; set; }
     public string GradeTemplatesJson { get; set; } = "[]";
     public string? StageOrderJson { get; set; }
+    public string? PromotionTransitionJson { get; set; }
     public string? DefaultGradingScaleCode { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }

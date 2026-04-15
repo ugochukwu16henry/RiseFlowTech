@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +18,13 @@ public class PromotionsController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IConfiguration _configuration;
 
-    public PromotionsController(RiseFlowDbContext db, ITenantContext tenant)
+    public PromotionsController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration)
     {
         _db = db;
         _tenant = tenant;
+        _configuration = configuration;
     }
 
     [HttpPost("bulk")]
@@ -260,10 +263,25 @@ public class PromotionsController : ControllerBase
         Guid? promotedByUserId,
         CancellationToken ct)
     {
-        var sourceClassExists = await _db.Classes.AnyAsync(c => c.Id == fromClassId && c.SchoolId == schoolId, ct);
-        var targetClassExists = await _db.Classes.AnyAsync(c => c.Id == toClassId && c.SchoolId == schoolId, ct);
-        if (!sourceClassExists || !targetClassExists)
+        var sourceClass = await _db.Classes
+            .AsNoTracking()
+            .Include(c => c.Grade)
+            .FirstOrDefaultAsync(c => c.Id == fromClassId && c.SchoolId == schoolId, ct);
+        var targetClass = await _db.Classes
+            .AsNoTracking()
+            .Include(c => c.Grade)
+            .FirstOrDefaultAsync(c => c.Id == toClassId && c.SchoolId == schoolId, ct);
+
+        if (sourceClass == null || targetClass == null)
             return ("Invalid source or destination class for this school.", new List<Guid>(), 0, 0);
+
+        var strictValidationEnabled = _configuration.GetValue<bool>("Features:EnableStrictAcademicPromotionValidation", false);
+        if (strictValidationEnabled)
+        {
+            var validationError = await ValidatePromotionPathAsync(schoolId, sourceClass, targetClass, ct);
+            if (!string.IsNullOrWhiteSpace(validationError))
+                return (validationError, new List<Guid>(), 0, 0);
+        }
 
         var studentSet = studentIds.Distinct().ToList();
         var students = await _db.Students
@@ -317,6 +335,130 @@ public class PromotionsController : ControllerBase
         }
 
         return (null, new List<Guid>(), promotedCount, skippedCount);
+    }
+
+    private async Task<string?> ValidatePromotionPathAsync(Guid schoolId, Class sourceClass, Class targetClass, CancellationToken ct)
+    {
+        if (sourceClass.Grade == null || targetClass.Grade == null)
+            return "Promotion validation failed because one of the classes has no grade linked.";
+
+        var sourceLevel = sourceClass.Grade.LevelOrder;
+        var targetLevel = targetClass.Grade.LevelOrder;
+
+        if (targetLevel < sourceLevel)
+            return "Invalid promotion path: destination grade is lower than source grade.";
+
+        var school = await _db.Schools
+            .AsNoTracking()
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+
+        var academicProfile = school?.AcademicSystemProfile;
+        var profileCode = academicProfile?.Code?.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(profileCode))
+            return null;
+
+        var transitionError = ValidateMatrixPromotion(
+            academicProfile?.PromotionTransitionJson,
+            sourceClass.Grade.Name,
+            targetClass.Grade.Name);
+        if (!string.IsNullOrWhiteSpace(transitionError))
+            return transitionError;
+
+        var sourceStage = ResolveStageKey(profileCode, sourceClass.Grade.Name);
+        var targetStage = ResolveStageKey(profileCode, targetClass.Grade.Name);
+
+        if (sourceStage == null || targetStage == null)
+            return null;
+
+        var stageOrder = GetStageOrder(profileCode);
+        var sourceIndex = stageOrder.IndexOf(sourceStage);
+        var targetIndex = stageOrder.IndexOf(targetStage);
+        if (sourceIndex < 0 || targetIndex < 0)
+            return null;
+
+        if (targetIndex < sourceIndex)
+            return "Invalid promotion path: destination stage is lower than source stage for your academic profile.";
+
+        if (targetIndex > sourceIndex + 1)
+            return "Invalid promotion path: destination stage skips one or more stages for your academic profile.";
+
+        return null;
+    }
+
+    private static string? ValidateMatrixPromotion(string? transitionJson, string? sourceGradeName, string? targetGradeName)
+    {
+        if (string.IsNullOrWhiteSpace(transitionJson)
+            || string.IsNullOrWhiteSpace(sourceGradeName)
+            || string.IsNullOrWhiteSpace(targetGradeName))
+            return null;
+
+        try
+        {
+            var transitions = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(transitionJson);
+            if (transitions == null || transitions.Count == 0)
+                return null;
+
+            var source = sourceGradeName.Trim();
+            var target = targetGradeName.Trim();
+            var sourceEntry = transitions.FirstOrDefault(x => string.Equals(x.Key, source, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(sourceEntry.Key))
+                return null;
+
+            var allowedTargets = sourceEntry.Value ?? new List<string>();
+            if (allowedTargets.Any(x => string.Equals(x, target, StringComparison.OrdinalIgnoreCase)))
+                return null;
+
+            return $"Invalid promotion path: {source} can only promote to [{string.Join(", ", allowedTargets)}] for this academic profile.";
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveStageKey(string profileCode, string? gradeName)
+    {
+        var value = (gradeName ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (profileCode == "NG_6334")
+        {
+            if (value.Contains("nursery")) return "nursery";
+            if (value.Contains("primary")) return "primary";
+            if (value.Contains("jss") || value.Contains("junior secondary")) return "junior";
+            if (value.Contains("ss") || value.Contains("senior secondary")) return "senior";
+            return null;
+        }
+
+        if (profileCode == "GH_633")
+        {
+            if (value.Contains("kindergarten") || value.Contains("kg")) return "kindergarten";
+            if (value.Contains("primary")) return "primary";
+            if (value.Contains("jhs") || value.Contains("junior high")) return "junior";
+            if (value.Contains("shs") || value.Contains("senior high")) return "senior";
+            return null;
+        }
+
+        if (profileCode == "KE_844")
+        {
+            if (value.Contains("grade")) return "primary";
+            if (value.Contains("form") || value.Contains("secondary")) return "secondary";
+            return null;
+        }
+
+        return null;
+    }
+
+    private static List<string> GetStageOrder(string profileCode)
+    {
+        return profileCode switch
+        {
+            "GH_633" => new List<string> { "kindergarten", "primary", "junior", "senior" },
+            "KE_844" => new List<string> { "primary", "secondary" },
+            _ => new List<string> { "nursery", "primary", "junior", "senior" },
+        };
     }
 
     private async Task<Teacher?> GetCurrentTeacherAsync(Guid schoolId, CancellationToken ct)
