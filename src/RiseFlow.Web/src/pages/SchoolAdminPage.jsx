@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import StudentPhoto from '../components/StudentPhoto';
@@ -9,6 +9,72 @@ function formatMoney(amount, currencyCode) {
   const n = Number(amount);
   if (Number.isNaN(n)) return '—';
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'NGN', maximumFractionDigits: 0 }).format(n);
+}
+
+function dedupeCaseInsensitive(values) {
+  const seen = new Set();
+  const result = [];
+  values.forEach((value) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(trimmed);
+  });
+  return result;
+}
+
+function parseTransitionJson(rawJson) {
+  const raw = String(rawJson || '').trim();
+  if (!raw) return { map: {}, error: null };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { map: {}, error: 'Transition JSON must be an object map (for example {"Primary 1":["Primary 2"]}).' };
+    }
+
+    const normalized = {};
+    for (const [source, targets] of Object.entries(parsed)) {
+      const sourceName = String(source || '').trim();
+      if (!sourceName) continue;
+      if (!Array.isArray(targets)) {
+        return { map: {}, error: `Target list for ${sourceName} must be an array.` };
+      }
+      normalized[sourceName] = dedupeCaseInsensitive(targets);
+    }
+
+    return { map: normalized, error: null };
+  } catch {
+    return { map: {}, error: 'Transition JSON is invalid. Fix JSON syntax before saving.' };
+  }
+}
+
+function toPrettyTransitionJson(map) {
+  const next = {};
+  Object.entries(map || {}).forEach(([source, targets]) => {
+    const sourceName = String(source || '').trim();
+    const cleanedTargets = dedupeCaseInsensitive(targets || []);
+    if (!sourceName || cleanedTargets.length === 0) return;
+    next[sourceName] = cleanedTargets;
+  });
+  return JSON.stringify(next, null, 2);
+}
+
+function normalizeNameKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isLikelyTerminalGradeName(name) {
+  const value = normalizeNameKey(name);
+  return value.includes('ss3')
+    || value.includes('shs 3')
+    || value.includes('jhs 3')
+    || value.includes('form 4')
+    || value.includes('grade 12')
+    || value.includes('year 13')
+    || value.includes('final');
 }
 
 export default function SchoolAdminPage() {
@@ -24,6 +90,7 @@ export default function SchoolAdminPage() {
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [grades, setGrades] = useState([]);
   const [parents, setParents] = useState([]);
   const [billing, setBilling] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +109,9 @@ export default function SchoolAdminPage() {
   const [savingAcademicProfile, setSavingAcademicProfile] = useState(false);
   const [savingPromotionTransition, setSavingPromotionTransition] = useState(false);
   const [promotionTransitionDraft, setPromotionTransitionDraft] = useState('');
+  const [transitionSourceInput, setTransitionSourceInput] = useState('');
+  const [transitionTargetInput, setTransitionTargetInput] = useState('');
+  const [treatTerminalGradesAsValid, setTreatTerminalGradesAsValid] = useState(true);
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
     ownerName: '',
@@ -114,12 +184,13 @@ export default function SchoolAdminPage() {
       apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
       apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
+      apiFetch('/api/schools/grades').then((r) => readJsonOrThrow(r, 'Failed to load grades.')),
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
       apiFetch('/api/schools/academic-system-profiles').then((r) => readJsonOrThrow(r, 'Failed to load academic system profiles.')),
     ])
       .then((results) => {
-        const [dashResult, profileResult, teacherResult, studentResult, classResult, parentResult, billingResult, profileOptionsResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
         const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
@@ -157,6 +228,7 @@ export default function SchoolAdminPage() {
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
         setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
         setClasses(classResult.status === 'fulfilled' && Array.isArray(classResult.value) ? classResult.value : []);
+        setGrades(gradeResult.status === 'fulfilled' && Array.isArray(gradeResult.value) ? gradeResult.value : []);
         setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
         setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
       })
@@ -570,10 +642,169 @@ export default function SchoolAdminPage() {
   const normalizeJsonForEditor = (raw) => {
     if (!raw || !String(raw).trim()) return '';
     try {
-      return JSON.stringify(JSON.parse(raw), null, 2);
+      return toPrettyTransitionJson(JSON.parse(raw));
     } catch {
       return raw;
     }
+  };
+
+  const parsedTransitionDraft = useMemo(() => parseTransitionJson(promotionTransitionDraft), [promotionTransitionDraft]);
+  const transitionMap = parsedTransitionDraft.map;
+  const transitionParseError = parsedTransitionDraft.error;
+
+  const transitionGradeOptions = useMemo(() => {
+    const values = [
+      ...grades.map((item) => item.name).filter(Boolean),
+      ...classes.map((item) => item.gradeName).filter(Boolean),
+      ...Object.keys(transitionMap),
+      ...Object.values(transitionMap).flat(),
+    ];
+    return dedupeCaseInsensitive(values).sort((a, b) => a.localeCompare(b));
+  }, [grades, classes, transitionMap]);
+
+  const transitionImpact = useMemo(() => {
+    const knownGrades = dedupeCaseInsensitive([
+      ...grades.map((item) => item.name).filter(Boolean),
+      ...classes.map((item) => item.gradeName).filter(Boolean),
+    ]);
+
+    const knownGradeKeyToName = new Map(knownGrades.map((name) => [normalizeNameKey(name), name]));
+    const sourceGrades = Object.keys(transitionMap || {});
+    const sourceKeyToName = new Map(sourceGrades.map((name) => [normalizeNameKey(name), name]));
+
+    const allTargetGrades = dedupeCaseInsensitive(Object.values(transitionMap || {}).flat());
+    const targetKeys = new Set(allTargetGrades.map((name) => normalizeNameKey(name)));
+
+    const unknownSourceGrades = sourceGrades.filter((name) => !knownGradeKeyToName.has(normalizeNameKey(name)));
+    const unknownTargetGrades = allTargetGrades.filter((name) => !knownGradeKeyToName.has(normalizeNameKey(name)));
+
+    const terminalGradeKeys = new Set();
+    if (treatTerminalGradesAsValid) {
+      const gradeLevels = grades
+        .filter((item) => !!item?.name)
+        .map((item) => ({
+          key: normalizeNameKey(item.name),
+          levelOrder: Number(item.levelOrder ?? 0),
+        }));
+
+      const maxLevelOrder = gradeLevels.length > 0
+        ? Math.max(...gradeLevels.map((item) => item.levelOrder))
+        : null;
+
+      gradeLevels.forEach((item) => {
+        if (maxLevelOrder != null && item.levelOrder === maxLevelOrder) terminalGradeKeys.add(item.key);
+      });
+
+      knownGrades.forEach((gradeName) => {
+        if (isLikelyTerminalGradeName(gradeName)) terminalGradeKeys.add(normalizeNameKey(gradeName));
+      });
+    }
+
+    const gradesWithoutOutgoingPath = knownGrades.filter((gradeName) => {
+      const key = normalizeNameKey(gradeName);
+      if (terminalGradeKeys.has(key)) return false;
+      return !sourceKeyToName.has(key);
+    });
+
+    const classesByGrade = classes.reduce((acc, schoolClass) => {
+      const gradeName = String(schoolClass?.gradeName || '').trim();
+      if (!gradeName) return acc;
+      const key = normalizeNameKey(gradeName);
+      const current = acc[key] || [];
+      current.push(schoolClass.name || 'Unnamed class');
+      acc[key] = current;
+      return acc;
+    }, {});
+
+    const classesAtUnmappedGrades = Object.entries(classesByGrade)
+      .filter(([gradeKey]) => !sourceKeyToName.has(gradeKey) && !terminalGradeKeys.has(gradeKey))
+      .map(([gradeKey, classNames]) => ({
+        gradeName: knownGradeKeyToName.get(gradeKey) || gradeKey,
+        classNames,
+      }));
+
+    return {
+      knownGradeCount: knownGrades.length,
+      sourceGradeCount: sourceGrades.length,
+      unknownSourceGrades,
+      unknownTargetGrades,
+      terminalGradeNames: knownGrades.filter((gradeName) => terminalGradeKeys.has(normalizeNameKey(gradeName))),
+      gradesWithoutOutgoingPath,
+      classesAtUnmappedGrades,
+    };
+  }, [classes, grades, transitionMap, treatTerminalGradesAsValid]);
+
+  const applyTransitionMapDraft = (map) => {
+    setPromotionTransitionDraft(toPrettyTransitionJson(map));
+  };
+
+  const addTransitionRule = () => {
+    const source = transitionSourceInput.trim();
+    const target = transitionTargetInput.trim();
+
+    if (!source || !target) {
+      setPromotionTransitionError('Select or type both source and target grade names.');
+      return;
+    }
+
+    if (transitionParseError) {
+      setPromotionTransitionError('Fix JSON syntax first, or click Use profile defaults and start again.');
+      return;
+    }
+
+    const next = { ...transitionMap };
+    const existingTargets = Array.isArray(next[source]) ? next[source] : [];
+    next[source] = dedupeCaseInsensitive([...existingTargets, target]);
+    applyTransitionMapDraft(next);
+    setPromotionTransitionError(null);
+    setTransitionTargetInput('');
+  };
+
+  const removeTransitionTarget = (source, target) => {
+    if (transitionParseError) return;
+
+    const next = { ...transitionMap };
+    const remaining = (next[source] || []).filter((item) => String(item).toLowerCase() !== String(target).toLowerCase());
+    if (remaining.length === 0) {
+      delete next[source];
+    } else {
+      next[source] = remaining;
+    }
+    applyTransitionMapDraft(next);
+  };
+
+  const removeTransitionSource = (source) => {
+    if (transitionParseError) return;
+    const next = { ...transitionMap };
+    delete next[source];
+    applyTransitionMapDraft(next);
+  };
+
+  const initializeTransitionFromSchoolGrades = () => {
+    const ordered = [...grades]
+      .filter((grade) => !!grade?.name)
+      .sort((a, b) => {
+        const ao = Number(a?.levelOrder ?? 0);
+        const bo = Number(b?.levelOrder ?? 0);
+        if (ao !== bo) return ao - bo;
+        return String(a?.name || '').localeCompare(String(b?.name || ''));
+      });
+
+    if (ordered.length < 2) {
+      setPromotionTransitionError('Add at least two grades first, then initialize promotion rules.');
+      return;
+    }
+
+    const next = {};
+    for (let i = 0; i < ordered.length - 1; i += 1) {
+      const source = String(ordered[i].name || '').trim();
+      const target = String(ordered[i + 1].name || '').trim();
+      if (!source || !target) continue;
+      next[source] = dedupeCaseInsensitive([...(next[source] || []), target]);
+    }
+
+    applyTransitionMapDraft(next);
+    setPromotionTransitionError(null);
   };
 
   const savePromotionTransitionOverride = async () => {
@@ -1391,6 +1622,139 @@ export default function SchoolAdminPage() {
         <p className="card-desc">
           Define exactly which target grade(s) each source grade can promote into. This override is school-specific and used when strict promotion validation is enabled.
         </p>
+        <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+          <label className="form-field">Source grade
+            <input
+              className="form-input"
+              list="promotion-grade-options"
+              value={transitionSourceInput}
+              onChange={(e) => setTransitionSourceInput(e.target.value)}
+              placeholder="e.g. Primary 1"
+            />
+          </label>
+          <label className="form-field">Allowed target grade
+            <input
+              className="form-input"
+              list="promotion-grade-options"
+              value={transitionTargetInput}
+              onChange={(e) => setTransitionTargetInput(e.target.value)}
+              placeholder="e.g. Primary 2"
+            />
+          </label>
+          <div className="form-actions" style={{ alignSelf: 'end' }}>
+            <button
+              type="button"
+              className="btn-primary-action"
+              onClick={addTransitionRule}
+              disabled={savingPromotionTransition}
+            >
+              Add rule
+            </button>
+          </div>
+        </div>
+        <datalist id="promotion-grade-options">
+          {transitionGradeOptions.map((name) => <option key={name} value={name} />)}
+        </datalist>
+        {Object.keys(transitionMap).length > 0 && (
+          <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Source grade</th>
+                  <th>Allowed targets</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(transitionMap).map(([source, targets]) => (
+                  <tr key={source}>
+                    <td>{source}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        {targets.map((target) => (
+                          <button
+                            key={`${source}-${target}`}
+                            type="button"
+                            className="btn-primary-action btn-primary-action--ghost"
+                            style={{ padding: '0.2rem 0.55rem' }}
+                            onClick={() => removeTransitionTarget(source, target)}
+                            disabled={savingPromotionTransition}
+                            title="Remove this target"
+                          >
+                            {target} ×
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => removeTransitionSource(source)}
+                        disabled={savingPromotionTransition}
+                      >
+                        Remove source
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="dashboard-card" style={{ marginTop: '0.75rem' }}>
+          <p className="dashboard-label">Preview impact</p>
+          <label className="form-field" style={{ marginTop: '0.5rem' }}>
+            <span className="card-desc" style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={treatTerminalGradesAsValid}
+                onChange={(e) => setTreatTerminalGradesAsValid(e.target.checked)}
+              />
+              Treat terminal grades as valid endpoints
+            </span>
+          </label>
+          <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+            Known grades: {transitionImpact.knownGradeCount} • Mapped source grades: {transitionImpact.sourceGradeCount}
+          </p>
+          {treatTerminalGradesAsValid && transitionImpact.terminalGradeNames.length > 0 && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Terminal grades ignored for outgoing-path warnings: {transitionImpact.terminalGradeNames.join(', ')}
+            </p>
+          )}
+          {transitionImpact.unknownSourceGrades.length > 0 && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Unknown source grades in map: {transitionImpact.unknownSourceGrades.join(', ')}
+            </p>
+          )}
+          {transitionImpact.unknownTargetGrades.length > 0 && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Unknown target grades in map: {transitionImpact.unknownTargetGrades.join(', ')}
+            </p>
+          )}
+          {transitionImpact.gradesWithoutOutgoingPath.length > 0 && (
+            <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+              Grades without outgoing paths: {transitionImpact.gradesWithoutOutgoingPath.join(', ')}
+            </p>
+          )}
+          {transitionImpact.classesAtUnmappedGrades.length > 0 && (
+            <div style={{ marginTop: '0.35rem' }}>
+              {transitionImpact.classesAtUnmappedGrades.map((row) => (
+                <p key={row.gradeName} className="dashboard-sub" style={{ marginTop: '0.2rem' }}>
+                  Classes at unmapped grade {row.gradeName}: {row.classNames.join(', ')}
+                </p>
+              ))}
+            </div>
+          )}
+          {transitionImpact.unknownSourceGrades.length === 0
+            && transitionImpact.unknownTargetGrades.length === 0
+            && transitionImpact.classesAtUnmappedGrades.length === 0
+            && transitionImpact.gradesWithoutOutgoingPath.length === 0 && (
+              <p className="dashboard-sub" style={{ marginTop: '0.35rem' }}>
+                Mapping looks aligned with your current school grades and classes.
+              </p>
+          )}
+        </div>
         <label className="form-field form-field--full" style={{ marginTop: '0.75rem' }}>Transition map JSON
           <textarea
             className="form-input"
@@ -1404,12 +1768,21 @@ export default function SchoolAdminPage() {
         <p className="card-desc" style={{ marginTop: '0.5rem' }}>
           Current mode: {schoolProfile.promotionTransitionOverrideJson ? 'Custom school override' : 'Using academic profile defaults'}.
         </p>
+        {transitionParseError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{transitionParseError}</p>}
         <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={initializeTransitionFromSchoolGrades}
+            disabled={savingPromotionTransition || grades.length < 2}
+          >
+            Initialize from school grades
+          </button>
           <button
             type="button"
             className="btn-primary-action"
             onClick={savePromotionTransitionOverride}
-            disabled={savingPromotionTransition || !promotionTransitionDraft.trim()}
+            disabled={savingPromotionTransition || !promotionTransitionDraft.trim() || !!transitionParseError}
           >
             {savingPromotionTransition ? 'Saving rules…' : 'Save promotion rules'}
           </button>
