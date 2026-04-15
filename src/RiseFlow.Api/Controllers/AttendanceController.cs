@@ -22,11 +22,13 @@ public class AttendanceController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public AttendanceController(RiseFlowDbContext db, ITenantContext tenant)
+    public AttendanceController(RiseFlowDbContext db, ITenantContext tenant, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
+        _staffPermissions = staffPermissions;
     }
 
     /// <summary>
@@ -42,6 +44,8 @@ public class AttendanceController : ControllerBase
     {
         var schoolId = _tenant.CurrentSchoolId;
         if (!schoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAttendance, "AttendanceRecord", "UpsertBatch", null, ct))
             return Forbid();
 
         if (request.Items == null || request.Items.Count == 0)
@@ -134,6 +138,8 @@ public class AttendanceController : ControllerBase
     {
         var schoolId = _tenant.CurrentSchoolId;
         if (!schoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAttendance, "AttendanceRecord", "GetClassAttendance", classId.ToString(), ct))
             return Forbid();
 
         // Students in this class for this school

@@ -635,7 +635,7 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Constants.Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, "TeacherClass", "AssignToClass", id.ToString(), ct))
             return Forbid();
         var existing = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
         if (existing != null)
@@ -667,7 +667,7 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Constants.Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, "TeacherClass", "UnassignFromClass", id.ToString(), ct))
             return Forbid();
         var link = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
         if (link != null)

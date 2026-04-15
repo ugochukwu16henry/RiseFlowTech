@@ -17,11 +17,13 @@ public class ExamsController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public ExamsController(RiseFlowDbContext db, ITenantContext tenant)
+    public ExamsController(RiseFlowDbContext db, ITenantContext tenant, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
+        _staffPermissions = staffPermissions;
     }
 
     [HttpGet]
@@ -55,6 +57,8 @@ public class ExamsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "Exam", "Create", null, ct))
+            return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { message = "Name is required." });
@@ -85,6 +89,8 @@ public class ExamsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "Exam", "Update", id.ToString(), ct))
+            return Forbid();
 
         var exam = await _db.Exams.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (exam == null)
@@ -110,6 +116,8 @@ public class ExamsController : ControllerBase
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "Exam", "Delete", id.ToString(), ct))
             return Forbid();
 
         var exam = await _db.Exams.FirstOrDefaultAsync(x => x.Id == id, ct);

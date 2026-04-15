@@ -40,7 +40,7 @@ public class ResultsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "Create", null, ct))
             return Forbid();
 
         var submissionWindowBlock = await ValidateTeacherSubmissionWindowAsync(request.TermId, ct);
@@ -111,7 +111,7 @@ public class ResultsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "Update", id.ToString(), ct))
             return Forbid();
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)
@@ -154,7 +154,7 @@ public class ResultsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "Delete", id.ToString(), ct))
             return Forbid();
         var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (result == null)

@@ -17,11 +17,13 @@ public class AssignmentsController : ControllerBase
 {
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public AssignmentsController(RiseFlowDbContext db, ITenantContext tenant)
+    public AssignmentsController(RiseFlowDbContext db, ITenantContext tenant, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
+        _staffPermissions = staffPermissions;
     }
 
     [HttpGet]
@@ -109,6 +111,8 @@ public class AssignmentsController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "TeacherAssignment", "Create", null, ct))
+            return Forbid();
 
         var schoolId = _tenant.CurrentSchoolId.Value;
         if (request.ClassId == Guid.Empty || request.SubjectId == Guid.Empty || request.TermId == Guid.Empty || request.FileAssetId == Guid.Empty || string.IsNullOrWhiteSpace(request.Title))
@@ -150,6 +154,8 @@ public class AssignmentsController : ControllerBase
     public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "TeacherAssignment", "Delete", id.ToString(), ct))
             return Forbid();
 
         var schoolId = _tenant.CurrentSchoolId.Value;

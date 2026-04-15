@@ -61,7 +61,7 @@ public class EventsController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolEvent", "Create", null, ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title))
@@ -96,7 +96,7 @@ public class EventsController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolEvent", "Update", id.ToString(), ct))
             return Forbid();
 
         var entity = await _db.SchoolEvents.FirstOrDefaultAsync(e => e.Id == id, ct);
@@ -129,7 +129,7 @@ public class EventsController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolEvent", "Delete", id.ToString(), ct))
             return Forbid();
 
         var entity = await _db.SchoolEvents.FirstOrDefaultAsync(e => e.Id == id, ct);

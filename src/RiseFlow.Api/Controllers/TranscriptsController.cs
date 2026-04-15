@@ -13,12 +13,14 @@ public class TranscriptsController : ControllerBase
     private readonly TranscriptPdfService _transcriptPdf;
     private readonly Services.ITenantContext _tenant;
     private readonly IConfiguration _config;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public TranscriptsController(TranscriptPdfService transcriptPdf, Services.ITenantContext tenant, IConfiguration config)
+    public TranscriptsController(TranscriptPdfService transcriptPdf, Services.ITenantContext tenant, IConfiguration config, StaffPermissionService staffPermissions)
     {
         _transcriptPdf = transcriptPdf;
         _tenant = tenant;
         _config = config;
+        _staffPermissions = staffPermissions;
     }
 
     /// <summary>Generate a PDF transcript with verification QR code. SchoolAdmin or Teacher.</summary>
@@ -34,6 +36,8 @@ public class TranscriptsController : ControllerBase
         CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, "Transcript", "Generate", studentId.ToString(), ct))
             return Forbid();
         var schoolId = _tenant.CurrentSchoolId.Value;
         IEnumerable<Guid>? termIdList = null;

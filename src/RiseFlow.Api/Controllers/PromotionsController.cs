@@ -19,12 +19,14 @@ public class PromotionsController : ControllerBase
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IConfiguration _configuration;
+    private readonly StaffPermissionService _staffPermissions;
 
-    public PromotionsController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration)
+    public PromotionsController(RiseFlowDbContext db, ITenantContext tenant, IConfiguration configuration, StaffPermissionService staffPermissions)
     {
         _db = db;
         _tenant = tenant;
         _configuration = configuration;
+        _staffPermissions = staffPermissions;
     }
 
     [HttpPost("bulk")]
@@ -71,6 +73,8 @@ public class PromotionsController : ControllerBase
     public async Task<ActionResult<object>> SubmitRequest([FromBody] SubmitPromotionRequest request, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, "ClassPromotionRequest", "SubmitRequest", null, ct))
             return Forbid();
         if (request.FromClassId == Guid.Empty || request.ToClassId == Guid.Empty || request.StudentIds == null || request.StudentIds.Count == 0)
             return BadRequest(new { message = "FromClassId, ToClassId, and StudentIds are required." });

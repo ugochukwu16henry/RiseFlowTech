@@ -70,7 +70,7 @@ public class NoticesController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolNotice", "Create", null, ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
@@ -104,7 +104,7 @@ public class NoticesController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolNotice", "Update", id.ToString(), ct))
             return Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
@@ -134,7 +134,7 @@ public class NoticesController : ControllerBase
 
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, "SchoolNotice", "Delete", id.ToString(), ct))
             return Forbid();
 
         var entity = await _db.SchoolNotices.FirstOrDefaultAsync(n => n.Id == id, ct);

@@ -640,7 +640,7 @@ public class SchoolFeesController : ControllerBase
         var schoolId = GetSchoolId();
         if (schoolId == Guid.Empty) return Forbid();
 
-        if (User.IsInRole(Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageFees, ct))
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanManageFees, "TermFeeSchedule", "GetClassFeeStatus", classId.ToString(), ct))
             return Forbid();
 
         if (!User.IsInRole(Roles.SchoolAdmin))

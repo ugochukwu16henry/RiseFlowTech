@@ -14,6 +14,8 @@ public static class StaffPermissionKeys
     public const string CanApproveResults = "approve-results";
     public const string CanSendParentBroadcasts = "send-parent-broadcasts";
     public const string CanManageFees = "manage-fees";
+    public const string CanManageAttendance = "manage-attendance";
+    public const string CanManageAssessments = "manage-assessments";
 }
 
 public class StaffPermissionService
@@ -23,11 +25,41 @@ public class StaffPermissionService
 
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IAuditLogService _audit;
 
-    public StaffPermissionService(RiseFlowDbContext db, ITenantContext tenant)
+    public StaffPermissionService(RiseFlowDbContext db, ITenantContext tenant, IAuditLogService audit)
     {
         _db = db;
         _tenant = tenant;
+        _audit = audit;
+    }
+
+    public async Task<bool> EnsureTeacherPermissionAsync(
+        ClaimsPrincipal user,
+        string permissionKey,
+        string entityType,
+        string action,
+        string? entityId,
+        CancellationToken ct)
+    {
+        var allowed = await HasTeacherPermissionAsync(user, permissionKey, ct);
+        if (allowed)
+            return true;
+
+        if (user.IsInRole(Roles.Teacher))
+        {
+            await _audit.LogAsync(
+                _tenant.CurrentSchoolId,
+                "Denied",
+                entityType,
+                entityId,
+                _tenant.CurrentUserEmail,
+                user.Identity?.Name,
+                $"Teacher denied '{action}' because '{permissionKey}' is not granted by staff structure permissions.",
+                ct);
+        }
+
+        return false;
     }
 
     public async Task<bool> HasTeacherPermissionAsync(ClaimsPrincipal user, string permissionKey, CancellationToken ct)
@@ -112,6 +144,8 @@ public class StaffPermissionService
             StaffPermissionKeys.CanApproveResults => true, // Keep teacher result entry functional when no matrix exists yet.
             StaffPermissionKeys.CanSendParentBroadcasts => isLeadership || isClassLead,
             StaffPermissionKeys.CanManageFees => isLeadership,
+            StaffPermissionKeys.CanManageAttendance => true, // Keep attendance marking available by default for teacher workflows.
+            StaffPermissionKeys.CanManageAssessments => true, // Keep assessments/exams/assignments functional when matrix is not configured.
             _ => false,
         };
     }
@@ -133,6 +167,8 @@ public class StaffPermissionService
             StaffPermissionKeys.CanApproveResults => CanApproveResults,
             StaffPermissionKeys.CanSendParentBroadcasts => CanSendParentBroadcasts,
             StaffPermissionKeys.CanManageFees => CanManageFees,
+            StaffPermissionKeys.CanManageAttendance => CanAssignClasses,
+            StaffPermissionKeys.CanManageAssessments => CanApproveResults,
             _ => false,
         };
     }
