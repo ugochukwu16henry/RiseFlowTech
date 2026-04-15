@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
+using RiseFlow.Api.Services;
 
 namespace RiseFlow.Api.Controllers;
 
@@ -46,15 +47,17 @@ public class TeachersController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _env;
     private readonly Services.FileStorageService _fileStorage;
+    private readonly StaffPermissionService _staffPermissions;
     private readonly ILogger<TeachersController> _logger;
 
-    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, Services.FileStorageService fileStorage, ILogger<TeachersController> logger)
+    public TeachersController(RiseFlowDbContext db, Services.ITenantContext tenant, UserManager<ApplicationUser> userManager, IWebHostEnvironment env, Services.FileStorageService fileStorage, StaffPermissionService staffPermissions, ILogger<TeachersController> logger)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
         _env = env;
         _fileStorage = fileStorage;
+        _staffPermissions = staffPermissions;
         _logger = logger;
     }
 
@@ -625,11 +628,14 @@ public class TeachersController : ControllerBase
     }
 
     [HttpPost("{teacherId:guid}/classes/{classId:guid}")]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.Teacher}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> AssignToClass(Guid teacherId, Guid classId, [FromBody] AssignTeacherToClassRequest? request, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Constants.Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, ct))
             return Forbid();
         var existing = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
         if (existing != null)
@@ -655,10 +661,13 @@ public class TeachersController : ControllerBase
     }
 
     [HttpDelete("{teacherId:guid}/classes/{classId:guid}")]
+    [Authorize(Roles = $"{Constants.Roles.SchoolAdmin},{Constants.Roles.Teacher}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> UnassignFromClass(Guid teacherId, Guid classId, CancellationToken ct)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (User.IsInRole(Constants.Roles.Teacher) && !await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, ct))
             return Forbid();
         var link = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
         if (link != null)
