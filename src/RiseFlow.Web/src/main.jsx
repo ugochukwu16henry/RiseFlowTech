@@ -30,6 +30,7 @@ import TimetablePage from './pages/TimetablePage.jsx'
 import SchoolCommunicationsPage from './pages/SchoolCommunicationsPage.jsx'
 import TeacherAssignmentsPage from './pages/TeacherAssignmentsPage.jsx'
 import TeacherSignupPage from './pages/TeacherSignupPage.jsx'
+import StaffSignupPage from './pages/StaffSignupPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import TermsPage from './pages/TermsPage.jsx'
 import PrivacyPage from './pages/PrivacyPage.jsx'
@@ -76,6 +77,9 @@ createRoot(document.getElementById('root')).render(
         <Route path="/teacher/promotions" element={<StudentPromotionPage />} />
         <Route path="/teacher/assignments" element={<TeacherAssignmentsPage />} />
         <Route path="/teacher/signup" element={<TeacherSignupPage />} />
+        <Route path="/staff" element={<TeacherPage />} />
+        <Route path="/staff/dashboard" element={<TeacherPage />} />
+        <Route path="/staff/signup" element={<StaffSignupPage />} />
         <Route path="/school" element={<SchoolAdminPage />} />
         <Route path="/school/dashboard" element={<SchoolAdminPage />} />
         <Route path="/school/students" element={<SchoolStudentsPage />} />

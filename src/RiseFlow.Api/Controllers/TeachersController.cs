@@ -310,6 +310,8 @@ public class TeachersController : ControllerBase
         var firstName = (request.FirstName ?? "").Trim();
         var lastName = (request.LastName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(firstName)) firstName = email.Split('@')[0];
+        var roleTitle = string.IsNullOrWhiteSpace(request.RoleTitle) ? "Teacher" : request.RoleTitle.Trim();
+        var department = string.IsNullOrWhiteSpace(request.Department) ? null : request.Department.Trim();
 
         var user = new ApplicationUser
         {
@@ -357,6 +359,8 @@ public class TeachersController : ControllerBase
             YearsOfExperience = request.YearsOfExperience,
             PreviousSchools = request.PreviousSchools,
             ProfessionalBodies = request.ProfessionalBodies,
+            RoleTitle = roleTitle,
+            Department = department,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };

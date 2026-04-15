@@ -2602,6 +2602,10 @@ export default function SchoolAdminPage() {
       <p className="card-desc">Share this link with teachers so they can sign up directly under your school.</p>
       <TeacherSignupLink schoolIdFromApi={dashboard?.schoolId} />
 
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with staff</h2>
+      <p className="card-desc">Share this link with support staff so they can sign up under your school and appear in your staff list.</p>
+      <StaffSignupLink schoolIdFromApi={dashboard?.schoolId} />
+
       <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Share with parents</h2>
       <p className="card-desc">Parents create an account and link to their child using the access code you provide.</p>
       <ParentSignupLink schoolIdFromApi={dashboard?.schoolId} />
@@ -3148,6 +3152,28 @@ function ParentSignupLink({ schoolIdFromApi }) {
     <div className="parent-signup-link-box" style={{ marginTop: '0.5rem' }}>
       <code className="parent-signup-url">{parentSignupUrl}</code>
       <button type="button" className="btn-copy" onClick={copyParentSignup} title="Copy parent signup link">
+        Copy link
+      </button>
+    </div>
+  );
+}
+
+function StaffSignupLink({ schoolIdFromApi }) {
+  const schoolId = resolveSchoolId(schoolIdFromApi);
+  const staffSignupUrl = schoolId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/staff/signup?school=${encodeURIComponent(schoolId)}` : '';
+
+  const copyStaffSignup = () => {
+    if (staffSignupUrl) navigator.clipboard.writeText(staffSignupUrl);
+  };
+
+  if (!staffSignupUrl) {
+    return <p className="empty-state">Loading your school link… If this persists, sign out and sign in again as School Admin.</p>;
+  }
+
+  return (
+    <div className="parent-signup-link-box" style={{ marginTop: '0.5rem' }}>
+      <code className="parent-signup-url">{staffSignupUrl}</code>
+      <button type="button" className="btn-copy" onClick={copyStaffSignup} title="Copy staff signup link">
         Copy link
       </button>
     </div>

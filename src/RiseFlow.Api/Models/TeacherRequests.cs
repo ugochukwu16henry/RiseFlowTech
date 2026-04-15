@@ -102,7 +102,9 @@ public record TeacherSignupRequest(
     string? FieldOfStudy,
     int? YearsOfExperience,
     string? PreviousSchools,
-    string? ProfessionalBodies);
+    string? ProfessionalBodies,
+    string? RoleTitle,
+    string? Department);
 
 public record TeacherSignupResult(bool Success, string Message);
 
