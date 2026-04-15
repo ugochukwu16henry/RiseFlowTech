@@ -305,13 +305,14 @@ public class SchoolsController : ControllerBase
     /// <summary>Audit view for denied teacher actions in the current school.</summary>
     [HttpGet("audit/denied-attempts")]
     [Authorize(Roles = Roles.SchoolAdmin)]
-    [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<AuditLogDto>>> GetDeniedAttempts(
+    [ProducesResponseType(typeof(DeniedAttemptsPageDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DeniedAttemptsPageDto>> GetDeniedAttempts(
         [FromQuery] DateTime? fromUtc,
         [FromQuery] DateTime? toUtc,
         [FromQuery] string? entityType,
         [FromQuery] string? userEmail,
         [FromQuery] int limit = 200,
+        [FromQuery] long? beforeId = null,
         CancellationToken ct = default)
     {
         if (!_tenant.CurrentSchoolId.HasValue)
@@ -335,14 +336,20 @@ public class SchoolsController : ControllerBase
             var normalizedEmail = userEmail.Trim();
             query = query.Where(a => a.UserEmail != null && a.UserEmail == normalizedEmail);
         }
+        if (beforeId.HasValue)
+            query = query.Where(a => a.Id < beforeId.Value);
 
-        var list = await query
-            .OrderByDescending(a => a.CreatedAtUtc)
-            .Take(cap)
+        var pageWithProbe = await query
+            .OrderByDescending(a => a.Id)
+            .Take(cap + 1)
             .Select(a => new AuditLogDto(a.Id, a.SchoolId, a.Action, a.EntityType, a.EntityId, a.UserEmail, a.UserName, a.Details, a.CreatedAtUtc))
             .ToListAsync(ct);
 
-        return Ok(list);
+        var hasMore = pageWithProbe.Count > cap;
+        var items = hasMore ? pageWithProbe.Take(cap).ToList() : pageWithProbe;
+        long? nextCursor = hasMore && items.Count > 0 ? items[^1].Id : null;
+
+        return Ok(new DeniedAttemptsPageDto(items, nextCursor, hasMore));
     }
 
     /// <summary>Branding payload for current tenant (school name + logo + registration document URLs).</summary>
@@ -1801,3 +1808,8 @@ public record StoredSchoolStaffStructureConfigDto(
     IReadOnlyList<StaffPermissionMatrixItemDto> PermissionMatrix,
     DateTime UpdatedAtUtc,
     string? UpdatedBy);
+
+public record DeniedAttemptsPageDto(
+    IReadOnlyList<AuditLogDto> Items,
+    long? NextCursor,
+    bool HasMore);

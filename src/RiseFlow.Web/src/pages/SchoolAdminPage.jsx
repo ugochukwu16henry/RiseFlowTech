@@ -227,6 +227,10 @@ export default function SchoolAdminPage() {
   const [exportingDeniedAttempts, setExportingDeniedAttempts] = useState(false);
   const [deniedAttemptsError, setDeniedAttemptsError] = useState(null);
   const [deniedAttempts, setDeniedAttempts] = useState([]);
+  const [deniedAttemptsCurrentCursor, setDeniedAttemptsCurrentCursor] = useState(null);
+  const [deniedAttemptsNextCursor, setDeniedAttemptsNextCursor] = useState(null);
+  const [deniedAttemptsHasMore, setDeniedAttemptsHasMore] = useState(false);
+  const [deniedAttemptsCursorHistory, setDeniedAttemptsCursorHistory] = useState([]);
   const [deniedAuditFilters, setDeniedAuditFilters] = useState(() => {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
@@ -372,41 +376,65 @@ export default function SchoolAdminPage() {
     }
   }, [activeView, loadTeacherFieldSettings]);
 
-  const loadDeniedAttempts = useCallback(async (filters = deniedAuditFilters) => {
+  const loadDeniedAttempts = useCallback(async (filters, cursor = null, options = {}) => {
+    const { resetPaging = false } = options;
     setLoadingDeniedAttempts(true);
     setDeniedAttemptsError(null);
     try {
+      if (resetPaging) {
+        setDeniedAttemptsCursorHistory([]);
+      }
+
       const params = new URLSearchParams();
-      if (filters.fromUtc) {
+      if (filters?.fromUtc) {
         const parsed = new Date(filters.fromUtc);
         if (!Number.isNaN(parsed.getTime())) params.set('fromUtc', parsed.toISOString());
       }
-      if (filters.toUtc) {
+      if (filters?.toUtc) {
         const parsed = new Date(filters.toUtc);
         if (!Number.isNaN(parsed.getTime())) params.set('toUtc', parsed.toISOString());
       }
-      if (filters.entityType) params.set('entityType', filters.entityType.trim());
-      if (filters.userEmail) params.set('userEmail', filters.userEmail.trim());
-      const parsedLimit = Number.parseInt(filters.limit, 10);
+      if (filters?.entityType) params.set('entityType', filters.entityType.trim());
+      if (filters?.userEmail) params.set('userEmail', filters.userEmail.trim());
+      const parsedLimit = Number.parseInt(filters?.limit, 10);
       if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
         params.set('limit', String(Math.min(parsedLimit, 1000)));
+      }
+      if (Number.isFinite(cursor) && cursor > 0) {
+        params.set('beforeId', String(cursor));
       }
 
       const queryString = params.toString();
       const res = await apiFetch(`/api/schools/audit/denied-attempts${queryString ? `?${queryString}` : ''}`);
       const payload = await readJsonOrThrow(res, 'Could not load denied permission attempts.');
-      setDeniedAttempts(Array.isArray(payload) ? payload : []);
+      const items = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.items) ? payload.items : []);
+
+      const nextCursorRaw = payload && !Array.isArray(payload) ? Number(payload.nextCursor) : NaN;
+      const hasMoreRaw = payload && !Array.isArray(payload) ? payload.hasMore : false;
+
+      setDeniedAttempts(items);
+      setDeniedAttemptsCurrentCursor(Number.isFinite(cursor) && cursor > 0 ? cursor : null);
+      setDeniedAttemptsNextCursor(Number.isFinite(nextCursorRaw) && nextCursorRaw > 0 ? nextCursorRaw : null);
+      setDeniedAttemptsHasMore(Boolean(hasMoreRaw));
     } catch (e) {
       setDeniedAttemptsError(e.message || 'Could not load denied permission attempts.');
       setDeniedAttempts([]);
+      setDeniedAttemptsCurrentCursor(null);
+      setDeniedAttemptsNextCursor(null);
+      setDeniedAttemptsHasMore(false);
+      if (resetPaging) {
+        setDeniedAttemptsCursorHistory([]);
+      }
     } finally {
       setLoadingDeniedAttempts(false);
     }
-  }, [deniedAuditFilters, readJsonOrThrow]);
+  }, [readJsonOrThrow]);
 
   useEffect(() => {
     if (activeView === 'people') {
-      loadDeniedAttempts();
+      loadDeniedAttempts(deniedAuditFilters, null, { resetPaging: true });
     }
   }, [activeView, loadDeniedAttempts]);
 
@@ -904,7 +932,7 @@ export default function SchoolAdminPage() {
   };
 
   const applyDeniedAuditFilters = async () => {
-    await loadDeniedAttempts(deniedAuditFilters);
+    await loadDeniedAttempts(deniedAuditFilters, null, { resetPaging: true });
   };
 
   const resetDeniedAuditFilters = async () => {
@@ -918,7 +946,20 @@ export default function SchoolAdminPage() {
       limit: '200',
     };
     setDeniedAuditFilters(defaults);
-    await loadDeniedAttempts(defaults);
+    await loadDeniedAttempts(defaults, null, { resetPaging: true });
+  };
+
+  const nextDeniedAttemptsPage = async () => {
+    if (loadingDeniedAttempts || !deniedAttemptsHasMore || !deniedAttemptsNextCursor) return;
+    setDeniedAttemptsCursorHistory((current) => [...current, deniedAttemptsCurrentCursor]);
+    await loadDeniedAttempts(deniedAuditFilters, deniedAttemptsNextCursor);
+  };
+
+  const previousDeniedAttemptsPage = async () => {
+    if (loadingDeniedAttempts || deniedAttemptsCursorHistory.length === 0) return;
+    const previousCursor = deniedAttemptsCursorHistory[deniedAttemptsCursorHistory.length - 1];
+    setDeniedAttemptsCursorHistory((current) => current.slice(0, -1));
+    await loadDeniedAttempts(deniedAuditFilters, previousCursor);
   };
 
   const exportDeniedAttemptsCsv = async () => {
@@ -2150,7 +2191,27 @@ export default function SchoolAdminPage() {
               >
                 {exportingDeniedAttempts ? 'Exporting…' : `Export CSV (${deniedAttempts.length})`}
               </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={previousDeniedAttemptsPage}
+                disabled={loadingDeniedAttempts || deniedAttemptsCursorHistory.length === 0}
+              >
+                Previous page
+              </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={nextDeniedAttemptsPage}
+                disabled={loadingDeniedAttempts || !deniedAttemptsHasMore || !deniedAttemptsNextCursor}
+              >
+                Next page
+              </button>
             </div>
+
+            <p className="card-desc" style={{ marginTop: '0.35rem' }}>
+              Page size: {deniedAttempts.length} • Cursor depth: {deniedAttemptsCursorHistory.length} • {deniedAttemptsHasMore ? 'More results available.' : 'End of results.'}
+            </p>
 
             {deniedAttemptsError && (
               <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{deniedAttemptsError}</p>
