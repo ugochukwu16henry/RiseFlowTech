@@ -222,6 +222,17 @@ export default function SchoolClassesPage() {
     ? []
     : (countryClassTemplates[classCategory] || []);
 
+  const categoryPreviewRows = CLASS_CATEGORY_OPTIONS
+    .filter((option) => option.key !== 'custom')
+    .map((option) => {
+      const templates = countryClassTemplates[option.key] || [];
+      return {
+        ...option,
+        count: templates.length,
+        levels: templates.map((item) => item.label),
+      };
+    });
+
   useEffect(() => {
     load();
   }, [load]);
@@ -362,6 +373,42 @@ export default function SchoolClassesPage() {
               {option.label}
             </button>
           ))}
+        </div>
+
+        <div className="country-category-preview" aria-label="Country category preview">
+          <p className="card-desc" style={{ marginTop: '0.25rem' }}>
+            Preview by category for {countryName}{countryCode ? ` (${countryCode})` : ''}.
+          </p>
+          <div className="data-table-wrap" style={{ marginTop: '0.5rem' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Levels</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryPreviewRows.map((row) => (
+                  <tr key={`preview-${row.key}`}>
+                    <td>
+                      <strong>{row.label}</strong>
+                      <span className="grade-meta"> ({row.count})</span>
+                    </td>
+                    <td>
+                      {row.count > 0 ? row.levels.join(', ') : 'No mapped levels'}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td>
+                    <strong>Custom</strong>
+                    <span className="grade-meta"> (free input)</span>
+                  </td>
+                  <td>Type any grade or class level name your school uses.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {classCategory !== 'custom' && activeCategoryTemplates.length > 0 && (
