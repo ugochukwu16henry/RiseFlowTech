@@ -1,3 +1,5 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using RiseFlow.Web.Shared
 @inject RiseFlowAuthStateProvider AuthState
 @inject AuthService Auth
 @inject NavigationManager Nav
@@ -40,10 +42,20 @@
     <!-- ── SchoolAdmin only ────────────────────────────────────────── -->
     <AuthorizeView Roles="SchoolAdmin">
         <NavItem Href="/admin/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
+        <NavItem Href="/admin/profile" Icon="school" Label="School Profile" />
         <NavItem Href="/admin/students" Icon="users" Label="Students" />
+        <NavItem Href="/admin/students/add" Icon="users" Label="Add Student" />
+        <NavItem Href="/admin/classes" Icon="school" Label="Classes" />
+        <NavItem Href="/admin/grading-systems" Icon="book" Label="Grading Systems" />
+        <NavItem Href="/admin/promotions" Icon="chart" Label="Promotions" />
+        <NavItem Href="/admin/timetable" Icon="book" Label="Timetable" />
+        <NavItem Href="/admin/communications" Icon="users" Label="Communications" />
         <NavItem Href="/admin/import" Icon="upload" Label="Bulk Import" />
         <NavItem Href="/admin/access-codes" Icon="key" Label="Access Codes" />
+        <NavItem Href="/admin/fees" Icon="pay" Label="School Fees" />
+        <NavItem Href="/admin/terms" Icon="book" Label="Terms & Calendar" />
         <NavItem Href="/admin/billing" Icon="pay" Label="Billing" />
+        <NavItem Href="/admin/reports" Icon="chart" Label="Reports" />
     </AuthorizeView>
 
     <!-- ── Teacher only ────────────────────────────────────────────── -->
