@@ -158,6 +158,7 @@ export default function SchoolAdminPage() {
     profilePromotionTransitionJson: null,
     promotionTransitionOverrideJson: null,
     effectivePromotionTransitionJson: null,
+    termsPerYear: null,
   });
   const [savingClassId, setSavingClassId] = useState(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
@@ -251,6 +252,7 @@ export default function SchoolAdminPage() {
             profilePromotionTransitionJson: profileTransitionJson,
             promotionTransitionOverrideJson: overrideTransitionJson,
             effectivePromotionTransitionJson: effectiveTransitionJson,
+            termsPerYear: Number.isInteger(profile.termsPerYear) ? profile.termsPerYear : null,
           });
         }
         setAcademicProfiles(profileOptionsResult.status === 'fulfilled' && Array.isArray(profileOptionsResult.value) ? profileOptionsResult.value : []);
@@ -731,6 +733,7 @@ export default function SchoolAdminPage() {
           profilePromotionTransitionJson: updated.profilePromotionTransitionJson || current.profilePromotionTransitionJson,
           promotionTransitionOverrideJson: updated.promotionTransitionOverrideJson || current.promotionTransitionOverrideJson,
           effectivePromotionTransitionJson: updated.effectivePromotionTransitionJson || current.effectivePromotionTransitionJson,
+          termsPerYear: Number.isInteger(updated.termsPerYear) ? updated.termsPerYear : current.termsPerYear,
         }));
       }
 
@@ -2218,6 +2221,10 @@ export default function SchoolAdminPage() {
       <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="School profile information">
         <h3 className="card-title">School information</h3>
         <p className="card-desc">Update your school profile, contacts, compliance details, and leadership names shown to Super Admin.</p>
+        <p className="card-desc" style={{ marginTop: '0.4rem' }}>
+          Terms per year:{' '}
+          <strong>{Number.isInteger(schoolProfile.termsPerYear) ? schoolProfile.termsPerYear : 'Not set'}</strong>
+        </p>
         <div className="form-grid" style={{ marginTop: '0.75rem' }}>
           <label className="form-field">School name
             <input className="form-input" value={schoolProfile.name} onChange={(e) => onSchoolProfileFieldChange('name', e.target.value)} placeholder="School name" />
