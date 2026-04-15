@@ -66,6 +66,14 @@ function normalizeNameKey(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function buildTerminalGradeToggleStorageKey(schoolId) {
+  return `riseflow:terminal-grade-toggle:${schoolId}`;
+}
+
+function buildTransitionDraftStorageKey(schoolId) {
+  return `riseflow:promotion-transition-draft:${schoolId}`;
+}
+
 function isLikelyTerminalGradeName(name) {
   const value = normalizeNameKey(name);
   return value.includes('ss3')
@@ -112,6 +120,8 @@ export default function SchoolAdminPage() {
   const [transitionSourceInput, setTransitionSourceInput] = useState('');
   const [transitionTargetInput, setTransitionTargetInput] = useState('');
   const [treatTerminalGradesAsValid, setTreatTerminalGradesAsValid] = useState(true);
+  const [terminalToggleHydratedSchoolId, setTerminalToggleHydratedSchoolId] = useState(null);
+  const [transitionDraftHydratedSchoolId, setTransitionDraftHydratedSchoolId] = useState(null);
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
     ownerName: '',
@@ -222,7 +232,6 @@ export default function SchoolAdminPage() {
             promotionTransitionOverrideJson: overrideTransitionJson,
             effectivePromotionTransitionJson: effectiveTransitionJson,
           });
-          setPromotionTransitionDraft(overrideTransitionJson || effectiveTransitionJson || '');
         }
         setAcademicProfiles(profileOptionsResult.status === 'fulfilled' && Array.isArray(profileOptionsResult.value) ? profileOptionsResult.value : []);
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
@@ -389,6 +398,76 @@ export default function SchoolAdminPage() {
 
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
+  const currentSchoolId = dashboard?.schoolId || null;
+
+  useEffect(() => {
+    if (!currentSchoolId || transitionDraftHydratedSchoolId === currentSchoolId) return;
+
+    const serverValue = schoolProfile.promotionTransitionOverrideJson
+      || schoolProfile.effectivePromotionTransitionJson
+      || '';
+
+    let nextDraft = serverValue;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(buildTransitionDraftStorageKey(currentSchoolId));
+        if (typeof cached === 'string' && cached.trim()) nextDraft = cached;
+      } catch {
+        // ignore storage read errors
+      }
+    }
+
+    setPromotionTransitionDraft(nextDraft);
+    setTransitionDraftHydratedSchoolId(currentSchoolId);
+  }, [
+    currentSchoolId,
+    transitionDraftHydratedSchoolId,
+    schoolProfile.promotionTransitionOverrideJson,
+    schoolProfile.effectivePromotionTransitionJson,
+  ]);
+
+  useEffect(() => {
+    if (!currentSchoolId || transitionDraftHydratedSchoolId !== currentSchoolId || typeof localStorage === 'undefined') return;
+
+    try {
+      const key = buildTransitionDraftStorageKey(currentSchoolId);
+      if (!promotionTransitionDraft.trim()) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, promotionTransitionDraft);
+      }
+    } catch {
+      // ignore storage write errors
+    }
+  }, [currentSchoolId, transitionDraftHydratedSchoolId, promotionTransitionDraft]);
+
+    useEffect(() => {
+      if (!currentSchoolId || typeof localStorage === 'undefined') return;
+
+      try {
+        const raw = localStorage.getItem(buildTerminalGradeToggleStorageKey(currentSchoolId));
+        if (raw === '0' || raw === '1') {
+          setTreatTerminalGradesAsValid(raw === '1');
+        }
+      } catch {
+        // ignore storage read errors
+      } finally {
+        setTerminalToggleHydratedSchoolId(currentSchoolId);
+      }
+    }, [currentSchoolId]);
+
+    useEffect(() => {
+      if (!currentSchoolId || terminalToggleHydratedSchoolId !== currentSchoolId || typeof localStorage === 'undefined') return;
+
+      try {
+        localStorage.setItem(
+          buildTerminalGradeToggleStorageKey(currentSchoolId),
+          treatTerminalGradesAsValid ? '1' : '0',
+        );
+      } catch {
+        // ignore storage write errors
+      }
+    }, [currentSchoolId, terminalToggleHydratedSchoolId, treatTerminalGradesAsValid]);
   const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
   const selectedTeacherClassIds = selectedTeacher
     ? Array.from(new Set([
@@ -832,6 +911,13 @@ export default function SchoolAdminPage() {
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
         setPromotionTransitionDraft(normalizeJsonForEditor(overrideTransitionJson || effectiveTransitionJson || ''));
+        if (currentSchoolId && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
+          } catch {
+            // ignore storage write errors
+          }
+        }
       }
     } catch (e) {
       setPromotionTransitionError(e.message || 'Could not save promotion transition rules.');
@@ -865,6 +951,13 @@ export default function SchoolAdminPage() {
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
         setPromotionTransitionDraft(normalizeJsonForEditor(effectiveTransitionJson || ''));
+        if (currentSchoolId && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
+          } catch {
+            // ignore storage write errors
+          }
+        }
       }
     } catch (e) {
       setPromotionTransitionError(e.message || 'Could not reset promotion transition rules.');
