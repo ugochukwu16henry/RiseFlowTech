@@ -37,6 +37,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/RiseFlow.Api/RiseFlow.Api.csproj" />
+    <Project Path="src/RiseFlow.Api.Tests/RiseFlow.Api.Tests.csproj" />
     <Project Path="src/RiseFlow.Application/RiseFlow.Application.csproj" />
     <Project Path="src/RiseFlow.Domain/RiseFlow.Domain.csproj" />
     <Project Path="src/RiseFlow.Infrastructure/RiseFlow.Infrastructure.csproj" />

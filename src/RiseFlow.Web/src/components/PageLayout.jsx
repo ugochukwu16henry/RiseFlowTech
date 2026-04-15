@@ -93,6 +93,15 @@ function navClass({ isActive }) {
   ].join(' ');
 }
 
+function navIconWrapClass(isActive) {
+  return [
+    'inline-flex h-5 w-5 items-center justify-center rounded-md transition-colors',
+    isActive
+      ? 'bg-indigo-100 text-primary-700 dark:bg-indigo-900/50 dark:text-indigo-200'
+      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300',
+  ].join(' ');
+}
+
 function buildPublicUrl(relativePath) {
   if (!relativePath) return null;
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) return relativePath;
@@ -289,10 +298,16 @@ export default function PageLayout({
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5" aria-label="App">
           {items?.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
-              <span className="flex items-center gap-2">
-                {item.icon ? <item.icon size={16} strokeWidth={2} aria-hidden="true" /> : null}
-                <span>{item.label}</span>
-              </span>
+              {({ isActive }) => (
+                <span className="flex items-center gap-2">
+                  {item.icon ? (
+                    <span className={navIconWrapClass(isActive)}>
+                      <item.icon size={14} strokeWidth={2.1} aria-hidden="true" />
+                    </span>
+                  ) : null}
+                  <span>{item.label}</span>
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -349,7 +364,7 @@ export default function PageLayout({
                   }
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    {item.icon ? <item.icon size={14} strokeWidth={2} aria-hidden="true" /> : null}
+                    {item.icon ? <item.icon size={13} strokeWidth={2.1} aria-hidden="true" /> : null}
                     <span>{item.label}</span>
                   </span>
                 </NavLink>
