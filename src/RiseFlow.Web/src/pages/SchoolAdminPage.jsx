@@ -98,6 +98,47 @@ function isLikelyTerminalGradeName(name) {
     || value.includes('final');
 }
 
+function toDateTimeLocalValue(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
+function formatAuditTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+}
+
+function toCsvCell(value) {
+  const normalized = String(value ?? '').replace(/\r?\n|\r/g, ' ');
+  const escaped = normalized.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+function buildDeniedAttemptsCsv(rows) {
+  const header = ['Timestamp (UTC)', 'Entity Type', 'Action', 'Entity Id', 'User Email', 'User Name', 'Details'];
+  const lines = [header.map(toCsvCell).join(',')];
+  rows.forEach((row) => {
+    lines.push([
+      row.createdAtUtc || '',
+      row.entityType || '',
+      row.action || '',
+      row.entityId || '',
+      row.userEmail || '',
+      row.userName || '',
+      row.details || '',
+    ].map(toCsvCell).join(','));
+  });
+  return `${lines.join('\n')}\n`;
+}
+
 export default function SchoolAdminPage() {
   const [searchParams] = useSearchParams();
   const resolveTabView = useCallback((tab) => {
@@ -182,6 +223,21 @@ export default function SchoolAdminPage() {
   const [savingTeacherRoleProfile, setSavingTeacherRoleProfile] = useState(false);
   const [teacherFieldSettings, setTeacherFieldSettings] = useState([]);
   const [loadingTeacherProfile, setLoadingTeacherProfile] = useState(false);
+  const [loadingDeniedAttempts, setLoadingDeniedAttempts] = useState(false);
+  const [exportingDeniedAttempts, setExportingDeniedAttempts] = useState(false);
+  const [deniedAttemptsError, setDeniedAttemptsError] = useState(null);
+  const [deniedAttempts, setDeniedAttempts] = useState([]);
+  const [deniedAuditFilters, setDeniedAuditFilters] = useState(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+    return {
+      fromUtc: toDateTimeLocalValue(sevenDaysAgo),
+      toUtc: toDateTimeLocalValue(now),
+      entityType: '',
+      userEmail: '',
+      limit: '200',
+    };
+  });
   const [savingFieldSettingKey, setSavingFieldSettingKey] = useState(null);
   const [newCustomField, setNewCustomField] = useState({ displayName: '', fieldKey: '' });
   const fileInputRefs = useRef({});
@@ -315,6 +371,44 @@ export default function SchoolAdminPage() {
       loadTeacherFieldSettings();
     }
   }, [activeView, loadTeacherFieldSettings]);
+
+  const loadDeniedAttempts = useCallback(async (filters = deniedAuditFilters) => {
+    setLoadingDeniedAttempts(true);
+    setDeniedAttemptsError(null);
+    try {
+      const params = new URLSearchParams();
+      if (filters.fromUtc) {
+        const parsed = new Date(filters.fromUtc);
+        if (!Number.isNaN(parsed.getTime())) params.set('fromUtc', parsed.toISOString());
+      }
+      if (filters.toUtc) {
+        const parsed = new Date(filters.toUtc);
+        if (!Number.isNaN(parsed.getTime())) params.set('toUtc', parsed.toISOString());
+      }
+      if (filters.entityType) params.set('entityType', filters.entityType.trim());
+      if (filters.userEmail) params.set('userEmail', filters.userEmail.trim());
+      const parsedLimit = Number.parseInt(filters.limit, 10);
+      if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+        params.set('limit', String(Math.min(parsedLimit, 1000)));
+      }
+
+      const queryString = params.toString();
+      const res = await apiFetch(`/api/schools/audit/denied-attempts${queryString ? `?${queryString}` : ''}`);
+      const payload = await readJsonOrThrow(res, 'Could not load denied permission attempts.');
+      setDeniedAttempts(Array.isArray(payload) ? payload : []);
+    } catch (e) {
+      setDeniedAttemptsError(e.message || 'Could not load denied permission attempts.');
+      setDeniedAttempts([]);
+    } finally {
+      setLoadingDeniedAttempts(false);
+    }
+  }, [deniedAuditFilters, readJsonOrThrow]);
+
+  useEffect(() => {
+    if (activeView === 'people') {
+      loadDeniedAttempts();
+    }
+  }, [activeView, loadDeniedAttempts]);
 
   const fetchTeacherProfile = async (teacherId) => {
     setLoadingTeacherProfile(true);
@@ -582,6 +676,8 @@ export default function SchoolAdminPage() {
     ...teachers.flatMap((teacher) => (teacher.teacherClasses || []).map((tc) => tc?.roleInClass)),
   ]), [staffStructureConfig?.classAssignmentRoles, staffStructureOptions?.classAssignmentRoles, teachers]);
 
+  const deniedEntityTypeOptions = useMemo(() => dedupeCaseInsensitive(deniedAttempts.map((item) => item?.entityType)), [deniedAttempts]);
+
   useEffect(() => {
     if (!staffStructureConfig || !Array.isArray(staffStructureConfig.roleCatalog)) {
       setStaffPermissionMatrixDraft([]);
@@ -804,6 +900,44 @@ export default function SchoolAdminPage() {
       setError(e.message || 'Could not unassign teacher from class.');
     } finally {
       setRemovingTeacherClassId(null);
+    }
+  };
+
+  const applyDeniedAuditFilters = async () => {
+    await loadDeniedAttempts(deniedAuditFilters);
+  };
+
+  const resetDeniedAuditFilters = async () => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+    const defaults = {
+      fromUtc: toDateTimeLocalValue(sevenDaysAgo),
+      toUtc: toDateTimeLocalValue(now),
+      entityType: '',
+      userEmail: '',
+      limit: '200',
+    };
+    setDeniedAuditFilters(defaults);
+    await loadDeniedAttempts(defaults);
+  };
+
+  const exportDeniedAttemptsCsv = async () => {
+    if (deniedAttempts.length === 0 || exportingDeniedAttempts) return;
+    setExportingDeniedAttempts(true);
+    try {
+      const csv = buildDeniedAttemptsCsv(deniedAttempts);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `denied-attempts-${stamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingDeniedAttempts(false);
     }
   };
 
@@ -1941,6 +2075,123 @@ export default function SchoolAdminPage() {
                 </span>
               )}
             </div>
+          </section>
+
+          <section className="progress-section" style={{ marginTop: '1rem' }} aria-label="Denied permission attempts">
+            <h3 className="card-title">Denied permission attempts</h3>
+            <p className="card-desc">
+              Review denied teacher actions captured by the staff hierarchy matrix. Filter and export this log for governance reviews.
+            </p>
+
+            <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+              <label className="form-field">From
+                <input
+                  className="form-input"
+                  type="datetime-local"
+                  value={deniedAuditFilters.fromUtc}
+                  onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, fromUtc: e.target.value }))}
+                />
+              </label>
+              <label className="form-field">To
+                <input
+                  className="form-input"
+                  type="datetime-local"
+                  value={deniedAuditFilters.toUtc}
+                  onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, toUtc: e.target.value }))}
+                />
+              </label>
+              <label className="form-field">Entity type
+                <select
+                  className="form-input"
+                  value={deniedAuditFilters.entityType}
+                  onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, entityType: e.target.value }))}
+                >
+                  <option value="">All entities</option>
+                  {deniedEntityTypeOptions.map((entityType) => (
+                    <option key={entityType} value={entityType}>{entityType}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-field">Teacher email
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="teacher@school.com"
+                  value={deniedAuditFilters.userEmail}
+                  onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, userEmail: e.target.value }))}
+                />
+              </label>
+              <label className="form-field">Result limit
+                <select
+                  className="form-input"
+                  value={deniedAuditFilters.limit}
+                  onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, limit: e.target.value }))}
+                >
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="500">500</option>
+                  <option value="1000">1000</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn-primary-action" onClick={applyDeniedAuditFilters} disabled={loadingDeniedAttempts}>
+                {loadingDeniedAttempts ? 'Loading denied attempts…' : 'Apply filters'}
+              </button>
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={resetDeniedAuditFilters} disabled={loadingDeniedAttempts}>
+                Reset to last 7 days
+              </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={exportDeniedAttemptsCsv}
+                disabled={loadingDeniedAttempts || deniedAttempts.length === 0 || exportingDeniedAttempts}
+              >
+                {exportingDeniedAttempts ? 'Exporting…' : `Export CSV (${deniedAttempts.length})`}
+              </button>
+            </div>
+
+            {deniedAttemptsError && (
+              <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{deniedAttemptsError}</p>
+            )}
+
+            {!deniedAttemptsError && deniedAttempts.length === 0 && !loadingDeniedAttempts && (
+              <p className="empty-state" style={{ marginTop: '0.75rem' }}>No denied attempts found for the selected filters.</p>
+            )}
+
+            {deniedAttempts.length > 0 && (
+              <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Teacher</th>
+                      <th>Entity</th>
+                      <th>Action</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deniedAttempts.map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatAuditTimestamp(item.createdAtUtc)}</td>
+                        <td>
+                          <div>{item.userEmail || '—'}</div>
+                          <div className="card-desc" style={{ marginTop: '0.15rem' }}>{item.userName || '—'}</div>
+                        </td>
+                        <td>
+                          <div>{item.entityType || '—'}</div>
+                          <div className="card-desc" style={{ marginTop: '0.15rem' }}>ID: {item.entityId || '—'}</div>
+                        </td>
+                        <td>{item.action || '—'}</td>
+                        <td>{item.details || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {selectedTeacher && (
