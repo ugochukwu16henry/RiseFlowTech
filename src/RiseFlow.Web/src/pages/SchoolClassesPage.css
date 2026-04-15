@@ -36,6 +36,13 @@
   color: var(--color-accent, #6366f1);
 }
 
+.chip-btn--active {
+  border-color: var(--color-accent, #6366f1);
+  background: color-mix(in oklab, var(--color-accent, #6366f1) 15%, white);
+  color: var(--color-accent, #6366f1);
+  font-weight: 600;
+}
+
 .chip-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;

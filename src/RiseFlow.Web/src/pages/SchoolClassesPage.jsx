@@ -15,6 +15,124 @@ const FALLBACK_GRADE_TEMPLATES = [
   { label: 'SS3', name: 'SS3', levelOrder: 42 },
 ];
 
+const CLASS_CATEGORY_OPTIONS = [
+  { key: 'pre_nursery', label: 'Pre-nursery' },
+  { key: 'primary', label: 'Primary' },
+  { key: 'secondary', label: 'Secondary' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function toDistinctNonEmpty(values) {
+  const seen = new Set();
+  const output = [];
+  (values || []).forEach((value) => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.push(normalized);
+  });
+  return output;
+}
+
+function classifyLevelByCategory(levelName) {
+  const text = String(levelName || '').trim().toLowerCase();
+  if (!text) return null;
+
+  const isPreNursery = /creche|daycare|playgroup|pre[-\s]?nursery|nursery|kg|kindergarten|reception|pp\d|maternelle|petite section|moyenne section|grande section/.test(text);
+  if (isPreNursery) return 'pre_nursery';
+
+  const isPrimary = /primary|\bgrade\s*[1-6]\b|\bcp\d\b|\bce\d\b|\bcm\d\b/.test(text);
+  if (isPrimary) return 'primary';
+
+  const isSecondary = /jss|jhs|junior secondary|\bss\s*\d\b|\bshs\s*\d\b|senior secondary|college|lycee|\bform\s*\d\b/.test(text);
+  if (isSecondary) return 'secondary';
+
+  return null;
+}
+
+function matchesAny(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function inferCategoryByCountry(countryCode, levelName) {
+  const text = String(levelName || '').trim().toLowerCase();
+  if (!text) return null;
+
+  const normalizedCode = String(countryCode || '').trim().toUpperCase();
+
+  const commonPrimary = [/\bprimary\b/, /\bgrade\s*[1-6]\b/, /\bcp\d\b/, /\bce\d\b/, /\bcm\d\b/];
+  const commonSecondary = [/\bjss\b/, /\bjhs\b/, /\bss\s*\d\b/, /\bshs\s*\d\b/, /junior secondary/, /senior secondary/, /college/, /lycee/, /\bform\s*\d\b/];
+
+  const byCountry = {
+    NG: {
+      primary: [/\bprimary\b/],
+      secondary: [/\bjss\b/, /\bss\s*\d\b/],
+    },
+    GH: {
+      primary: [/\bprimary\b/],
+      secondary: [/\bjhs\b/, /\bshs\b/],
+    },
+    KE: {
+      primary: [/\bgrade\s*[1-6]\b/],
+      secondary: [/junior secondary/, /senior secondary/, /\bform\s*\d\b/],
+    },
+    SN: {
+      primary: [/\bcp\d\b/, /\bce\d\b/, /\bcm\d\b/],
+      secondary: [/college/, /lycee/],
+    },
+    CI: {
+      primary: [/\bcp\d\b/, /\bce\d\b/, /\bcm\d\b/],
+      secondary: [/college/, /lycee/],
+    },
+    MA: {
+      primary: [/\bcp\d\b/, /\bce\d\b/, /\bcm\d\b/],
+      secondary: [/college/, /lycee/],
+    },
+  };
+
+  const rules = byCountry[normalizedCode];
+  if (rules) {
+    if (matchesAny(text, rules.primary)) return 'primary';
+    if (matchesAny(text, rules.secondary)) return 'secondary';
+  }
+
+  if (matchesAny(text, commonPrimary)) return 'primary';
+  if (matchesAny(text, commonSecondary)) return 'secondary';
+  return null;
+}
+
+function buildCountryCategoryTemplates(countryCode, prePrimaryStages, countryLevels) {
+  const allLevels = toDistinctNonEmpty(countryLevels);
+  const prePrimaryNames = new Set(
+    toDistinctNonEmpty((prePrimaryStages || []).map((stage) => stage?.levelName))
+      .map((name) => name.toLowerCase()),
+  );
+
+  const mapped = {
+    pre_nursery: [],
+    primary: [],
+    secondary: [],
+  };
+
+  allLevels.forEach((levelName, index) => {
+    const normalizedLevel = String(levelName || '').trim().toLowerCase();
+    const category = prePrimaryNames.has(normalizedLevel)
+      ? 'pre_nursery'
+      : (inferCategoryByCountry(countryCode, levelName) || classifyLevelByCategory(levelName));
+
+    if (!category || !mapped[category]) return;
+    mapped[category].push({
+      label: levelName,
+      name: levelName,
+      levelOrder: (index + 1) * 5,
+    });
+  });
+
+  return mapped;
+}
+
 export default function SchoolClassesPage() {
   const [grades, setGrades] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -29,26 +147,61 @@ export default function SchoolClassesPage() {
   const [savingClass, setSavingClass] = useState(false);
   const [profileInfo, setProfileInfo] = useState({ profileCode: 'NG_6334', profileName: 'Nigeria 6-3-3-4' });
   const [quickGradeTemplates, setQuickGradeTemplates] = useState(FALLBACK_GRADE_TEMPLATES);
+  const [classCategory, setClassCategory] = useState('pre_nursery');
+  const [countryCode, setCountryCode] = useState('');
+  const [countryName, setCountryName] = useState('');
+  const [countryClassTemplates, setCountryClassTemplates] = useState({
+    pre_nursery: [],
+    primary: [],
+    secondary: [],
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [gRes, cRes] = await Promise.all([
+      const [gRes, cRes, pRes, oRes] = await Promise.all([
         apiFetch('/api/schools/grades'),
         apiFetch('/api/schools/classes'),
+        apiFetch('/api/schools/profile'),
+        apiFetch('/api/schools/onboarding-options'),
       ]);
       const tRes = await apiFetch('/api/schools/grade-templates');
-      if (gRes.status === 401 || gRes.status === 403 || cRes.status === 401 || cRes.status === 403) {
+      if (gRes.status === 401 || gRes.status === 403 || cRes.status === 401 || cRes.status === 403 || pRes.status === 401 || pRes.status === 403) {
         throw new Error('Your session expired or your school access is missing. Please sign in again as School Admin.');
       }
       if (!gRes.ok) throw new Error(await gRes.text().catch(() => 'Could not load grades.'));
       if (!cRes.ok) throw new Error(await cRes.text().catch(() => 'Could not load classes.'));
+      if (!pRes.ok) throw new Error(await pRes.text().catch(() => 'Could not load school profile.'));
       const gData = await gRes.json();
       const cData = await cRes.json();
+      const pData = await pRes.json();
+      const oData = oRes.ok ? await oRes.json().catch(() => null) : null;
       const tData = tRes.ok ? await tRes.json().catch(() => null) : null;
+
+      const countries = Array.isArray(oData?.countries) ? oData.countries : [];
+      const profileCountryCode = String(pData?.countryCode || '').trim().toUpperCase();
+      const selectedCountry = countries.find((country) => String(country.countryCode || '').trim().toUpperCase() === profileCountryCode) || null;
+      const categoryTemplates = buildCountryCategoryTemplates(
+        profileCountryCode,
+        selectedCountry?.prePrimaryStages || [],
+        selectedCountry?.defaultClassLevels || [],
+      );
+
       setGrades(Array.isArray(gData) ? gData : []);
       setClasses(Array.isArray(cData) ? cData : []);
+      setCountryCode(profileCountryCode);
+      setCountryName(selectedCountry?.countryName || 'your country');
+      setCountryClassTemplates(categoryTemplates);
+
+      setClassCategory((current) => {
+        if (current === 'custom') return current;
+        const hasOptions = Array.isArray(categoryTemplates[current]) && categoryTemplates[current].length > 0;
+        if (hasOptions) return current;
+          const firstWithOptions = ['pre_nursery', 'primary', 'secondary'].find((key) => Array.isArray(categoryTemplates[key]) && categoryTemplates[key].length > 0);
+        return firstWithOptions || 'custom';
+      });
+
       if (tData && Array.isArray(tData.templates) && tData.templates.length > 0) {
         setQuickGradeTemplates(tData.templates);
         setProfileInfo({
@@ -64,6 +217,10 @@ export default function SchoolClassesPage() {
       setLoading(false);
     }
   }, []);
+
+  const activeCategoryTemplates = classCategory === 'custom'
+    ? []
+    : (countryClassTemplates[classCategory] || []);
 
   useEffect(() => {
     load();
@@ -190,6 +347,48 @@ export default function SchoolClassesPage() {
             </button>
           ))}
         </div>
+
+        <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+          Country-specific references ({countryName}{countryCode ? ` - ${countryCode}` : ''}): choose a group to show recommended class levels.
+        </p>
+        <div className="quick-grade-chips">
+          {CLASS_CATEGORY_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              className={`chip-btn ${classCategory === option.key ? 'chip-btn--active' : ''}`}
+              onClick={() => setClassCategory(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {classCategory !== 'custom' && activeCategoryTemplates.length > 0 && (
+          <div className="quick-grade-chips">
+            {activeCategoryTemplates.map((template) => (
+              <button
+                key={`${classCategory}-${template.name}`}
+                type="button"
+                className="chip-btn"
+                disabled={savingGrade}
+                onClick={() => addQuickGrade(template)}
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {classCategory !== 'custom' && activeCategoryTemplates.length === 0 && (
+          <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+            No country-specific entries found for this group. Use Custom to type your own.
+          </p>
+        )}
+        {classCategory === 'custom' && (
+          <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+            Custom selected: type any class or grade level name your school uses.
+          </p>
+        )}
 
         <form onSubmit={addGrade} className="school-classes-form">
           <label htmlFor="newGradeName" className="form-label">Custom grade name</label>
