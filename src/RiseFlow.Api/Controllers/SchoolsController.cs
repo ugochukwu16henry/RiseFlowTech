@@ -14,6 +14,54 @@ namespace RiseFlow.Api.Controllers;
 [Route("api/[controller]")]
 public class SchoolsController : ControllerBase
 {
+    private static readonly IReadOnlyList<OnboardingCountryOption> OnboardingCountryOptions = new List<OnboardingCountryOption>
+    {
+        new(
+            "NG",
+            "Nigeria",
+            "NGN",
+            "NG_6334",
+            new List<string>
+            {
+                "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Basic Science", "Social Studies", "Civic Education", "Computer Studies",
+                "Agricultural Science", "Business Studies", "Literature in English", "Economics"
+            }),
+        new(
+            "GH",
+            "Ghana",
+            "GHS",
+            "GH_633",
+            new List<string>
+            {
+                "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "JHS 1", "JHS 2", "JHS 3", "SHS 1", "SHS 2", "SHS 3"
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Integrated Science", "Social Studies", "Creative Arts", "Religious and Moral Education",
+                "Computing", "Career Technology", "Economics", "Literature"
+            }),
+        new(
+            "KE",
+            "Kenya",
+            "KES",
+            "KE_844",
+            new List<string>
+            {
+                "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+                "Junior Secondary 1", "Junior Secondary 2", "Junior Secondary 3", "Senior Secondary 1", "Senior Secondary 2", "Senior Secondary 3"
+            },
+            new List<string>
+            {
+                "English", "Kiswahili", "Mathematics", "Integrated Science", "Social Studies", "Agriculture",
+                "Creative Arts", "Computer Science", "Business Studies", "Life Skills"
+            })
+    };
     private const long MaxSchoolLogoBytes = 5 * 1024 * 1024; // 5 MB
     private const long MaxRegistrationDocumentBytes = 10 * 1024 * 1024; // 10 MB
     private readonly SchoolOnboardingService _onboarding;
@@ -434,6 +482,17 @@ public class SchoolsController : ControllerBase
         _db.Classes.Add(cls);
         await _db.SaveChangesAsync(ct);
         return StatusCode(StatusCodes.Status201Created, new SchoolClassDto(cls.Id, cls.Name, cls.GradeId, grade.Name, cls.AcademicYear));
+    }
+
+    /// <summary>
+    /// Provide country-aware onboarding defaults for classes and subjects.
+    /// </summary>
+    [HttpGet("onboarding-options")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetOnboardingOptions()
+    {
+        return Ok(new { countries = OnboardingCountryOptions });
     }
 
     /// <summary>
@@ -990,6 +1049,14 @@ public record AcademicSystemProfileOptionDto(
     string? Description,
     int? SuggestedTermsPerYear,
     string? DefaultGradingScaleCode);
+
+public record OnboardingCountryOption(
+    string CountryCode,
+    string CountryName,
+    string CurrencyCode,
+    string AcademicProfileCode,
+    IReadOnlyList<string> DefaultClassLevels,
+    IReadOnlyList<string> DefaultSubjects);
 
 public record UpdateAcademicSystemProfileRequest(Guid AcademicSystemProfileId);
 

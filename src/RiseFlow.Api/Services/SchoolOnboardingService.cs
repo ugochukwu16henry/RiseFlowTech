@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Constants;
+using System.Text.RegularExpressions;
 
 namespace RiseFlow.Api.Services;
 
@@ -83,6 +84,8 @@ public class SchoolOnboardingService
                 await _userManager.AddToRoleAsync(user, Roles.SchoolAdmin);
                 await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim("SchoolId", school.Id.ToString()));
             }
+
+            await ProvisionAcademicSetupAsync(school.Id, request, ct);
 
             await _db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
@@ -177,6 +180,183 @@ public class SchoolOnboardingService
     {
         return await _db.Schools.AsNoTracking().IgnoreQueryFilters().OrderBy(s => s.Name).ToListAsync(ct);
     }
+
+    private async Task ProvisionAcademicSetupAsync(Guid schoolId, OnboardSchoolRequest request, CancellationToken ct)
+    {
+        var countryCode = (request.CountryCode ?? "NG").Trim().ToUpperInvariant();
+
+        var selectedClassLevels = NormalizeDistinct(request.SelectedClassLevels);
+        var customClassLevels = NormalizeDistinct(request.CustomClassLevels);
+        var classLevels = selectedClassLevels.Concat(customClassLevels).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (classLevels.Count == 0)
+            classLevels = GetDefaultClassLevels(countryCode).ToList();
+
+        var selectedSubjects = NormalizeDistinct(request.SelectedSubjects);
+        var customSubjects = NormalizeDistinct(request.CustomSubjects);
+        var subjects = selectedSubjects.Concat(customSubjects).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (subjects.Count == 0)
+            subjects = GetDefaultSubjects(countryCode).ToList();
+
+        var existingGrades = await _db.Grades
+            .Where(g => g.SchoolId == schoolId)
+            .ToListAsync(ct);
+
+        var nextLevelOrder = existingGrades.Count == 0 ? 1 : existingGrades.Max(x => x.LevelOrder) + 1;
+        var gradeByName = existingGrades.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+
+        var newGrades = new List<Grade>();
+        foreach (var classLevel in classLevels)
+        {
+            if (gradeByName.ContainsKey(classLevel))
+                continue;
+
+            var grade = new Grade
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                Name = classLevel,
+                LevelOrder = nextLevelOrder++,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            gradeByName[classLevel] = grade;
+            newGrades.Add(grade);
+        }
+
+        if (newGrades.Count > 0)
+            _db.Grades.AddRange(newGrades);
+
+        var existingClasses = await _db.Classes
+            .Where(c => c.SchoolId == schoolId)
+            .ToListAsync(ct);
+        var classKeys = new HashSet<string>(
+            existingClasses.Select(c => $"{(c.Name ?? string.Empty).Trim()}::{(c.Level ?? string.Empty).Trim()}"),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var classLevel in classLevels)
+        {
+            var classKey = $"{classLevel}::{classLevel}";
+            if (classKeys.Contains(classKey))
+                continue;
+
+            _db.Classes.Add(new Class
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                GradeId = gradeByName[classLevel].Id,
+                Grade = gradeByName[classLevel],
+                Name = classLevel,
+                Level = classLevel,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            classKeys.Add(classKey);
+        }
+
+        var existingSubjects = await _db.Subjects
+            .Where(s => s.SchoolId == schoolId)
+            .ToListAsync(ct);
+        var existingSubjectNames = new HashSet<string>(existingSubjects.Select(s => s.Name), StringComparer.OrdinalIgnoreCase);
+        var existingSubjectCodes = new HashSet<string>(existingSubjects.Select(s => s.SubjectCode), StringComparer.OrdinalIgnoreCase);
+        var selectedSubjectSet = new HashSet<string>(selectedSubjects, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var subjectName in subjects)
+        {
+            if (existingSubjectNames.Contains(subjectName))
+                continue;
+
+            var subjectCode = GenerateUniqueSubjectCode(subjectName, existingSubjectCodes);
+            _db.Subjects.Add(new Subject
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                Name = subjectName,
+                SubjectCode = subjectCode,
+                IsCore = selectedSubjectSet.Contains(subjectName),
+                CreatedAtUtc = DateTime.UtcNow
+            });
+
+            existingSubjectCodes.Add(subjectCode);
+            existingSubjectNames.Add(subjectName);
+        }
+    }
+
+    private static List<string> NormalizeDistinct(IEnumerable<string>? values)
+    {
+        if (values == null)
+            return new List<string>();
+
+        return values
+            .Select(v => (v ?? string.Empty).Trim())
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetDefaultClassLevels(string countryCode)
+    {
+        return countryCode switch
+        {
+            "GH" =>
+            [
+                "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "JHS 1", "JHS 2", "JHS 3", "SHS 1", "SHS 2", "SHS 3"
+            ],
+            "KE" =>
+            [
+                "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+                "Junior Secondary 1", "Junior Secondary 2", "Junior Secondary 3", "Senior Secondary 1", "Senior Secondary 2", "Senior Secondary 3"
+            ],
+            _ =>
+            [
+                "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
+            ]
+        };
+    }
+
+    private static IReadOnlyList<string> GetDefaultSubjects(string countryCode)
+    {
+        return countryCode switch
+        {
+            "GH" =>
+            [
+                "English Language", "Mathematics", "Integrated Science", "Social Studies", "Creative Arts", "Religious and Moral Education",
+                "Computing", "Career Technology", "Economics", "Literature"
+            ],
+            "KE" =>
+            [
+                "English", "Kiswahili", "Mathematics", "Integrated Science", "Social Studies", "Agriculture",
+                "Creative Arts", "Computer Science", "Business Studies", "Life Skills"
+            ],
+            _ =>
+            [
+                "English Language", "Mathematics", "Basic Science", "Social Studies", "Civic Education", "Computer Studies",
+                "Agricultural Science", "Business Studies", "Literature in English", "Economics"
+            ]
+        };
+    }
+
+    private static string GenerateUniqueSubjectCode(string subjectName, ISet<string> existingCodes)
+    {
+        var normalized = Regex.Replace(subjectName.ToUpperInvariant(), "[^A-Z0-9]+", string.Empty);
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = "SUBJECT";
+
+        var baseCode = normalized.Length > 10 ? normalized[..10] : normalized;
+        var candidate = baseCode;
+        var suffix = 2;
+
+        while (existingCodes.Contains(candidate))
+        {
+            var suffixText = suffix.ToString();
+            var prefixLength = Math.Max(1, 10 - suffixText.Length);
+            var prefix = baseCode.Length > prefixLength ? baseCode[..prefixLength] : baseCode;
+            candidate = $"{prefix}{suffixText}";
+            suffix++;
+        }
+
+        return candidate;
+    }
 }
 
 public record OnboardSchoolRequest(
@@ -192,6 +372,10 @@ public record OnboardSchoolRequest(
     string? AdminEmail,
     string? AdminPassword,
     string? AdminFullName,
+    IReadOnlyList<string>? SelectedClassLevels = null,
+    IReadOnlyList<string>? CustomClassLevels = null,
+    IReadOnlyList<string>? SelectedSubjects = null,
+    IReadOnlyList<string>? CustomSubjects = null,
     string? ReferralCode = null,
     /// <summary>Required when creating an admin account. Must be true to comply with ToS and Data Processing Agreement.</summary>
     bool AgreedToTermsAndDpa = false);

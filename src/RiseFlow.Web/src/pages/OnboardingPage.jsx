@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
@@ -9,6 +9,29 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get('ref')?.trim() || '';
+  const fallbackCountryOptions = useMemo(() => ([
+    {
+      countryCode: 'NG',
+      countryName: 'Nigeria',
+      currencyCode: 'NGN',
+      defaultClassLevels: ['Nursery 1', 'Nursery 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'],
+      defaultSubjects: ['English Language', 'Mathematics', 'Basic Science', 'Social Studies', 'Civic Education', 'Computer Studies', 'Agricultural Science', 'Business Studies', 'Literature in English', 'Economics'],
+    },
+    {
+      countryCode: 'GH',
+      countryName: 'Ghana',
+      currencyCode: 'GHS',
+      defaultClassLevels: ['KG 1', 'KG 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JHS 1', 'JHS 2', 'JHS 3', 'SHS 1', 'SHS 2', 'SHS 3'],
+      defaultSubjects: ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Religious and Moral Education', 'Computing', 'Career Technology', 'Economics', 'Literature'],
+    },
+    {
+      countryCode: 'KE',
+      countryName: 'Kenya',
+      currencyCode: 'KES',
+      defaultClassLevels: ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Junior Secondary 1', 'Junior Secondary 2', 'Junior Secondary 3', 'Senior Secondary 1', 'Senior Secondary 2', 'Senior Secondary 3'],
+      defaultSubjects: ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Social Studies', 'Agriculture', 'Creative Arts', 'Computer Science', 'Business Studies', 'Life Skills'],
+    },
+  ]), []);
   const [form, setForm] = useState({
     schoolName: '',
     email: '',
@@ -16,12 +39,65 @@ export default function OnboardingPage() {
     adminPassword: '',
     agreedToTermsAndDpa: false,
   });
+  const [countryOptions, setCountryOptions] = useState(fallbackCountryOptions);
+  const [countryCode, setCountryCode] = useState('NG');
+  const [selectedClassLevels, setSelectedClassLevels] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [customClassLevels, setCustomClassLevels] = useState([]);
+  const [customSubjects, setCustomSubjects] = useState([]);
+  const [customClassInput, setCustomClassInput] = useState('');
+  const [customSubjectInput, setCustomSubjectInput] = useState('');
+  const [loadingOptions, setLoadingOptions] = useState(true);
   const [logo, setLogo] = useState(null);
   const [cacDocument, setCacDocument] = useState(null);
   const [step, setStep] = useState(1);
   const [createdSchool, setCreatedSchool] = useState(null);
   const [status, setStatus] = useState({ type: null, message: null });
   const [submitting, setSubmitting] = useState(false);
+
+  const activeCountry = useMemo(
+    () => countryOptions.find((option) => option.countryCode === countryCode) || countryOptions[0],
+    [countryCode, countryOptions],
+  );
+
+  const applyCountryDefaults = (nextCountryCode, optionsList) => {
+    const match = optionsList.find((item) => item.countryCode === nextCountryCode) || optionsList[0];
+    if (!match) return;
+    setCountryCode(match.countryCode);
+    setSelectedClassLevels(match.defaultClassLevels || []);
+    setSelectedSubjects(match.defaultSubjects || []);
+    setCustomClassLevels([]);
+    setCustomSubjects([]);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOptions = async () => {
+      try {
+        const res = await apiFetch('/api/schools/onboarding-options');
+        const data = await res.json().catch(() => ({}));
+        const fetched = Array.isArray(data?.countries) ? data.countries : [];
+        if (!isMounted) return;
+        if (res.ok && fetched.length > 0) {
+          setCountryOptions(fetched);
+          applyCountryDefaults(fetched[0].countryCode, fetched);
+        } else {
+          applyCountryDefaults(fallbackCountryOptions[0].countryCode, fallbackCountryOptions);
+        }
+      } catch {
+        if (!isMounted) return;
+        applyCountryDefaults(fallbackCountryOptions[0].countryCode, fallbackCountryOptions);
+      } finally {
+        if (isMounted) setLoadingOptions(false);
+      }
+    };
+
+    loadOptions();
+    return () => {
+      isMounted = false;
+    };
+  }, [fallbackCountryOptions]);
 
   const buildPublicUrl = (relativePath) => {
     if (!relativePath) return null;
@@ -35,6 +111,29 @@ export default function OnboardingPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleSelected = (value, setter) => {
+    setter((prev) => (
+      prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value]
+    ));
+  };
+
+  const addCustomValue = (rawValue, setter, currentValues, clearInput) => {
+    const normalized = rawValue.trim();
+    if (!normalized) return;
+    if (currentValues.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      clearInput('');
+      return;
+    }
+    setter((prev) => [...prev, normalized]);
+    clearInput('');
+  };
+
+  const removeCustomValue = (value, setter) => {
+    setter((prev) => prev.filter((item) => item !== value));
   };
 
   const handleContinue = (e) => {
@@ -66,6 +165,16 @@ export default function OnboardingPage() {
       return;
     }
 
+    if ((selectedClassLevels.length + customClassLevels.length) === 0) {
+      setStatus({ type: 'error', message: 'Select at least one class level or add a custom one.' });
+      return;
+    }
+
+    if ((selectedSubjects.length + customSubjects.length) === 0) {
+      setStatus({ type: 'error', message: 'Select at least one subject or add a custom one.' });
+      return;
+    }
+
     setSubmitting(true);
     setStatus({ type: null, message: null });
 
@@ -76,9 +185,13 @@ export default function OnboardingPage() {
       fd.append('AdminEmail', form.email.trim());
       fd.append('AdminPassword', form.adminPassword);
       fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
-      fd.append('CountryCode', 'NG');
-      fd.append('CurrencyCode', 'NGN');
+      fd.append('CountryCode', countryCode);
+      fd.append('CurrencyCode', activeCountry?.currencyCode || 'NGN');
       fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
+      selectedClassLevels.forEach((level) => fd.append('SelectedClassLevels', level));
+      customClassLevels.forEach((level) => fd.append('CustomClassLevels', level));
+      selectedSubjects.forEach((subject) => fd.append('SelectedSubjects', subject));
+      customSubjects.forEach((subject) => fd.append('CustomSubjects', subject));
       if (referralCode) fd.append('ReferralCode', referralCode);
       if (logo) fd.append('Logo', logo);
       if (cacDocument) fd.append('CacDocument', cacDocument);
@@ -327,6 +440,129 @@ export default function OnboardingPage() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="onboarding-form">
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">Country</p>
+              <select
+                className="onboarding-input"
+                value={countryCode}
+                onChange={(e) => applyCountryDefaults(e.target.value, countryOptions)}
+                disabled={loadingOptions || submitting}
+              >
+                {countryOptions.map((option) => (
+                  <option key={option.countryCode} value={option.countryCode}>
+                    {option.countryName} ({option.currencyCode})
+                  </option>
+                ))}
+              </select>
+              <small className="onboarding-helper-text">
+                Choose your school country to preload the right nursery, primary, and secondary structure.
+              </small>
+            </div>
+
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">Default Class Levels</p>
+              <div className="selection-grid">
+                {(activeCountry?.defaultClassLevels || []).map((level) => (
+                  <label key={level} className="selection-chip">
+                    <input
+                      type="checkbox"
+                      checked={selectedClassLevels.includes(level)}
+                      onChange={() => toggleSelected(level, setSelectedClassLevels)}
+                      disabled={submitting}
+                    />
+                    <span>{level}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="custom-entry-row">
+                <input
+                  type="text"
+                  className="onboarding-input"
+                  placeholder="Add custom class level e.g. Reception"
+                  value={customClassInput}
+                  onChange={(e) => setCustomClassInput(e.target.value)}
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  className="onboarding-secondary"
+                  onClick={() => addCustomValue(customClassInput, setCustomClassLevels, [...customClassLevels, ...selectedClassLevels], setCustomClassInput)}
+                  disabled={submitting}
+                >
+                  Add
+                </button>
+              </div>
+
+              {customClassLevels.length > 0 && (
+                <div className="custom-pill-list">
+                  {customClassLevels.map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      className="custom-pill"
+                      onClick={() => removeCustomValue(level, setCustomClassLevels)}
+                      disabled={submitting}
+                    >
+                      {level} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">Default Subjects</p>
+              <div className="selection-grid">
+                {(activeCountry?.defaultSubjects || []).map((subject) => (
+                  <label key={subject} className="selection-chip">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubjects.includes(subject)}
+                      onChange={() => toggleSelected(subject, setSelectedSubjects)}
+                      disabled={submitting}
+                    />
+                    <span>{subject}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="custom-entry-row">
+                <input
+                  type="text"
+                  className="onboarding-input"
+                  placeholder="Add custom subject e.g. French"
+                  value={customSubjectInput}
+                  onChange={(e) => setCustomSubjectInput(e.target.value)}
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  className="onboarding-secondary"
+                  onClick={() => addCustomValue(customSubjectInput, setCustomSubjects, [...customSubjects, ...selectedSubjects], setCustomSubjectInput)}
+                  disabled={submitting}
+                >
+                  Add
+                </button>
+              </div>
+
+              {customSubjects.length > 0 && (
+                <div className="custom-pill-list">
+                  {customSubjects.map((subject) => (
+                    <button
+                      key={subject}
+                      type="button"
+                      className="custom-pill"
+                      onClick={() => removeCustomValue(subject, setCustomSubjects)}
+                      disabled={submitting}
+                    >
+                      {subject} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="onboarding-label">
               <p className="onboarding-label-title">School Logo</p>
               <label className="upload-dropzone" htmlFor="logo-upload">
