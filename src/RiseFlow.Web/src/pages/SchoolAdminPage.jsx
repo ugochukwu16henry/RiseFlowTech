@@ -122,6 +122,7 @@ export default function SchoolAdminPage() {
   const [treatTerminalGradesAsValid, setTreatTerminalGradesAsValid] = useState(true);
   const [terminalToggleHydratedSchoolId, setTerminalToggleHydratedSchoolId] = useState(null);
   const [transitionDraftHydratedSchoolId, setTransitionDraftHydratedSchoolId] = useState(null);
+  const [isTransitionDraftFromCache, setIsTransitionDraftFromCache] = useState(false);
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
     ownerName: '',
@@ -408,16 +409,21 @@ export default function SchoolAdminPage() {
       || '';
 
     let nextDraft = serverValue;
+    let usedCachedDraft = false;
     if (typeof localStorage !== 'undefined') {
       try {
         const cached = localStorage.getItem(buildTransitionDraftStorageKey(currentSchoolId));
-        if (typeof cached === 'string' && cached.trim()) nextDraft = cached;
+        if (typeof cached === 'string' && cached.trim()) {
+          nextDraft = cached;
+          usedCachedDraft = true;
+        }
       } catch {
         // ignore storage read errors
       }
     }
 
     setPromotionTransitionDraft(nextDraft);
+    setIsTransitionDraftFromCache(usedCachedDraft);
     setTransitionDraftHydratedSchoolId(currentSchoolId);
   }, [
     currentSchoolId,
@@ -911,6 +917,7 @@ export default function SchoolAdminPage() {
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
         setPromotionTransitionDraft(normalizeJsonForEditor(overrideTransitionJson || effectiveTransitionJson || ''));
+        setIsTransitionDraftFromCache(false);
         if (currentSchoolId && typeof localStorage !== 'undefined') {
           try {
             localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
@@ -951,6 +958,7 @@ export default function SchoolAdminPage() {
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
         setPromotionTransitionDraft(normalizeJsonForEditor(effectiveTransitionJson || ''));
+        setIsTransitionDraftFromCache(false);
         if (currentSchoolId && typeof localStorage !== 'undefined') {
           try {
             localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
@@ -1715,6 +1723,11 @@ export default function SchoolAdminPage() {
         <p className="card-desc">
           Define exactly which target grade(s) each source grade can promote into. This override is school-specific and used when strict promotion validation is enabled.
         </p>
+        {isTransitionDraftFromCache && (
+          <p className="card-desc" style={{ marginTop: '0.35rem' }}>
+            Draft restored from your local unsaved edits. Save promotion rules to sync this draft to your school profile.
+          </p>
+        )}
         <div className="form-grid" style={{ marginTop: '0.75rem' }}>
           <label className="form-field">Source grade
             <input
