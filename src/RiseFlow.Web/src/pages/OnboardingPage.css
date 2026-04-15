@@ -147,6 +147,99 @@
   font-weight: 500;
 }
 
+.curriculum-insight-card {
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: var(--color-white);
+}
+
+.curriculum-insight-title {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-deep-blue);
+  font-weight: 700;
+}
+
+.curriculum-insight-meta {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.curriculum-insight-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.curriculum-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  color: var(--color-neutral-text-secondary);
+  font-size: 0.8rem;
+}
+
+.curriculum-list.compact {
+  margin-top: 0.35rem;
+}
+
+.preprimary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.preprimary-card {
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: var(--color-white);
+}
+
+.preprimary-card h4 {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--color-deep-blue);
+}
+
+.preprimary-card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-neutral-text-secondary);
+}
+
+.preprimary-age {
+  font-weight: 700;
+  color: var(--color-neutral-text);
+}
+
+.subject-level-grid {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.subject-level-card {
+  border: 1px solid var(--color-neutral-border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: var(--color-white);
+}
+
+.subject-level-card h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-deep-blue);
+}
+
+.subject-level-card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-neutral-text-secondary);
+}
+
 .selection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -474,6 +567,11 @@
 
   .selection-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .preprimary-grid,
+  .subject-level-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .success-actions {

@@ -299,17 +299,24 @@ public class SchoolOnboardingService
         {
             "GH" =>
             [
-                "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "Creche / Daycare", "Playgroup", "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
                 "JHS 1", "JHS 2", "JHS 3", "SHS 1", "SHS 2", "SHS 3"
             ],
             "KE" =>
             [
-                "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+                "Daycare", "Playgroup", "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
                 "Junior Secondary 1", "Junior Secondary 2", "Junior Secondary 3", "Senior Secondary 1", "Senior Secondary 2", "Senior Secondary 3"
+            ],
+            "SN" or "CI" or "MA" =>
+            [
+                "Creche", "Pre-maternelle", "Maternelle 1", "Maternelle 2",
+                "CP1", "CP2", "CE1", "CE2", "CM1", "CM2",
+                "College 1", "College 2", "College 3", "College 4",
+                "Lycee 1", "Lycee 2", "Lycee 3"
             ],
             _ =>
             [
-                "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "Creche / Daycare", "Pre-Nursery / Playgroup", "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
                 "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
             ]
         };
@@ -328,6 +335,10 @@ public class SchoolOnboardingService
             [
                 "English", "Kiswahili", "Mathematics", "Integrated Science", "Social Studies", "Agriculture",
                 "Creative Arts", "Computer Science", "Business Studies", "Life Skills"
+            ],
+            "SN" or "CI" or "MA" =>
+            [
+                "Francais", "Mathematiques", "Sciences", "Geographie", "Education civique", "Technologie", "Informatique"
             ],
             _ =>
             [

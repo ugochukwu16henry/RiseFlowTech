@@ -14,6 +14,24 @@ namespace RiseFlow.Api.Controllers;
 [Route("api/[controller]")]
 public class SchoolsController : ControllerBase
 {
+    private static readonly IReadOnlyList<OnboardingSchoolModelOption> OnboardingSchoolModels = new List<OnboardingSchoolModelOption>
+    {
+        new(
+            "PUBLIC",
+            "Government (Public) School",
+            "Strict adherence to national curriculum and exam policy.",
+            "Often constrained by larger class sizes and tighter infrastructure budgets.",
+            "Official/national language with mother-tongue support in early years where applicable.",
+            "Low or subsidized tuition."),
+        new(
+            "PRIVATE",
+            "Private School",
+            "National curriculum plus optional international blend (British/IGCSE or American).",
+            "Typically stronger facilities and extracurricular offerings.",
+            "Usually English or French from early nursery years.",
+            "Higher tuition supporting facilities and staffing.")
+    };
+
     private static readonly IReadOnlyList<OnboardingCountryOption> OnboardingCountryOptions = new List<OnboardingCountryOption>
     {
         new(
@@ -21,46 +39,226 @@ public class SchoolsController : ControllerBase
             "Nigeria",
             "NGN",
             "NG_6334",
+            "Anglophone",
+            "6-3-3-4",
+            new List<PrePrimaryStageOption>
+            {
+                new("Creche / Daycare", "3 months - 2 years", "Basic childcare and social play."),
+                new("Pre-Nursery / Playgroup", "2 - 3 years", "Intro to social interaction and basic motor skills."),
+                new("Nursery 1 / KG 1", "3 - 4 years", "Pre-literacy (alphabet) and pre-numeracy (numbers 1-10)."),
+                new("Nursery 2 / Reception", "4 - 5 years", "Preparation for Primary 1; basic reading and writing.")
+            },
             new List<string>
             {
-                "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "Creche / Daycare", "Pre-Nursery / Playgroup", "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
                 "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"
             },
             new List<string>
             {
                 "English Language", "Mathematics", "Basic Science", "Social Studies", "Civic Education", "Computer Studies",
                 "Agricultural Science", "Business Studies", "Literature in English", "Economics"
-            }),
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Basic Science", "Social Studies", "Physical and Health Education", "Yoruba/Igbo/Hausa (Local Language)"
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Integrated Science", "ICT", "Business Studies", "Home Economics", "Agricultural Science"
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Physics", "Chemistry", "Biology", "Government", "Literature", "Economics", "Accounting", "Food and Nutrition"
+            },
+            "Senior secondary adds tracks in Sciences, Arts, and Commercial studies."),
         new(
             "GH",
             "Ghana",
             "GHS",
             "GH_633",
+            "Anglophone",
+            "6-3-3",
+            new List<PrePrimaryStageOption>
+            {
+                new("Creche / Daycare", "3 months - 2 years", "Basic childcare and social play."),
+                new("Playgroup", "2 - 3 years", "Social interaction and language development."),
+                new("KG 1", "3 - 4 years", "Early literacy and counting foundations."),
+                new("KG 2", "4 - 5 years", "Preparation for Primary 1 and routine learning habits.")
+            },
             new List<string>
             {
-                "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+                "Creche / Daycare", "Playgroup", "KG 1", "KG 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
                 "JHS 1", "JHS 2", "JHS 3", "SHS 1", "SHS 2", "SHS 3"
             },
             new List<string>
             {
                 "English Language", "Mathematics", "Integrated Science", "Social Studies", "Creative Arts", "Religious and Moral Education",
                 "Computing", "Career Technology", "Economics", "Literature"
-            }),
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Integrated Science", "Social Studies", "Creative Arts", "Ghanaian Language"
+            },
+            new List<string>
+            {
+                "English Language", "Mathematics", "Integrated Science", "Computing", "Career Technology", "Social Studies"
+            },
+            new List<string>
+            {
+                "English Language", "Core Mathematics", "Integrated Science", "Elective Mathematics", "Economics", "Literature"
+            },
+            "Schools follow national curriculum with flexibility in elective bundles at SHS."),
         new(
             "KE",
             "Kenya",
             "KES",
             "KE_844",
+            "Anglophone",
+            "CBC (2-6-3-3 transition from 8-4-4)",
+            new List<PrePrimaryStageOption>
+            {
+                new("Daycare", "3 months - 2 years", "Care, play, and social bonding."),
+                new("Playgroup", "2 - 3 years", "Early communication and motor development."),
+                new("PP1", "3 - 4 years", "Pre-literacy and foundational numeracy."),
+                new("PP2", "4 - 5 years", "School readiness under competency-based learning.")
+            },
             new List<string>
             {
-                "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+                "Daycare", "Playgroup", "PP1", "PP2", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
                 "Junior Secondary 1", "Junior Secondary 2", "Junior Secondary 3", "Senior Secondary 1", "Senior Secondary 2", "Senior Secondary 3"
             },
             new List<string>
             {
                 "English", "Kiswahili", "Mathematics", "Integrated Science", "Social Studies", "Agriculture",
                 "Creative Arts", "Computer Science", "Business Studies", "Life Skills"
-            })
+            },
+            new List<string>
+            {
+                "English", "Kiswahili", "Mathematics", "Integrated Science", "Social Studies", "Creative Arts", "Physical Education"
+            },
+            new List<string>
+            {
+                "English", "Kiswahili", "Mathematics", "Integrated Science", "Agriculture", "Business Studies", "Computer Science"
+            },
+            new List<string>
+            {
+                "English", "Kiswahili", "Mathematics", "Physics", "Chemistry", "Biology", "Business Studies", "Technical Drawing"
+            },
+            "Kenya has moved to CBC with stronger skill-based continuous assessment."),
+        new(
+            "SN",
+            "Senegal",
+            "XOF",
+            "FR_643",
+            "Francophone",
+            "6-4-3",
+            new List<PrePrimaryStageOption>
+            {
+                new("Creche", "3 months - 2 years", "Care, motor play, and social adaptation."),
+                new("Pre-maternelle", "2 - 3 years", "Language and social readiness."),
+                new("Petite / Moyenne Section", "3 - 4 years", "French phonics and number sense."),
+                new("Grande Section", "4 - 5 years", "Preparation for Cours Preparatoire.")
+            },
+            new List<string>
+            {
+                "Creche", "Pre-maternelle", "Petite Section", "Moyenne Section", "Grande Section",
+                "CP1", "CP2", "CE1", "CE2", "CM1", "CM2",
+                "College 1", "College 2", "College 3", "College 4",
+                "Lycee 1", "Lycee 2", "Lycee 3"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Geographie", "Education civique", "Sciences", "Technologie"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Geographie", "Education civique", "Arts"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Informatique", "Economie familiale"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Physique", "Chimie", "SVT", "Philosophie", "Economie"
+            },
+            "Francophone pathway typically culminates in Baccalaureat entry requirements."),
+        new(
+            "CI",
+            "Cote d'Ivoire",
+            "XOF",
+            "FR_643",
+            "Francophone",
+            "6-4-3",
+            new List<PrePrimaryStageOption>
+            {
+                new("Creche", "3 months - 2 years", "Basic childcare and social play."),
+                new("Pre-maternelle", "2 - 3 years", "Early communication and social skills."),
+                new("Maternelle 1", "3 - 4 years", "French language readiness and numeracy."),
+                new("Maternelle 2", "4 - 5 years", "Preparation for primary school entry.")
+            },
+            new List<string>
+            {
+                "Creche", "Pre-maternelle", "Maternelle 1", "Maternelle 2",
+                "CP1", "CP2", "CE1", "CE2", "CM1", "CM2",
+                "College 1", "College 2", "College 3", "College 4",
+                "Lycee 1", "Lycee 2", "Lycee 3"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Geographie", "Education civique", "Sciences"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Technologie", "Education civique"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Informatique", "Arts"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Physique", "Chimie", "SVT", "Histoire-Geographie", "Philosophie"
+            },
+            "Supports Francophone national examinations aligned to regional standards."),
+        new(
+            "MA",
+            "Morocco",
+            "MAD",
+            "FR_643",
+            "Francophone",
+            "6-4-3",
+            new List<PrePrimaryStageOption>
+            {
+                new("Creche", "3 months - 2 years", "Early childcare and social development."),
+                new("Pre-maternelle", "2 - 3 years", "Communication and motor skills."),
+                new("Maternelle 1", "3 - 4 years", "French pre-literacy and number readiness."),
+                new("Maternelle 2", "4 - 5 years", "Preparation for CP1.")
+            },
+            new List<string>
+            {
+                "Creche", "Pre-maternelle", "Maternelle 1", "Maternelle 2",
+                "CP1", "CP2", "CE1", "CE2", "CM1", "CM2",
+                "College 1", "College 2", "College 3", "College 4",
+                "Lycee 1", "Lycee 2", "Lycee 3"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Geographie", "Education civique", "Sciences"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Technologie", "Informatique"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Sciences", "Informatique", "Education civique"
+            },
+            new List<string>
+            {
+                "Francais", "Mathematiques", "Physique", "Chimie", "SVT", "Philosophie", "Economie"
+            },
+            "Francophone track remains common in private and urban school systems.")
     };
     private const long MaxSchoolLogoBytes = 5 * 1024 * 1024; // 5 MB
     private const long MaxRegistrationDocumentBytes = 10 * 1024 * 1024; // 10 MB
@@ -492,7 +690,7 @@ public class SchoolsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GetOnboardingOptions()
     {
-        return Ok(new { countries = OnboardingCountryOptions });
+        return Ok(new { countries = OnboardingCountryOptions, schoolModels = OnboardingSchoolModels });
     }
 
     /// <summary>
@@ -1055,8 +1253,28 @@ public record OnboardingCountryOption(
     string CountryName,
     string CurrencyCode,
     string AcademicProfileCode,
+    string RegionalSystem,
+    string SystemStructure,
+    IReadOnlyList<PrePrimaryStageOption> PrePrimaryStages,
     IReadOnlyList<string> DefaultClassLevels,
-    IReadOnlyList<string> DefaultSubjects);
+    IReadOnlyList<string> DefaultSubjects,
+    IReadOnlyList<string> PrimarySubjectSamples,
+    IReadOnlyList<string> JuniorSubjectSamples,
+    IReadOnlyList<string> SeniorSubjectSamples,
+    string Notes);
+
+public record PrePrimaryStageOption(
+    string LevelName,
+    string AgeRange,
+    string TypicalFocus);
+
+public record OnboardingSchoolModelOption(
+    string ModelCode,
+    string ModelName,
+    string CurriculumApproach,
+    string ResourceProfile,
+    string LanguageApproach,
+    string CostProfile);
 
 public record UpdateAcademicSystemProfileRequest(Guid AcademicSystemProfileId);
 

@@ -9,27 +9,139 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get('ref')?.trim() || '';
+  const fallbackSchoolModels = useMemo(() => ([
+    {
+      modelCode: 'PUBLIC',
+      modelName: 'Government (Public) School',
+      curriculumApproach: 'Strict adherence to national curriculum and exam policy.',
+      resourceProfile: 'Often constrained by larger class sizes and tighter infrastructure budgets.',
+      languageApproach: 'Official/national language with mother-tongue support in early years where applicable.',
+      costProfile: 'Low or subsidized tuition.',
+    },
+    {
+      modelCode: 'PRIVATE',
+      modelName: 'Private School',
+      curriculumApproach: 'National curriculum plus optional international blend (British/IGCSE or American).',
+      resourceProfile: 'Typically stronger facilities and extracurricular offerings.',
+      languageApproach: 'Usually English or French from early nursery years.',
+      costProfile: 'Higher tuition supporting facilities and staffing.',
+    },
+  ]), []);
+
   const fallbackCountryOptions = useMemo(() => ([
     {
       countryCode: 'NG',
       countryName: 'Nigeria',
       currencyCode: 'NGN',
-      defaultClassLevels: ['Nursery 1', 'Nursery 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'],
+      regionalSystem: 'Anglophone',
+      systemStructure: '6-3-3-4',
+      prePrimaryStages: [
+        { levelName: 'Creche / Daycare', ageRange: '3 months - 2 years', typicalFocus: 'Basic childcare and social play.' },
+        { levelName: 'Pre-Nursery / Playgroup', ageRange: '2 - 3 years', typicalFocus: 'Intro to social interaction and basic motor skills.' },
+        { levelName: 'Nursery 1 / KG 1', ageRange: '3 - 4 years', typicalFocus: 'Pre-literacy and pre-numeracy foundations.' },
+        { levelName: 'Nursery 2 / Reception', ageRange: '4 - 5 years', typicalFocus: 'Preparation for Primary 1 with basic reading and writing.' },
+      ],
+      defaultClassLevels: ['Creche / Daycare', 'Pre-Nursery / Playgroup', 'Nursery 1', 'Nursery 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'],
       defaultSubjects: ['English Language', 'Mathematics', 'Basic Science', 'Social Studies', 'Civic Education', 'Computer Studies', 'Agricultural Science', 'Business Studies', 'Literature in English', 'Economics'],
+      primarySubjectSamples: ['English Language', 'Mathematics', 'Basic Science', 'Social Studies', 'Physical and Health Education', 'Local Language'],
+      juniorSubjectSamples: ['English Language', 'Mathematics', 'Integrated Science', 'ICT', 'Business Studies', 'Home Economics', 'Agricultural Science'],
+      seniorSubjectSamples: ['English Language', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Government', 'Literature', 'Economics', 'Accounting'],
+      notes: 'Senior secondary usually branches into Sciences, Arts, and Commercial tracks.',
     },
     {
       countryCode: 'GH',
       countryName: 'Ghana',
       currencyCode: 'GHS',
-      defaultClassLevels: ['KG 1', 'KG 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JHS 1', 'JHS 2', 'JHS 3', 'SHS 1', 'SHS 2', 'SHS 3'],
+      regionalSystem: 'Anglophone',
+      systemStructure: '6-3-3',
+      prePrimaryStages: [
+        { levelName: 'Creche / Daycare', ageRange: '3 months - 2 years', typicalFocus: 'Basic childcare and social play.' },
+        { levelName: 'Playgroup', ageRange: '2 - 3 years', typicalFocus: 'Language and social interaction development.' },
+        { levelName: 'KG 1', ageRange: '3 - 4 years', typicalFocus: 'Early literacy and numeracy foundations.' },
+        { levelName: 'KG 2', ageRange: '4 - 5 years', typicalFocus: 'Preparation for Primary 1 and classroom routines.' },
+      ],
+      defaultClassLevels: ['Creche / Daycare', 'Playgroup', 'KG 1', 'KG 2', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JHS 1', 'JHS 2', 'JHS 3', 'SHS 1', 'SHS 2', 'SHS 3'],
       defaultSubjects: ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Religious and Moral Education', 'Computing', 'Career Technology', 'Economics', 'Literature'],
+      primarySubjectSamples: ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Ghanaian Language'],
+      juniorSubjectSamples: ['English Language', 'Mathematics', 'Integrated Science', 'Computing', 'Career Technology', 'Social Studies'],
+      seniorSubjectSamples: ['English Language', 'Core Mathematics', 'Integrated Science', 'Elective Mathematics', 'Economics', 'Literature'],
+      notes: 'National curriculum remains core, with electives expanding in SHS.',
     },
     {
       countryCode: 'KE',
       countryName: 'Kenya',
       currencyCode: 'KES',
-      defaultClassLevels: ['PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Junior Secondary 1', 'Junior Secondary 2', 'Junior Secondary 3', 'Senior Secondary 1', 'Senior Secondary 2', 'Senior Secondary 3'],
+      regionalSystem: 'Anglophone',
+      systemStructure: 'CBC (2-6-3-3 transition from 8-4-4)',
+      prePrimaryStages: [
+        { levelName: 'Daycare', ageRange: '3 months - 2 years', typicalFocus: 'Care, bonding, and social play.' },
+        { levelName: 'Playgroup', ageRange: '2 - 3 years', typicalFocus: 'Language, socialization, and motor skills.' },
+        { levelName: 'PP1', ageRange: '3 - 4 years', typicalFocus: 'Pre-literacy and pre-numeracy.' },
+        { levelName: 'PP2', ageRange: '4 - 5 years', typicalFocus: 'School-readiness in competency-based learning.' },
+      ],
+      defaultClassLevels: ['Daycare', 'Playgroup', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Junior Secondary 1', 'Junior Secondary 2', 'Junior Secondary 3', 'Senior Secondary 1', 'Senior Secondary 2', 'Senior Secondary 3'],
       defaultSubjects: ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Social Studies', 'Agriculture', 'Creative Arts', 'Computer Science', 'Business Studies', 'Life Skills'],
+      primarySubjectSamples: ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'],
+      juniorSubjectSamples: ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Agriculture', 'Business Studies', 'Computer Science'],
+      seniorSubjectSamples: ['English', 'Kiswahili', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Business Studies'],
+      notes: 'CBC emphasizes competencies, projects, and continuous assessment.',
+    },
+    {
+      countryCode: 'SN',
+      countryName: 'Senegal',
+      currencyCode: 'XOF',
+      regionalSystem: 'Francophone',
+      systemStructure: '6-4-3',
+      prePrimaryStages: [
+        { levelName: 'Creche', ageRange: '3 months - 2 years', typicalFocus: 'Care, motor play, and social adaptation.' },
+        { levelName: 'Pre-maternelle', ageRange: '2 - 3 years', typicalFocus: 'Language and social readiness.' },
+        { levelName: 'Petite / Moyenne Section', ageRange: '3 - 4 years', typicalFocus: 'French phonics and number sense.' },
+        { levelName: 'Grande Section', ageRange: '4 - 5 years', typicalFocus: 'Preparation for Cours Preparatoire.' },
+      ],
+      defaultClassLevels: ['Creche', 'Pre-maternelle', 'Petite Section', 'Moyenne Section', 'Grande Section', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2', 'College 1', 'College 2', 'College 3', 'College 4', 'Lycee 1', 'Lycee 2', 'Lycee 3'],
+      defaultSubjects: ['Francais', 'Mathematiques', 'Sciences', 'Geographie', 'Education civique', 'Technologie', 'Informatique'],
+      primarySubjectSamples: ['Francais', 'Mathematiques', 'SVT', 'Technologie', 'Education civique', 'Langue nationale'],
+      juniorSubjectSamples: ['Francais', 'Mathematiques', 'Sciences', 'Informatique', 'Geographie'],
+      seniorSubjectSamples: ['Francais', 'Mathematiques', 'Physique', 'Chimie', 'SVT', 'Philosophie', 'Economie'],
+      notes: 'Culminates in Baccalaureat pathways for university entry.',
+    },
+    {
+      countryCode: 'CI',
+      countryName: "Cote d'Ivoire",
+      currencyCode: 'XOF',
+      regionalSystem: 'Francophone',
+      systemStructure: '6-4-3',
+      prePrimaryStages: [
+        { levelName: 'Creche', ageRange: '3 months - 2 years', typicalFocus: 'Basic childcare and social play.' },
+        { levelName: 'Pre-maternelle', ageRange: '2 - 3 years', typicalFocus: 'Early communication and social skills.' },
+        { levelName: 'Maternelle 1', ageRange: '3 - 4 years', typicalFocus: 'French readiness and numeracy.' },
+        { levelName: 'Maternelle 2', ageRange: '4 - 5 years', typicalFocus: 'Preparation for primary entry.' },
+      ],
+      defaultClassLevels: ['Creche', 'Pre-maternelle', 'Maternelle 1', 'Maternelle 2', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2', 'College 1', 'College 2', 'College 3', 'College 4', 'Lycee 1', 'Lycee 2', 'Lycee 3'],
+      defaultSubjects: ['Francais', 'Mathematiques', 'Sciences', 'Geographie', 'Education civique', 'Technologie'],
+      primarySubjectSamples: ['Francais', 'Mathematiques', 'Geographie', 'Education civique', 'Sciences'],
+      juniorSubjectSamples: ['Francais', 'Mathematiques', 'Sciences', 'Technologie', 'Education civique'],
+      seniorSubjectSamples: ['Francais', 'Mathematiques', 'Physique', 'Chimie', 'SVT', 'Histoire-Geographie', 'Philosophie'],
+      notes: 'Francophone curriculum aligned to regional exam standards.',
+    },
+    {
+      countryCode: 'MA',
+      countryName: 'Morocco',
+      currencyCode: 'MAD',
+      regionalSystem: 'Francophone',
+      systemStructure: '6-4-3',
+      prePrimaryStages: [
+        { levelName: 'Creche', ageRange: '3 months - 2 years', typicalFocus: 'Early childcare and social development.' },
+        { levelName: 'Pre-maternelle', ageRange: '2 - 3 years', typicalFocus: 'Communication and motor skills.' },
+        { levelName: 'Maternelle 1', ageRange: '3 - 4 years', typicalFocus: 'French pre-literacy and numeracy.' },
+        { levelName: 'Maternelle 2', ageRange: '4 - 5 years', typicalFocus: 'Preparation for CP1.' },
+      ],
+      defaultClassLevels: ['Creche', 'Pre-maternelle', 'Maternelle 1', 'Maternelle 2', 'CP1', 'CP2', 'CE1', 'CE2', 'CM1', 'CM2', 'College 1', 'College 2', 'College 3', 'College 4', 'Lycee 1', 'Lycee 2', 'Lycee 3'],
+      defaultSubjects: ['Francais', 'Mathematiques', 'Sciences', 'Geographie', 'Education civique', 'Technologie', 'Informatique'],
+      primarySubjectSamples: ['Francais', 'Mathematiques', 'Geographie', 'Education civique', 'Sciences'],
+      juniorSubjectSamples: ['Francais', 'Mathematiques', 'Sciences', 'Technologie', 'Informatique'],
+      seniorSubjectSamples: ['Francais', 'Mathematiques', 'Physique', 'Chimie', 'SVT', 'Philosophie', 'Economie'],
+      notes: 'Francophone delivery is common in private and urban school systems.',
     },
   ]), []);
   const [form, setForm] = useState({
@@ -37,8 +149,10 @@ export default function OnboardingPage() {
     email: '',
     adminFullName: '',
     adminPassword: '',
+    schoolType: 'PRIVATE',
     agreedToTermsAndDpa: false,
   });
+  const [schoolModels, setSchoolModels] = useState(fallbackSchoolModels);
   const [countryOptions, setCountryOptions] = useState(fallbackCountryOptions);
   const [countryCode, setCountryCode] = useState('NG');
   const [selectedClassLevels, setSelectedClassLevels] = useState([]);
@@ -60,6 +174,11 @@ export default function OnboardingPage() {
     [countryCode, countryOptions],
   );
 
+  const activeSchoolModel = useMemo(
+    () => schoolModels.find((model) => model.modelCode === form.schoolType) || schoolModels[0],
+    [form.schoolType, schoolModels],
+  );
+
   const applyCountryDefaults = (nextCountryCode, optionsList) => {
     const match = optionsList.find((item) => item.countryCode === nextCountryCode) || optionsList[0];
     if (!match) return;
@@ -78,6 +197,7 @@ export default function OnboardingPage() {
         const res = await apiFetch('/api/schools/onboarding-options');
         const data = await res.json().catch(() => ({}));
         const fetched = Array.isArray(data?.countries) ? data.countries : [];
+        const fetchedSchoolModels = Array.isArray(data?.schoolModels) ? data.schoolModels : [];
         if (!isMounted) return;
         if (res.ok && fetched.length > 0) {
           setCountryOptions(fetched);
@@ -85,9 +205,17 @@ export default function OnboardingPage() {
         } else {
           applyCountryDefaults(fallbackCountryOptions[0].countryCode, fallbackCountryOptions);
         }
+
+        if (res.ok && fetchedSchoolModels.length > 0) {
+          setSchoolModels(fetchedSchoolModels);
+          setForm((prev) => ({ ...prev, schoolType: fetchedSchoolModels[0].modelCode }));
+        } else {
+          setForm((prev) => ({ ...prev, schoolType: fallbackSchoolModels[0].modelCode }));
+        }
       } catch {
         if (!isMounted) return;
         applyCountryDefaults(fallbackCountryOptions[0].countryCode, fallbackCountryOptions);
+        setForm((prev) => ({ ...prev, schoolType: fallbackSchoolModels[0].modelCode }));
       } finally {
         if (isMounted) setLoadingOptions(false);
       }
@@ -97,7 +225,7 @@ export default function OnboardingPage() {
     return () => {
       isMounted = false;
     };
-  }, [fallbackCountryOptions]);
+  }, [fallbackCountryOptions, fallbackSchoolModels]);
 
   const buildPublicUrl = (relativePath) => {
     if (!relativePath) return null;
@@ -185,6 +313,7 @@ export default function OnboardingPage() {
       fd.append('AdminEmail', form.email.trim());
       fd.append('AdminPassword', form.adminPassword);
       fd.append('AdminFullName', form.adminFullName?.trim() || form.schoolName.trim());
+      fd.append('SchoolType', form.schoolType);
       fd.append('CountryCode', countryCode);
       fd.append('CurrencyCode', activeCountry?.currencyCode || 'NGN');
       fd.append('AgreedToTermsAndDpa', form.agreedToTermsAndDpa ? 'true' : 'false');
@@ -404,6 +533,35 @@ export default function OnboardingPage() {
             </label>
 
             <label className="onboarding-label">
+              School Type
+              <select
+                name="schoolType"
+                value={form.schoolType}
+                onChange={handleChange}
+                className="onboarding-input"
+                disabled={loadingOptions}
+              >
+                {schoolModels.map((model) => (
+                  <option key={model.modelCode} value={model.modelCode}>
+                    {model.modelName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {activeSchoolModel && (
+              <div className="curriculum-insight-card" role="status">
+                <p className="curriculum-insight-title">{activeSchoolModel.modelName}</p>
+                <ul className="curriculum-list compact">
+                  <li>Curriculum: {activeSchoolModel.curriculumApproach}</li>
+                  <li>Resources: {activeSchoolModel.resourceProfile}</li>
+                  <li>Language: {activeSchoolModel.languageApproach}</li>
+                  <li>Cost: {activeSchoolModel.costProfile}</li>
+                </ul>
+              </div>
+            )}
+
+            <label className="onboarding-label">
               Create admin password
               <input
                 type="password"
@@ -440,6 +598,27 @@ export default function OnboardingPage() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="onboarding-form">
+            <div className="curriculum-insight-card">
+              <p className="curriculum-insight-title">{activeCountry?.countryName} Curriculum Context</p>
+              <p className="curriculum-insight-meta">
+                {activeCountry?.regionalSystem || 'Regional'} system • Structure: {activeCountry?.systemStructure || 'National'}
+              </p>
+              {activeCountry?.notes && <p className="curriculum-insight-note">{activeCountry.notes}</p>}
+            </div>
+
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">Pre-Primary (Nursery) Structure</p>
+              <div className="preprimary-grid">
+                {(activeCountry?.prePrimaryStages || []).map((stage) => (
+                  <article key={stage.levelName} className="preprimary-card">
+                    <h4>{stage.levelName}</h4>
+                    <p className="preprimary-age">Age: {stage.ageRange}</p>
+                    <p>{stage.typicalFocus}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+
             <div className="onboarding-label">
               <p className="onboarding-label-title">Country</p>
               <select
@@ -457,6 +636,24 @@ export default function OnboardingPage() {
               <small className="onboarding-helper-text">
                 Choose your school country to preload the right nursery, primary, and secondary structure.
               </small>
+            </div>
+
+            <div className="onboarding-label">
+              <p className="onboarding-label-title">Subject Guidance By Level</p>
+              <div className="subject-level-grid">
+                <article className="subject-level-card">
+                  <h4>Primary</h4>
+                  <p>{(activeCountry?.primarySubjectSamples || []).join(', ')}</p>
+                </article>
+                <article className="subject-level-card">
+                  <h4>Junior Secondary</h4>
+                  <p>{(activeCountry?.juniorSubjectSamples || []).join(', ')}</p>
+                </article>
+                <article className="subject-level-card">
+                  <h4>Senior Secondary</h4>
+                  <p>{(activeCountry?.seniorSubjectSamples || []).join(', ')}</p>
+                </article>
+              </div>
             </div>
 
             <div className="onboarding-label">
