@@ -15,3 +15,17 @@ public record SchoolDashboardViewModel(
     decimal UnpaidFeesTotal,
     IReadOnlyList<AuditLog> RecentActivities);
 
+/// <summary>
+/// Lightweight metrics for staff-facing dashboard widgets.
+/// </summary>
+public record StaffDashboardMetricsDto(
+    int TasksCount,
+    int PendingApprovalsCount,
+    int OfficeQueueCount,
+    int PersonalAssignmentsCount,
+    int PendingPromotionRequestsCount,
+    int PendingFeeVerificationsCount,
+    int PendingResultEntriesCount,
+    int RecentDeniedAttemptsCount,
+    bool HasTeacherProfile);
+

@@ -109,6 +109,122 @@ public class TeachersController : ControllerBase
         }
     }
 
+    [HttpGet("people")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ListPeople(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var people = await _db.Teachers
+            .AsNoTracking()
+            .Include(t => t.TeacherClasses)
+            .ThenInclude(tc => tc.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Class)
+            .Where(t => t.SchoolId == schoolId)
+            .OrderBy(t => t.LastName)
+            .ThenBy(t => t.FirstName)
+            .ToListAsync(ct);
+
+        var normalizedEmails = people
+            .Select(t => t.Email?.Trim())
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e!.ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        var roleRows = new List<(string Email, string Role)>();
+        if (normalizedEmails.Count > 0)
+        {
+            var rawRoleRows = await (from u in _db.Users.AsNoTracking()
+                                     join ur in _db.UserRoles.AsNoTracking() on u.Id equals ur.UserId
+                                     join r in _db.Roles.AsNoTracking() on ur.RoleId equals r.Id
+                                     where u.Email != null && normalizedEmails.Contains(u.Email.ToUpper())
+                                     select new { Email = u.Email!, Role = r.Name! })
+                .ToListAsync(ct);
+
+            roleRows = rawRoleRows
+                .Select(x => (x.Email.Trim().ToUpperInvariant(), x.Role))
+                .ToList();
+        }
+
+        var emailRoleMap = roleRows
+            .GroupBy(x => x.Email)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.Role).Where(r => !string.IsNullOrWhiteSpace(r)).ToHashSet(StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        static string ResolveFallbackPersonRole(string? roleTitle)
+        {
+            var role = (roleTitle ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(role)) return Constants.Roles.Teacher;
+
+            var looksStaff = role.Contains("staff")
+                || role.Contains("bursar")
+                || role.Contains("clerk")
+                || role.Contains("secretary")
+                || role.Contains("front desk")
+                || role.Contains("account")
+                || role.Contains("support")
+                || role.Contains("office");
+
+            return looksStaff ? Constants.Roles.Staff : Constants.Roles.Teacher;
+        }
+
+        var result = people.Select(t =>
+        {
+            var normalizedEmail = t.Email?.Trim().ToUpperInvariant();
+            emailRoleMap.TryGetValue(normalizedEmail ?? string.Empty, out var roles);
+            var personRole = roles != null && roles.Contains(Constants.Roles.Staff)
+                ? Constants.Roles.Staff
+                : roles != null && roles.Contains(Constants.Roles.Teacher)
+                    ? Constants.Roles.Teacher
+                    : ResolveFallbackPersonRole(t.RoleTitle);
+
+            return new
+            {
+                t.Id,
+                t.FirstName,
+                t.LastName,
+                t.MiddleName,
+                t.Email,
+                t.Phone,
+                t.WhatsAppNumber,
+                t.StaffId,
+                t.SubjectSpecialization,
+                t.DateOfBirth,
+                t.Gender,
+                t.Nationality,
+                t.StateOfOrigin,
+                t.LGA,
+                t.Religion,
+                t.ResidentialAddress,
+                t.HighestQualification,
+                t.FieldOfStudy,
+                t.YearsOfExperience,
+                t.PreviousSchools,
+                t.ProfessionalBodies,
+                t.RoleTitle,
+                t.Department,
+                t.ProfilePhotoFileName,
+                t.IsActive,
+                personRole,
+                teacherClasses = (t.TeacherClasses ?? Array.Empty<TeacherClass>())
+                    .Select(tc => new { tc.ClassId, tc.RoleInClass, @class = tc.Class == null ? null : new { tc.Class.Id, tc.Class.Name } })
+                    .ToList(),
+                teacherClassSubjects = (t.TeacherClassSubjects ?? Array.Empty<TeacherClassSubject>())
+                    .Select(tcs => new { tcs.ClassId, @class = tcs.Class == null ? null : new { tcs.Class.Id, tcs.Class.Name } })
+                    .ToList()
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

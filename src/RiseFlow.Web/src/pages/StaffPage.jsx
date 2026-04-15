@@ -27,6 +27,7 @@ function toFriendlyDate(value) {
 }
 
 export default function StaffPage() {
+  const [metrics, setMetrics] = useState(null);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,13 +51,15 @@ export default function StaffPage() {
 
     Promise.all([
       apiFetch('/api/teachers/me').then((r) => (r.ok ? r.json() : null)),
+      apiFetch('/api/schools/staff/dashboard-metrics').then((r) => (r.ok ? r.json() : null)),
       apiFetch('/api/notices?limit=5').then((r) => (r.ok ? r.json() : [])),
       apiFetch('/api/events?limit=5').then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([profileConfig, noticeList, eventList]) => {
+      .then(([profileConfig, metricsPayload, noticeList, eventList]) => {
         if (cancelled) return;
         const profile = profileConfig?.teacher || profileConfig || null;
         setMe(profile);
+        setMetrics(metricsPayload);
         setNotices(Array.isArray(noticeList) ? noticeList : []);
         setEvents(Array.isArray(eventList) ? eventList : []);
       })
@@ -171,28 +174,32 @@ export default function StaffPage() {
     <PageLayout title="Staff dashboard" role="staff">
       <main className="main">
         <section className="dashboard-grid">
+          <article className="dashboard-card dashboard-card--warning">
+            <p className="dashboard-label">Tasks</p>
+            <p className="dashboard-value">{metrics?.tasksCount ?? 0}</p>
+            <p className="dashboard-sub">
+              {metrics?.personalAssignmentsCount ?? 0} personal assignments, {metrics?.pendingPromotionRequestsCount ?? 0} promotion requests.
+            </p>
+          </article>
+
+          <article className="dashboard-card">
+            <p className="dashboard-label">Pending approvals</p>
+            <p className="dashboard-value">{metrics?.pendingApprovalsCount ?? 0}</p>
+            <p className="dashboard-sub">
+              {metrics?.pendingFeeVerificationsCount ?? 0} fee verifications, {metrics?.pendingResultEntriesCount ?? 0} result entries.
+            </p>
+          </article>
+
+          <article className="dashboard-card">
+            <p className="dashboard-label">Office queue</p>
+            <p className="dashboard-value">{metrics?.officeQueueCount ?? 0}</p>
+            <p className="dashboard-sub">Includes {metrics?.recentDeniedAttemptsCount ?? 0} denied attempts in the last 7 days.</p>
+          </article>
+
           <article className="dashboard-card dashboard-card--highlight">
             <p className="dashboard-label">Profile completion</p>
             <p className="dashboard-value">{profileCompletion}%</p>
-            <p className="dashboard-sub">Keep your profile complete so admins can assign responsibilities faster.</p>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="dashboard-label">Role title</p>
-            <p className="dashboard-value" style={{ fontSize: '1.25rem' }}>{me?.roleTitle || 'Staff'}</p>
-            <p className="dashboard-sub">Your current position in this school.</p>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="dashboard-label">Department</p>
-            <p className="dashboard-value" style={{ fontSize: '1.25rem' }}>{me?.department || 'Not set'}</p>
-            <p className="dashboard-sub">Set this to improve task routing.</p>
-          </article>
-
-          <article className="dashboard-card">
-            <p className="dashboard-label">Updates</p>
-            <p className="dashboard-value">{notices.length + events.length}</p>
-            <p className="dashboard-sub">{notices.length} notices, {events.length} events.</p>
+            <p className="dashboard-sub">Role: {me?.roleTitle || 'Staff'} • Department: {me?.department || 'Not set'}</p>
           </article>
         </section>
 

@@ -139,6 +139,26 @@ function buildDeniedAttemptsCsv(rows) {
   return `${lines.join('\n')}\n`;
 }
 
+function resolvePeopleRole(person) {
+  const fromApi = String(person?.personRole || '').trim();
+  if (fromApi.toLowerCase() === 'staff') return 'Staff';
+  if (fromApi.toLowerCase() === 'teacher') return 'Teacher';
+
+  const roleTitle = String(person?.roleTitle || '').trim().toLowerCase();
+  if (!roleTitle) return 'Teacher';
+
+  const looksStaff = roleTitle.includes('staff')
+    || roleTitle.includes('bursar')
+    || roleTitle.includes('clerk')
+    || roleTitle.includes('secretary')
+    || roleTitle.includes('front desk')
+    || roleTitle.includes('account')
+    || roleTitle.includes('support')
+    || roleTitle.includes('office');
+
+  return looksStaff ? 'Staff' : 'Teacher';
+}
+
 export default function SchoolAdminPage() {
   const [searchParams] = useSearchParams();
   const resolveTabView = useCallback((tab) => {
@@ -150,6 +170,7 @@ export default function SchoolAdminPage() {
 
   const [dashboard, setDashboard] = useState(null);
   const [teachers, setTeachers] = useState([]);
+  const [peopleRoleFilter, setPeopleRoleFilter] = useState('all');
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [grades, setGrades] = useState([]);
@@ -283,7 +304,7 @@ export default function SchoolAdminPage() {
     return Promise.allSettled([
       apiFetch('/api/schools/dashboard').then((r) => readJsonOrThrow(r, 'Failed to load school dashboard.')),
       apiFetch('/api/schools/profile').then((r) => readJsonOrThrow(r, 'Failed to load school profile.')),
-      apiFetch('/api/teachers').then((r) => readJsonOrThrow(r, 'Failed to load teachers.')),
+      apiFetch('/api/teachers/people').then((r) => readJsonOrThrow(r, 'Failed to load school people.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
       apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
       apiFetch('/api/schools/grades').then((r) => readJsonOrThrow(r, 'Failed to load grades.')),
@@ -679,6 +700,12 @@ export default function SchoolAdminPage() {
       }
     }, [currentSchoolId, terminalToggleHydratedSchoolId, treatTerminalGradesAsValid]);
   const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const teacherCount = useMemo(() => teachers.filter((person) => resolvePeopleRole(person) === 'Teacher').length, [teachers]);
+  const staffCount = useMemo(() => teachers.filter((person) => resolvePeopleRole(person) === 'Staff').length, [teachers]);
+  const filteredPeople = useMemo(() => {
+    if (peopleRoleFilter === 'all') return teachers;
+    return teachers.filter((person) => resolvePeopleRole(person).toLowerCase() === peopleRoleFilter);
+  }, [peopleRoleFilter, teachers]);
   const staffCatalogRoles = useMemo(() => {
     const configRoles = Array.isArray(staffStructureConfig?.roleCatalog)
       ? staffStructureConfig.roleCatalog
@@ -1690,7 +1717,7 @@ export default function SchoolAdminPage() {
 
   const currencyCode = dashboard?.currencyCode || 'NGN';
   const activeStudents = dashboard?.studentCount ?? dashboard?.activeStudentCount ?? students.length;
-  const activeTeachers = dashboard?.teacherCount ?? teachers.length;
+  const activeTeachers = dashboard?.teacherCount ?? teacherCount;
   const unpaidFees = dashboard?.unpaidFeesTotal ?? 0;
   const buildPublicUrl = (relativePath) => {
     if (!relativePath) return null;
@@ -1894,11 +1921,22 @@ export default function SchoolAdminPage() {
 
       {activeView === 'people' && (
         <>
-      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>Teachers</h2>
+      <h2 className="section-title" style={{ marginTop: '1.5rem' }}>People</h2>
       {teachers.length === 0 ? (
-        <p className="empty-state">No teachers yet.</p>
+        <p className="empty-state">No teachers or staff yet.</p>
       ) : (
         <>
+          <div className="form-actions" style={{ marginBottom: '0.75rem', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <label className="form-field" style={{ marginBottom: 0 }}>
+              Role filter
+              <select className="form-input" value={peopleRoleFilter} onChange={(e) => setPeopleRoleFilter(e.target.value)}>
+                <option value="all">All people</option>
+                <option value="teacher">Teachers ({teacherCount})</option>
+                <option value="staff">Staff ({staffCount})</option>
+              </select>
+            </label>
+            <span className="card-desc">Showing {filteredPeople.length} of {teachers.length} people.</span>
+          </div>
           <p className="card-desc" style={{ marginBottom: '0.75rem' }}>
             Teacher contact details stay hidden here until you click <strong>View details</strong>.
           </p>
@@ -1907,6 +1945,7 @@ export default function SchoolAdminPage() {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Account role</th>
                   <th>Role</th>
                   <th>Department</th>
                   <th>Status</th>
@@ -1914,9 +1953,10 @@ export default function SchoolAdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {teachers.map((t) => (
+                {filteredPeople.map((t) => (
                   <tr key={t.id}>
                     <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
+                    <td>{resolvePeopleRole(t)}</td>
                     <td>{t.roleTitle || 'Teacher'}</td>
                     <td>{t.department || t.subjectSpecialization || '—'}</td>
                     <td>{t.isActive ? 'Active' : 'Inactive'}</td>

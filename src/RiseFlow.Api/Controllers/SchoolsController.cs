@@ -302,6 +302,74 @@ public class SchoolsController : ControllerBase
         return Ok(vm);
     }
 
+    /// <summary>
+    /// Staff dashboard metrics (tasks, pending approvals, and office queue health).
+    /// </summary>
+    [HttpGet("staff/dashboard-metrics")]
+    [Authorize(Roles = $"{Roles.Staff},{Roles.Teacher},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(StaffDashboardMetricsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<StaffDashboardMetricsDto>> GetStaffDashboardMetrics(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var nowUtc = DateTime.UtcNow;
+        var currentUserEmail = (_tenant.CurrentUserEmail ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? string.Empty).Trim();
+
+        Guid? teacherProfileId = null;
+        if (!string.IsNullOrWhiteSpace(currentUserEmail))
+        {
+            teacherProfileId = await _db.Teachers
+                .AsNoTracking()
+                .Where(t => t.SchoolId == schoolId && t.Email != null && t.Email.ToUpper() == currentUserEmail.ToUpper())
+                .Select(t => (Guid?)t.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        var personalAssignmentsCount = teacherProfileId.HasValue
+            ? await _db.TeacherAssignments
+                .AsNoTracking()
+                .CountAsync(a => a.SchoolId == schoolId
+                    && a.TeacherId == teacherProfileId.Value
+                    && (!a.DueDateUtc.HasValue || a.DueDateUtc.Value >= nowUtc.AddDays(-1)), ct)
+            : 0;
+
+        var pendingPromotionRequestsCount = await _db.ClassPromotionRequests
+            .AsNoTracking()
+            .CountAsync(r => r.SchoolId == schoolId && r.Status == "Pending", ct);
+
+        var pendingFeeVerificationsCount = await _db.FeePaymentRecords
+            .AsNoTracking()
+            .CountAsync(r => r.SchoolId == schoolId
+                && (r.Status == FeePaymentStatus.ReceiptUploaded || r.Status == FeePaymentStatus.InPersonPending), ct);
+
+        var pendingResultEntriesCount = await _db.StudentResults
+            .AsNoTracking()
+            .CountAsync(r => r.SchoolId == schoolId && (r.GradeLetter == null || r.GradeLetter == ""), ct);
+
+        var recentDeniedAttemptsCount = await _db.AuditLogs
+            .AsNoTracking()
+            .CountAsync(a => a.SchoolId == schoolId
+                && a.Action == "Denied"
+                && a.CreatedAtUtc >= nowUtc.AddDays(-7), ct);
+
+        var pendingApprovalsCount = pendingPromotionRequestsCount + pendingFeeVerificationsCount + pendingResultEntriesCount;
+        var tasksCount = personalAssignmentsCount + pendingPromotionRequestsCount + pendingFeeVerificationsCount;
+        var officeQueueCount = pendingFeeVerificationsCount + pendingPromotionRequestsCount + recentDeniedAttemptsCount;
+
+        return Ok(new StaffDashboardMetricsDto(
+            TasksCount: tasksCount,
+            PendingApprovalsCount: pendingApprovalsCount,
+            OfficeQueueCount: officeQueueCount,
+            PersonalAssignmentsCount: personalAssignmentsCount,
+            PendingPromotionRequestsCount: pendingPromotionRequestsCount,
+            PendingFeeVerificationsCount: pendingFeeVerificationsCount,
+            PendingResultEntriesCount: pendingResultEntriesCount,
+            RecentDeniedAttemptsCount: recentDeniedAttemptsCount,
+            HasTeacherProfile: teacherProfileId.HasValue));
+    }
+
     /// <summary>Audit view for denied teacher actions in the current school.</summary>
     [HttpGet("audit/denied-attempts")]
     [Authorize(Roles = Roles.SchoolAdmin)]
@@ -354,7 +422,7 @@ public class SchoolsController : ControllerBase
 
     /// <summary>Branding payload for current tenant (school name + logo + registration document URLs).</summary>
     [HttpGet("branding")]
-    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
+    [Authorize(Roles = $"{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Staff},{Roles.Parent},{Roles.Student}")]
     [ProducesResponseType(typeof(SchoolBrandingDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SchoolBrandingDto>> GetBranding(CancellationToken ct)
