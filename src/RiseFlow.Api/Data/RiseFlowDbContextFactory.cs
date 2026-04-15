@@ -25,6 +25,25 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
             .AddEnvironmentVariables()
             .Build();
 
+        var dbProvider = config["Database:Provider"] ?? "Npgsql";
+
+        var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+
+        if (string.Equals(dbProvider, "Sqlite", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dbProvider, "SQLite", StringComparison.OrdinalIgnoreCase))
+        {
+            var sqliteConn = config.GetConnectionString("Sqlite");
+            if (string.IsNullOrWhiteSpace(sqliteConn))
+            {
+                var dbPath = Path.Combine(basePath, "riseflow.dev.db");
+                sqliteConn = $"Data Source={dbPath}";
+            }
+
+            optionsBuilder.UseSqlite(sqliteConn);
+            return new RiseFlowDbContext(optionsBuilder.Options);
+        }
+
         var pg = DatabaseConnectionHelper.GetConnectionString(config);
         if (string.IsNullOrWhiteSpace(pg))
         {
@@ -33,10 +52,7 @@ public class RiseFlowDbContextFactory : IDesignTimeDbContextFactory<RiseFlowDbCo
                 "See docs/RAILWAY_POSTGRES.md.");
         }
 
-        var optionsBuilder = new DbContextOptionsBuilder<RiseFlowDbContext>();
-        optionsBuilder
-            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
-            .UseNpgsql(pg);
+        optionsBuilder.UseNpgsql(pg);
         return new RiseFlowDbContext(optionsBuilder.Options);
     }
 }

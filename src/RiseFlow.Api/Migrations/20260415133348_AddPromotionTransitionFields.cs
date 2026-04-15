@@ -11,6 +11,259 @@ namespace RiseFlow.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            if (ActiveProvider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+            {
+                migrationBuilder.Sql(
+                    """
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AcademicSystemProfileId" uuid NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "OwnerName" character varying(128) NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "PromotionTransitionOverrideJson" character varying(12000) NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "RegistrationDocumentPath" character varying(512) NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "SchoolAdminName" character varying(128) NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "WhatsAppNumber" character varying(512) NULL;
+ALTER TABLE IF EXISTS "FileAssets" ADD COLUMN IF NOT EXISTS "FileBytes" bytea NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "HeadshotBytes" bytea NULL;
+ALTER TABLE IF EXISTS "Affiliates" ADD COLUMN IF NOT EXISTS "HeadshotContentType" character varying(128) NULL;
+
+CREATE TABLE IF NOT EXISTS "AcademicSystemProfiles" (
+    "Id" uuid NOT NULL,
+    "Code" character varying(32) NOT NULL,
+    "Name" character varying(128) NOT NULL,
+    "Description" character varying(512),
+    "SuggestedTermsPerYear" integer,
+    "GradeTemplatesJson" character varying(12000) NOT NULL,
+    "StageOrderJson" character varying(12000),
+    "PromotionTransitionJson" character varying(12000),
+    "DefaultGradingScaleCode" character varying(64),
+    "IsActive" boolean NOT NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone,
+    CONSTRAINT "PK_AcademicSystemProfiles" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AcademicSystemProfiles_Code" ON "AcademicSystemProfiles" ("Code");
+
+DO $EF$
+BEGIN
+    IF to_regclass('"Affiliates"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: Affiliates';
+    END IF;
+    IF to_regclass('"AffiliateTrainingVideos"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: AffiliateTrainingVideos';
+    END IF;
+END $EF$;
+
+CREATE TABLE IF NOT EXISTS "AffiliateTrainingCompletions" (
+    "Id" uuid NOT NULL,
+    "AffiliateId" uuid NOT NULL,
+    "TrainingVideoId" uuid NOT NULL,
+    "IsCompleted" boolean NOT NULL,
+    "CompletedAtUtc" timestamp with time zone,
+    "CreatedAtUtc" timestamp with time zone NOT NULL,
+    "UpdatedAtUtc" timestamp with time zone,
+    CONSTRAINT "PK_AffiliateTrainingCompletions" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_AffiliateId_TrainingVideoId"
+    ON "AffiliateTrainingCompletions" ("AffiliateId", "TrainingVideoId");
+CREATE INDEX IF NOT EXISTS "IX_AffiliateTrainingCompletions_TrainingVideoId"
+    ON "AffiliateTrainingCompletions" ("TrainingVideoId");
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_AffiliateTrainingCompletions_Affiliates_AffiliateId'
+          AND conrelid = '"AffiliateTrainingCompletions"'::regclass
+    ) THEN
+        ALTER TABLE "AffiliateTrainingCompletions"
+        ADD CONSTRAINT "FK_AffiliateTrainingCompletions_Affiliates_AffiliateId"
+        FOREIGN KEY ("AffiliateId") REFERENCES "Affiliates" ("Id") ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_AffiliateTrainingCompletions_AffiliateTrainingVideos_TrainingVideoId'
+          AND conrelid = '"AffiliateTrainingCompletions"'::regclass
+    ) THEN
+        ALTER TABLE "AffiliateTrainingCompletions"
+        ADD CONSTRAINT "FK_AffiliateTrainingCompletions_AffiliateTrainingVideos_TrainingVideoId"
+        FOREIGN KEY ("TrainingVideoId") REFERENCES "AffiliateTrainingVideos" ("Id") ON DELETE CASCADE;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF to_regclass('"AcademicTerms"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: AcademicTerms';
+    END IF;
+    IF to_regclass('"Classes"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: Classes';
+    END IF;
+    IF to_regclass('"Schools"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: Schools';
+    END IF;
+    IF to_regclass('"Teachers"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: Teachers';
+    END IF;
+END $EF$;
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequests" (
+    "Id" uuid NOT NULL,
+    "SchoolId" uuid NOT NULL,
+    "TeacherId" uuid NOT NULL,
+    "FromClassId" uuid NOT NULL,
+    "ToClassId" uuid NOT NULL,
+    "FromTermId" uuid,
+    "PromotionSessionLabel" character varying(64),
+    "Notes" character varying(512),
+    "Status" character varying(16) NOT NULL,
+    "RequestedAtUtc" timestamp with time zone NOT NULL,
+    "ReviewedAtUtc" timestamp with time zone,
+    "ReviewedByUserId" uuid,
+    CONSTRAINT "PK_ClassPromotionRequests" PRIMARY KEY ("Id")
+);
+
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_FromClassId" ON "ClassPromotionRequests" ("FromClassId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_FromTermId" ON "ClassPromotionRequests" ("FromTermId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_SchoolId_Status_RequestedAtUtc" ON "ClassPromotionRequests" ("SchoolId", "Status", "RequestedAtUtc");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_TeacherId" ON "ClassPromotionRequests" ("TeacherId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequests_ToClassId" ON "ClassPromotionRequests" ("ToClassId");
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequests_AcademicTerms_FromTermId'
+          AND conrelid = '"ClassPromotionRequests"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequests"
+        ADD CONSTRAINT "FK_ClassPromotionRequests_AcademicTerms_FromTermId"
+        FOREIGN KEY ("FromTermId") REFERENCES "AcademicTerms" ("Id") ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequests_Classes_FromClassId'
+          AND conrelid = '"ClassPromotionRequests"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequests"
+        ADD CONSTRAINT "FK_ClassPromotionRequests_Classes_FromClassId"
+        FOREIGN KEY ("FromClassId") REFERENCES "Classes" ("Id") ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequests_Classes_ToClassId'
+          AND conrelid = '"ClassPromotionRequests"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequests"
+        ADD CONSTRAINT "FK_ClassPromotionRequests_Classes_ToClassId"
+        FOREIGN KEY ("ToClassId") REFERENCES "Classes" ("Id") ON DELETE RESTRICT;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequests_Schools_SchoolId'
+          AND conrelid = '"ClassPromotionRequests"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequests"
+        ADD CONSTRAINT "FK_ClassPromotionRequests_Schools_SchoolId"
+        FOREIGN KEY ("SchoolId") REFERENCES "Schools" ("Id") ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequests_Teachers_TeacherId'
+          AND conrelid = '"ClassPromotionRequests"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequests"
+        ADD CONSTRAINT "FK_ClassPromotionRequests_Teachers_TeacherId"
+        FOREIGN KEY ("TeacherId") REFERENCES "Teachers" ("Id") ON DELETE RESTRICT;
+    END IF;
+END $EF$;
+
+DO $EF$
+BEGIN
+    IF to_regclass('"ClassPromotionRequests"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: ClassPromotionRequests';
+    END IF;
+    IF to_regclass('"Students"') IS NULL THEN
+        RAISE EXCEPTION 'Missing prerequisite table: Students';
+    END IF;
+END $EF$;
+
+CREATE TABLE IF NOT EXISTS "ClassPromotionRequestItems" (
+    "Id" uuid NOT NULL,
+    "SchoolId" uuid NOT NULL,
+    "RequestId" uuid NOT NULL,
+    "StudentId" uuid NOT NULL,
+    CONSTRAINT "PK_ClassPromotionRequestItems" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_RequestId_StudentId"
+    ON "ClassPromotionRequestItems" ("RequestId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_SchoolId_StudentId"
+    ON "ClassPromotionRequestItems" ("SchoolId", "StudentId");
+CREATE INDEX IF NOT EXISTS "IX_ClassPromotionRequestItems_StudentId"
+    ON "ClassPromotionRequestItems" ("StudentId");
+
+DO $EF$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequestItems_ClassPromotionRequests_RequestId'
+          AND conrelid = '"ClassPromotionRequestItems"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequestItems"
+        ADD CONSTRAINT "FK_ClassPromotionRequestItems_ClassPromotionRequests_RequestId"
+        FOREIGN KEY ("RequestId") REFERENCES "ClassPromotionRequests" ("Id") ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_ClassPromotionRequestItems_Students_StudentId'
+          AND conrelid = '"ClassPromotionRequestItems"'::regclass
+    ) THEN
+        ALTER TABLE "ClassPromotionRequestItems"
+        ADD CONSTRAINT "FK_ClassPromotionRequestItems_Students_StudentId"
+        FOREIGN KEY ("StudentId") REFERENCES "Students" ("Id") ON DELETE CASCADE;
+    END IF;
+END $EF$;
+
+CREATE INDEX IF NOT EXISTS "IX_Schools_AcademicSystemProfileId" ON "Schools" ("AcademicSystemProfileId");
+
+DO $EF$
+DECLARE
+    orphan_count integer;
+BEGIN
+    SELECT COUNT(*) INTO orphan_count
+    FROM "Schools" s
+    WHERE s."AcademicSystemProfileId" IS NOT NULL
+      AND NOT EXISTS (
+            SELECT 1 FROM "AcademicSystemProfiles" a
+            WHERE a."Id" = s."AcademicSystemProfileId"
+      );
+
+    IF orphan_count > 0 THEN
+        RAISE EXCEPTION 'Cannot add FK_Schools_AcademicSystemProfiles_AcademicSystemProfileId: % orphan rows in Schools.AcademicSystemProfileId', orphan_count;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'FK_Schools_AcademicSystemProfiles_AcademicSystemProfileId'
+          AND conrelid = '"Schools"'::regclass
+    ) THEN
+        ALTER TABLE "Schools"
+        ADD CONSTRAINT "FK_Schools_AcademicSystemProfiles_AcademicSystemProfileId"
+        FOREIGN KEY ("AcademicSystemProfileId") REFERENCES "AcademicSystemProfiles" ("Id") ON DELETE SET NULL;
+    END IF;
+END $EF$;
+""");
+
+                return;
+            }
+
             migrationBuilder.AddColumn<Guid>(
                 name: "AcademicSystemProfileId",
                 table: "Schools",
