@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 using System.Text.Json;
 using RiseFlow.Api.Constants;
 using RiseFlow.Api.Data;
@@ -262,6 +263,8 @@ public class SchoolsController : ControllerBase
     };
     private const long MaxSchoolLogoBytes = 5 * 1024 * 1024; // 5 MB
     private const long MaxRegistrationDocumentBytes = 10 * 1024 * 1024; // 10 MB
+    private const string StaffStructureConfigCategory = "school-staff-structure-config";
+    private const string StaffStructureConfigRelativePath = "school-config/staff-structure-config.json";
     private readonly SchoolOnboardingService _onboarding;
     private readonly RiseFlowDbContext _db;
     private readonly ITenantContext _tenant;
@@ -734,6 +737,169 @@ public class SchoolsController : ControllerBase
     public IActionResult GetOnboardingOptions()
     {
         return Ok(new { countries = OnboardingCountryOptions, schoolModels = OnboardingSchoolModels });
+    }
+
+    /// <summary>
+    /// Return country-aware school staff hierarchy defaults for School Admin setup.
+    /// </summary>
+    [HttpGet("staff-structure-options")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolStaffStructureOptionsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolStaffStructureOptionsDto>> GetStaffStructureOptions(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        var countryCode = (school.CountryCode ?? "NG").Trim().ToUpperInvariant();
+        var countryMeta = OnboardingCountryOptions.FirstOrDefault(c => c.CountryCode == countryCode);
+
+        var stageScopes = countryMeta == null
+            ? new List<string> { "Pre-Nursery", "Nursery", "Primary", "Secondary", "Whole School" }
+            : BuildStageScopes(countryMeta);
+
+        return Ok(new SchoolStaffStructureOptionsDto(
+            countryCode,
+            countryMeta?.CountryName ?? "Unknown",
+            GetDefaultHierarchyRoles(countryCode),
+            GetDefaultClassAssignmentRoles(countryCode),
+            stageScopes,
+            "Use country defaults first, then add custom titles where your school needs local variation."
+        ));
+    }
+
+    [HttpGet("staff-structure-config")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolStaffStructureConfigDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolStaffStructureConfigDto>> GetStaffStructureConfig(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        var countryCode = (school.CountryCode ?? "NG").Trim().ToUpperInvariant();
+        var countryMeta = OnboardingCountryOptions.FirstOrDefault(c => c.CountryCode == countryCode);
+        var stageScopes = countryMeta == null
+            ? new List<string> { "Pre-Nursery", "Nursery", "Primary", "Secondary", "Whole School" }
+            : BuildStageScopes(countryMeta);
+        var defaultRoles = GetDefaultHierarchyRoles(countryCode);
+        var defaultClassAssignmentRoles = GetDefaultClassAssignmentRoles(countryCode);
+
+        var stored = await LoadStaffStructureConfigAsync(schoolId, ct);
+        var roleCatalog = BuildRoleCatalog(defaultRoles, stored?.CustomRoleCatalog, stageScopes);
+        var permissionMatrix = BuildPermissionMatrix(roleCatalog, stored?.PermissionMatrix);
+
+        return Ok(new SchoolStaffStructureConfigDto(
+            countryCode,
+            countryMeta?.CountryName ?? "Unknown",
+            roleCatalog,
+            defaultClassAssignmentRoles,
+            stageScopes,
+            permissionMatrix,
+            stored?.UpdatedAtUtc,
+            stored?.UpdatedBy,
+            "Phase1B: school-level hierarchy catalog and governance matrix."
+        ));
+    }
+
+    [HttpPut("staff-structure-config")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolStaffStructureConfigDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SchoolStaffStructureConfigDto>> SaveStaffStructureConfig([FromBody] UpdateSchoolStaffStructureConfigRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        if (request == null)
+            return BadRequest("Request body is required.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        var countryCode = (school.CountryCode ?? "NG").Trim().ToUpperInvariant();
+        var countryMeta = OnboardingCountryOptions.FirstOrDefault(c => c.CountryCode == countryCode);
+        var stageScopes = countryMeta == null
+            ? new List<string> { "Pre-Nursery", "Nursery", "Primary", "Secondary", "Whole School" }
+            : BuildStageScopes(countryMeta);
+        var defaultRoles = GetDefaultHierarchyRoles(countryCode);
+        var defaultClassAssignmentRoles = GetDefaultClassAssignmentRoles(countryCode);
+
+        var roleCatalog = BuildRoleCatalog(defaultRoles, request.RoleCatalog, stageScopes);
+        if (roleCatalog.Count == 0)
+            return BadRequest("RoleCatalog must contain at least one role.");
+        if (roleCatalog.Count > 120)
+            return BadRequest("RoleCatalog cannot exceed 120 entries.");
+
+        var permissionMatrix = BuildPermissionMatrix(roleCatalog, request.PermissionMatrix);
+        var customRoleCatalog = roleCatalog.Where(x => !x.IsSystemDefault).ToList();
+
+        var payload = new StoredSchoolStaffStructureConfigDto(
+            customRoleCatalog,
+            permissionMatrix,
+            DateTime.UtcNow,
+            _tenant.CurrentUserEmail
+        );
+
+        var serialized = JsonSerializer.Serialize(payload);
+        var bytes = Encoding.UTF8.GetBytes(serialized);
+
+        var existingAsset = await _db.FileAssets
+            .FirstOrDefaultAsync(x => x.SchoolId == schoolId
+                && x.Category == StaffStructureConfigCategory
+                && x.RelativePath == StaffStructureConfigRelativePath, ct);
+
+        if (existingAsset == null)
+        {
+            existingAsset = new FileAsset
+            {
+                Id = Guid.NewGuid(),
+                SchoolId = schoolId,
+                OriginalFileName = "staff-structure-config.json",
+                StoredFileName = "staff-structure-config.json",
+                RelativePath = StaffStructureConfigRelativePath,
+                ContentType = "application/json",
+                Category = StaffStructureConfigCategory,
+                UploadedBy = _tenant.CurrentUserEmail,
+                UploadedAtUtc = DateTime.UtcNow,
+            };
+            _db.FileAssets.Add(existingAsset);
+        }
+
+        existingAsset.FileBytes = bytes;
+        existingAsset.SizeBytes = bytes.LongLength;
+        existingAsset.ContentType = "application/json";
+        existingAsset.UploadedBy = _tenant.CurrentUserEmail;
+        existingAsset.UploadedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new SchoolStaffStructureConfigDto(
+            countryCode,
+            countryMeta?.CountryName ?? "Unknown",
+            roleCatalog,
+            defaultClassAssignmentRoles,
+            stageScopes,
+            permissionMatrix,
+            payload.UpdatedAtUtc,
+            payload.UpdatedBy,
+            "Phase1B: school-level hierarchy catalog and governance matrix."
+        ));
     }
 
     /// <summary>
@@ -1234,6 +1400,210 @@ public class SchoolsController : ControllerBase
             ],
         };
     }
+
+    private static IReadOnlyList<string> BuildStageScopes(OnboardingCountryOption option)
+    {
+        var scopes = new List<string>();
+
+        if (option.PrePrimaryStages.Count > 0)
+        {
+            scopes.Add("Pre-Nursery");
+            scopes.Add("Nursery");
+        }
+
+        scopes.Add("Primary");
+        scopes.Add("Secondary");
+        scopes.Add("Whole School");
+
+        return scopes
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<StaffHierarchyRoleOptionDto> GetDefaultHierarchyRoles(string countryCode)
+    {
+        return countryCode switch
+        {
+            "GH" =>
+            [
+                new("head_teacher", "Head Teacher", "Whole School", 10),
+                new("assistant_head_teacher", "Assistant Head Teacher", "Whole School", 20),
+                new("primary_head", "Primary Head", "Primary", 30),
+                new("jhs_head", "JHS Lead", "Secondary", 40),
+                new("shs_head", "SHS Lead", "Secondary", 50),
+                new("class_teacher", "Class Teacher", "Primary", 60),
+                new("subject_teacher", "Subject Teacher", "Secondary", 70),
+                new("assistant_class_teacher", "Assistant Class Teacher", "Primary", 80),
+            ],
+            "KE" =>
+            [
+                new("head_teacher", "Head Teacher", "Whole School", 10),
+                new("deputy_head_teacher", "Deputy Head Teacher", "Whole School", 20),
+                new("preprimary_lead", "Pre-Primary Lead", "Pre-Nursery", 30),
+                new("primary_section_head", "Primary Section Head", "Primary", 40),
+                new("junior_secondary_lead", "Junior Secondary Lead", "Secondary", 50),
+                new("senior_secondary_lead", "Senior Secondary Lead", "Secondary", 60),
+                new("class_teacher", "Class Teacher", "Primary", 70),
+                new("assistant_class_teacher", "Assistant Class Teacher", "Primary", 80),
+                new("subject_teacher", "Subject Teacher", "Secondary", 90),
+            ],
+            "SN" or "CI" or "MA" =>
+            [
+                new("directeur", "Directeur", "Whole School", 10),
+                new("directeur_adjoint", "Directeur Adjoint", "Whole School", 20),
+                new("responsable_maternelle", "Responsable Maternelle", "Pre-Nursery", 30),
+                new("responsable_primaire", "Responsable Primaire", "Primary", 40),
+                new("responsable_college", "Responsable College", "Secondary", 50),
+                new("professeur_principal", "Professeur Principal", "Secondary", 60),
+                new("enseignant", "Enseignant", "Primary", 70),
+                new("assistant_enseignant", "Assistant Enseignant", "Primary", 80),
+            ],
+            _ =>
+            [
+                new("head_teacher", "Head Teacher", "Whole School", 10),
+                new("assistant_head_teacher", "Assistant Head Teacher", "Whole School", 20),
+                new("nursery_head", "Nursery Head", "Nursery", 30),
+                new("primary_head", "Primary Head", "Primary", 40),
+                new("secondary_head", "Secondary Head", "Secondary", 50),
+                new("class_teacher", "Class Teacher", "Primary", 60),
+                new("assistant_class_teacher", "Assistant Class Teacher", "Primary", 70),
+                new("subject_teacher", "Subject Teacher", "Secondary", 80),
+            ],
+        };
+    }
+
+    private static IReadOnlyList<string> GetDefaultClassAssignmentRoles(string countryCode)
+    {
+        return countryCode switch
+        {
+            "GH" => ["Class Teacher", "Assistant Class Teacher", "Form Tutor", "Subject Teacher"],
+            "KE" => ["Class Teacher", "Assistant Class Teacher", "Form Tutor", "Subject Teacher"],
+            "SN" or "CI" or "MA" => ["Professeur Principal", "Assistant de Classe", "Professeur de Matiere"],
+            _ => ["Class Teacher", "Assistant Class Teacher", "Form Teacher", "Subject Teacher"],
+        };
+    }
+
+    private async Task<StoredSchoolStaffStructureConfigDto?> LoadStaffStructureConfigAsync(Guid schoolId, CancellationToken ct)
+    {
+        var payload = await _db.FileAssets
+            .AsNoTracking()
+            .Where(x => x.SchoolId == schoolId
+                && x.Category == StaffStructureConfigCategory
+                && x.RelativePath == StaffStructureConfigRelativePath
+                && x.FileBytes != null)
+            .OrderByDescending(x => x.UploadedAtUtc)
+            .Select(x => x.FileBytes)
+            .FirstOrDefaultAsync(ct);
+
+        if (payload == null || payload.Length == 0)
+            return null;
+
+        try
+        {
+            var json = Encoding.UTF8.GetString(payload);
+            return JsonSerializer.Deserialize<StoredSchoolStaffStructureConfigDto>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static List<SchoolStaffHierarchyRoleDto> BuildRoleCatalog(
+        IReadOnlyList<StaffHierarchyRoleOptionDto> defaultRoles,
+        IReadOnlyList<SchoolStaffHierarchyRoleDto>? customRoles,
+        IReadOnlyList<string> stageScopes)
+    {
+        var validScopes = new HashSet<string>(stageScopes, StringComparer.OrdinalIgnoreCase);
+        var catalog = defaultRoles
+            .OrderBy(x => x.HierarchyOrder)
+            .Select(x => new SchoolStaffHierarchyRoleDto(
+                x.RoleCode,
+                x.RoleTitle,
+                validScopes.Contains(x.DefaultStageScope) ? x.DefaultStageScope : "Whole School",
+                x.HierarchyOrder,
+                true))
+            .ToList();
+
+        foreach (var role in customRoles ?? [])
+        {
+            var title = (role.RoleTitle ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(title) || title.Length > 128)
+                continue;
+
+            var scope = string.IsNullOrWhiteSpace(role.StageScope) ? "Whole School" : role.StageScope.Trim();
+            if (!validScopes.Contains(scope))
+                scope = "Whole School";
+
+            var order = role.HierarchyOrder <= 0 ? 1000 : role.HierarchyOrder;
+            var exists = catalog.Any(x => string.Equals(x.RoleTitle, title, StringComparison.OrdinalIgnoreCase));
+            if (exists)
+                continue;
+
+            catalog.Add(new SchoolStaffHierarchyRoleDto(
+                string.IsNullOrWhiteSpace(role.RoleCode) ? BuildRoleCodeFromTitle(title) : role.RoleCode.Trim(),
+                title,
+                scope,
+                order,
+                false));
+        }
+
+        return catalog
+            .OrderBy(x => x.HierarchyOrder)
+            .ThenBy(x => x.RoleTitle)
+            .ToList();
+    }
+
+    private static List<StaffPermissionMatrixItemDto> BuildPermissionMatrix(
+        IReadOnlyList<SchoolStaffHierarchyRoleDto> roleCatalog,
+        IReadOnlyList<StaffPermissionMatrixItemDto>? requested)
+    {
+        var requestedMap = (requested ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x.RoleTitle))
+            .GroupBy(x => x.RoleTitle.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var matrix = new List<StaffPermissionMatrixItemDto>();
+        foreach (var role in roleCatalog)
+        {
+            if (requestedMap.TryGetValue(role.RoleTitle, out var configured))
+            {
+                matrix.Add(configured with { RoleTitle = role.RoleTitle });
+                continue;
+            }
+
+            var lower = role.RoleTitle.ToLowerInvariant();
+            var isLeadership = lower.Contains("head")
+                || lower.Contains("deputy")
+                || lower.Contains("directeur")
+                || lower.Contains("principal");
+            var isClassLead = lower.Contains("class teacher")
+                || lower.Contains("form tutor")
+                || lower.Contains("professeur principal");
+
+            matrix.Add(new StaffPermissionMatrixItemDto(
+                role.RoleTitle,
+                CanManageTeachers: isLeadership,
+                CanAssignClasses: isLeadership || isClassLead,
+                CanApproveResults: isLeadership || isClassLead,
+                CanSendParentBroadcasts: isLeadership || isClassLead,
+                CanManageFees: isLeadership));
+        }
+
+        return matrix;
+    }
+
+    private static string BuildRoleCodeFromTitle(string title)
+    {
+        var chars = title
+            .ToLowerInvariant()
+            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '_')
+            .ToArray();
+        var normalized = new string(chars).Trim('_');
+        while (normalized.Contains("__", StringComparison.Ordinal))
+            normalized = normalized.Replace("__", "_", StringComparison.Ordinal);
+        return string.IsNullOrWhiteSpace(normalized) ? "custom_role" : normalized;
+    }
 }
 
 public record SchoolClassDto(Guid Id, string Name, Guid GradeId, string GradeName, string? AcademicYear);
@@ -1338,3 +1708,53 @@ public record SchoolGradeTemplateCatalogDto(
     string ProfileName,
     string? Description,
     IReadOnlyList<SchoolGradeTemplateItemDto> Templates);
+
+public record StaffHierarchyRoleOptionDto(
+    string RoleCode,
+    string RoleTitle,
+    string DefaultStageScope,
+    int HierarchyOrder);
+
+public record SchoolStaffStructureOptionsDto(
+    string CountryCode,
+    string CountryName,
+    IReadOnlyList<StaffHierarchyRoleOptionDto> RoleOptions,
+    IReadOnlyList<string> ClassAssignmentRoles,
+    IReadOnlyList<string> StageScopes,
+    string Notes);
+
+public record SchoolStaffHierarchyRoleDto(
+    string RoleCode,
+    string RoleTitle,
+    string StageScope,
+    int HierarchyOrder,
+    bool IsSystemDefault);
+
+public record StaffPermissionMatrixItemDto(
+    string RoleTitle,
+    bool CanManageTeachers,
+    bool CanAssignClasses,
+    bool CanApproveResults,
+    bool CanSendParentBroadcasts,
+    bool CanManageFees);
+
+public record SchoolStaffStructureConfigDto(
+    string CountryCode,
+    string CountryName,
+    IReadOnlyList<SchoolStaffHierarchyRoleDto> RoleCatalog,
+    IReadOnlyList<string> ClassAssignmentRoles,
+    IReadOnlyList<string> StageScopes,
+    IReadOnlyList<StaffPermissionMatrixItemDto> PermissionMatrix,
+    DateTime? UpdatedAtUtc,
+    string? UpdatedBy,
+    string Notes);
+
+public record UpdateSchoolStaffStructureConfigRequest(
+    IReadOnlyList<SchoolStaffHierarchyRoleDto>? RoleCatalog,
+    IReadOnlyList<StaffPermissionMatrixItemDto>? PermissionMatrix);
+
+public record StoredSchoolStaffStructureConfigDto(
+    IReadOnlyList<SchoolStaffHierarchyRoleDto> CustomRoleCatalog,
+    IReadOnlyList<StaffPermissionMatrixItemDto> PermissionMatrix,
+    DateTime UpdatedAtUtc,
+    string? UpdatedBy);

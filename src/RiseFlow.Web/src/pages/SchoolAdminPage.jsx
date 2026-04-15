@@ -167,8 +167,15 @@ export default function SchoolAdminPage() {
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
   const [selectedTeacherProfile, setSelectedTeacherProfile] = useState(null);
   const [teacherAssignClassId, setTeacherAssignClassId] = useState('');
+  const [teacherAssignRoleInClass, setTeacherAssignRoleInClass] = useState('');
+  const [customTeacherAssignRoleInClass, setCustomTeacherAssignRoleInClass] = useState('');
   const [assigningTeacherClass, setAssigningTeacherClass] = useState(false);
   const [removingTeacherClassId, setRemovingTeacherClassId] = useState(null);
+  const [staffStructureOptions, setStaffStructureOptions] = useState(null);
+  const [selectedTeacherRoleTitle, setSelectedTeacherRoleTitle] = useState('');
+  const [customTeacherRoleTitle, setCustomTeacherRoleTitle] = useState('');
+  const [selectedTeacherDepartment, setSelectedTeacherDepartment] = useState('');
+  const [savingTeacherRoleProfile, setSavingTeacherRoleProfile] = useState(false);
   const [teacherFieldSettings, setTeacherFieldSettings] = useState([]);
   const [loadingTeacherProfile, setLoadingTeacherProfile] = useState(false);
   const [savingFieldSettingKey, setSavingFieldSettingKey] = useState(null);
@@ -217,9 +224,10 @@ export default function SchoolAdminPage() {
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
       apiFetch('/api/schools/academic-system-profiles').then((r) => readJsonOrThrow(r, 'Failed to load academic system profiles.')),
+      apiFetch('/api/schools/staff-structure-options').then((r) => readJsonOrThrow(r, 'Failed to load staff structure options.')),
     ])
       .then((results) => {
-        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult, staffStructureResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
         const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
@@ -262,6 +270,7 @@ export default function SchoolAdminPage() {
         setGrades(gradeResult.status === 'fulfilled' && Array.isArray(gradeResult.value) ? gradeResult.value : []);
         setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
         setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
+        setStaffStructureOptions(staffStructureResult.status === 'fulfilled' ? staffStructureResult.value : null);
       })
       .catch((err) => {
         const message = /blocked or unreachable|failed to fetch|networkerror/i.test(String(err?.message || ''))
@@ -532,6 +541,42 @@ export default function SchoolAdminPage() {
       }
     }, [currentSchoolId, terminalToggleHydratedSchoolId, treatTerminalGradesAsValid]);
   const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
+  const staffRoleTitles = useMemo(() => dedupeCaseInsensitive([
+    ...(Array.isArray(staffStructureOptions?.roleOptions) ? staffStructureOptions.roleOptions.map((role) => role?.roleTitle) : []),
+    ...teachers.map((teacher) => teacher?.roleTitle),
+  ]), [staffStructureOptions?.roleOptions, teachers]);
+
+  const stageScopeOptions = useMemo(() => dedupeCaseInsensitive([
+    ...(Array.isArray(staffStructureOptions?.stageScopes) ? staffStructureOptions.stageScopes : []),
+    ...teachers.map((teacher) => teacher?.department),
+  ]), [staffStructureOptions?.stageScopes, teachers]);
+
+  const classRoleOptions = useMemo(() => dedupeCaseInsensitive([
+    ...(Array.isArray(staffStructureOptions?.classAssignmentRoles) ? staffStructureOptions.classAssignmentRoles : []),
+    ...teachers.flatMap((teacher) => (teacher.teacherClasses || []).map((tc) => tc?.roleInClass)),
+  ]), [staffStructureOptions?.classAssignmentRoles, teachers]);
+
+  useEffect(() => {
+    if (!selectedTeacher) {
+      setSelectedTeacherRoleTitle('');
+      setCustomTeacherRoleTitle('');
+      setSelectedTeacherDepartment('');
+      setTeacherAssignRoleInClass('');
+      setCustomTeacherAssignRoleInClass('');
+      return;
+    }
+
+    const teacherRoleTitle = selectedTeacher.roleTitle || '';
+    const teacherDepartment = selectedTeacher.department || '';
+    const isKnownRoleTitle = staffRoleTitles.some((item) => item.toLowerCase() === teacherRoleTitle.toLowerCase());
+
+    setSelectedTeacherRoleTitle(isKnownRoleTitle ? teacherRoleTitle : 'custom');
+    setCustomTeacherRoleTitle(isKnownRoleTitle ? '' : teacherRoleTitle);
+    setSelectedTeacherDepartment(teacherDepartment);
+    setTeacherAssignRoleInClass('');
+    setCustomTeacherAssignRoleInClass('');
+  }, [selectedTeacher?.id, selectedTeacher?.roleTitle, selectedTeacher?.department, staffRoleTitles]);
+
   const selectedTeacherClassIds = selectedTeacher
     ? Array.from(new Set([
       ...(selectedTeacher.teacherClasses || []).map((tc) => tc.classId),
@@ -542,20 +587,52 @@ export default function SchoolAdminPage() {
     ? 0
     : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
 
+  const updateTeacherRoleProfile = async () => {
+    if (!selectedTeacher?.id || savingTeacherRoleProfile) return;
+
+    const roleTitle = (selectedTeacherRoleTitle === 'custom' ? customTeacherRoleTitle : selectedTeacherRoleTitle).trim();
+    const department = selectedTeacherDepartment.trim();
+
+    setSavingTeacherRoleProfile(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/teachers/${selectedTeacher.id}/role-profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roleTitle: roleTitle || null,
+          department: department || null,
+        }),
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not update teacher role profile.');
+
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not update teacher role profile.');
+    } finally {
+      setSavingTeacherRoleProfile(false);
+    }
+  };
+
   const assignTeacherToClass = async () => {
     if (!selectedTeacher?.id || !teacherAssignClassId || assigningTeacherClass) return;
+    const roleInClass = (teacherAssignRoleInClass === 'custom' ? customTeacherAssignRoleInClass : teacherAssignRoleInClass).trim();
     setAssigningTeacherClass(true);
     setError(null);
     try {
       const res = await apiFetch(`/api/teachers/${selectedTeacher.id}/classes/${teacherAssignClassId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleInClass: null }),
+        body: JSON.stringify({ roleInClass: roleInClass || null }),
       });
       const text = await res.text().catch(() => '');
       if (!res.ok) throw new Error(text || 'Could not assign teacher to class.');
 
       setTeacherAssignClassId('');
+      setTeacherAssignRoleInClass('');
+      setCustomTeacherAssignRoleInClass('');
       await loadData({ background: true });
       if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
     } catch (e) {
@@ -1614,6 +1691,59 @@ export default function SchoolAdminPage() {
                 <article className="dashboard-card"><p className="dashboard-label">Professional summary</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.highestQualification || selectedTeacher.subjectSpecialization || '—'}</p><p className="dashboard-sub">Experience: {selectedTeacher.yearsOfExperience ?? '—'} years</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Workload</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacherClassIds.length} class(es)</p><p className="dashboard-sub">Handling {selectedTeacherStudentCount} student(s)</p></article>
                 <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+                  <p className="dashboard-label">Hierarchy role setup</p>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={selectedTeacherRoleTitle}
+                      onChange={(e) => setSelectedTeacherRoleTitle(e.target.value)}
+                    >
+                      <option value="">— Select hierarchy role —</option>
+                      {staffRoleTitles.map((roleTitle) => (
+                        <option key={roleTitle} value={roleTitle}>{roleTitle}</option>
+                      ))}
+                      <option value="custom">Custom role</option>
+                    </select>
+
+                    {selectedTeacherRoleTitle === 'custom' && (
+                      <input
+                        className="form-input"
+                        style={{ minWidth: '220px' }}
+                        value={customTeacherRoleTitle}
+                        onChange={(e) => setCustomTeacherRoleTitle(e.target.value)}
+                        placeholder="e.g. Assistant Head Teacher"
+                      />
+                    )}
+
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={selectedTeacherDepartment}
+                      onChange={(e) => setSelectedTeacherDepartment(e.target.value)}
+                    >
+                      <option value="">— Select stage scope / department —</option>
+                      {stageScopeOptions.map((scope) => (
+                        <option key={scope} value={scope}>{scope}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      className="btn-primary-action"
+                      onClick={updateTeacherRoleProfile}
+                      disabled={savingTeacherRoleProfile}
+                    >
+                      {savingTeacherRoleProfile ? 'Saving role…' : 'Save hierarchy role'}
+                    </button>
+                  </div>
+                  <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+                    {staffStructureOptions?.countryName
+                      ? `Country reference: ${staffStructureOptions.countryName} (${staffStructureOptions.countryCode || '—'}).`
+                      : 'Country-specific hierarchy references are loading.'}
+                  </p>
+                </article>
+                <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
                   <p className="dashboard-label">Class assignment</p>
                   <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <select
@@ -1632,6 +1762,29 @@ export default function SchoolAdminPage() {
                           </option>
                         ))}
                     </select>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={teacherAssignRoleInClass}
+                      onChange={(e) => setTeacherAssignRoleInClass(e.target.value)}
+                      disabled={assigningTeacherClass}
+                    >
+                      <option value="">— Role in class (optional) —</option>
+                      {classRoleOptions.map((role) => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                      <option value="custom">Custom class role</option>
+                    </select>
+                    {teacherAssignRoleInClass === 'custom' && (
+                      <input
+                        className="form-input"
+                        style={{ minWidth: '220px' }}
+                        value={customTeacherAssignRoleInClass}
+                        onChange={(e) => setCustomTeacherAssignRoleInClass(e.target.value)}
+                        placeholder="e.g. Assistant Class Teacher"
+                        disabled={assigningTeacherClass}
+                      />
+                    )}
                     <button
                       type="button"
                       className="btn-primary-action"
@@ -1647,6 +1800,7 @@ export default function SchoolAdminPage() {
                     )}
                     {selectedTeacherClassIds.map((classId) => {
                       const assignedClass = classes.find((item) => item.id === classId);
+                      const assignedRole = (selectedTeacher.teacherClasses || []).find((item) => item.classId === classId)?.roleInClass;
                       const label = assignedClass
                         ? `${assignedClass.name}${assignedClass.gradeName ? ` (${assignedClass.gradeName})` : ''}`
                         : classId;
@@ -1659,7 +1813,7 @@ export default function SchoolAdminPage() {
                           disabled={removingTeacherClassId === classId}
                           title="Remove teacher from this class"
                         >
-                          {removingTeacherClassId === classId ? 'Removing…' : `Remove ${label}`}
+                          {removingTeacherClassId === classId ? 'Removing…' : `Remove ${label}${assignedRole ? ` • ${assignedRole}` : ''}`}
                         </button>
                       );
                     })}

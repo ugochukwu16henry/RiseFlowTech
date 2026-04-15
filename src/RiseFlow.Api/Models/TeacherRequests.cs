@@ -73,6 +73,10 @@ public record UpdateTeacherRequest(
 
 public record AssignTeacherToClassRequest(string? RoleInClass);
 
+public record UpdateTeacherRoleProfileRequest(
+    string? RoleTitle,
+    string? Department);
+
 public record TeacherSignupRequest(
     Guid SchoolId,
     string Email,

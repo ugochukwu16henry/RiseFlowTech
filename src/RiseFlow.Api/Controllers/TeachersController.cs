@@ -248,6 +248,40 @@ public class TeachersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id:guid}/role-profile")]
+    [Authorize(Roles = Constants.Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(Teacher), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Teacher>> UpdateRoleProfile(Guid id, [FromBody] UpdateTeacherRoleProfileRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var teacher = await _db.Teachers.FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
+        if (teacher == null)
+            return NotFound();
+
+        var normalizedRoleTitle = string.IsNullOrWhiteSpace(request.RoleTitle)
+            ? null
+            : request.RoleTitle.Trim();
+        var normalizedDepartment = string.IsNullOrWhiteSpace(request.Department)
+            ? null
+            : request.Department.Trim();
+
+        if (normalizedRoleTitle is { Length: > 128 })
+            return BadRequest("Role title must be 128 characters or fewer.");
+        if (normalizedDepartment is { Length: > 128 })
+            return BadRequest("Department must be 128 characters or fewer.");
+
+        teacher.RoleTitle = normalizedRoleTitle;
+        teacher.Department = normalizedDepartment;
+        teacher.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(teacher);
+    }
+
     /// <summary>
     /// Teacher signup via school gateway. AllowAnonymous. Creates ApplicationUser + Teacher profile for the given school and assigns Teacher role.
     /// </summary>
@@ -597,14 +631,22 @@ public class TeachersController : ControllerBase
     {
         if (!_tenant.CurrentSchoolId.HasValue)
             return Forbid();
-        var exists = await _db.TeacherClasses.AnyAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
-        if (exists)
+        var existing = await _db.TeacherClasses.FirstOrDefaultAsync(tc => tc.TeacherId == teacherId && tc.ClassId == classId, ct);
+        if (existing != null)
+        {
+            var normalizedRole = string.IsNullOrWhiteSpace(request?.RoleInClass) ? null : request!.RoleInClass!.Trim();
+            if (!string.Equals(existing.RoleInClass, normalizedRole, StringComparison.Ordinal))
+            {
+                existing.RoleInClass = normalizedRole;
+                await _db.SaveChangesAsync(ct);
+            }
             return NoContent();
+        }
         var link = new TeacherClass
         {
             TeacherId = teacherId,
             ClassId = classId,
-            RoleInClass = request?.RoleInClass,
+            RoleInClass = string.IsNullOrWhiteSpace(request?.RoleInClass) ? null : request!.RoleInClass!.Trim(),
             AssignedAtUtc = DateTime.UtcNow
         };
         _db.TeacherClasses.Add(link);
