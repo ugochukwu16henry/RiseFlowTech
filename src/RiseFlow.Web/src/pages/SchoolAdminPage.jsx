@@ -37,8 +37,11 @@ export default function SchoolAdminPage() {
   const [logoUploadError, setLogoUploadError] = useState(null);
   const [schoolProfileError, setSchoolProfileError] = useState(null);
   const [academicProfileError, setAcademicProfileError] = useState(null);
+  const [promotionTransitionError, setPromotionTransitionError] = useState(null);
   const [academicProfiles, setAcademicProfiles] = useState([]);
   const [savingAcademicProfile, setSavingAcademicProfile] = useState(false);
+  const [savingPromotionTransition, setSavingPromotionTransition] = useState(false);
+  const [promotionTransitionDraft, setPromotionTransitionDraft] = useState('');
   const [schoolProfile, setSchoolProfile] = useState({
     name: '',
     ownerName: '',
@@ -55,6 +58,8 @@ export default function SchoolAdminPage() {
     academicSystemProfileId: null,
     academicSystemProfileCode: null,
     academicSystemProfileName: null,
+    promotionTransitionOverrideJson: null,
+    effectivePromotionTransitionJson: null,
   });
   const [savingClassId, setSavingClassId] = useState(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
@@ -125,6 +130,8 @@ export default function SchoolAdminPage() {
 
         setDashboard(dash);
         if (profile) {
+          const overrideTransitionJson = profile.promotionTransitionOverrideJson || null;
+          const effectiveTransitionJson = profile.effectivePromotionTransitionJson || null;
           setSchoolProfile({
             name: profile.name || '',
             ownerName: profile.ownerName || '',
@@ -141,7 +148,10 @@ export default function SchoolAdminPage() {
             academicSystemProfileId: profile.academicSystemProfileId || null,
             academicSystemProfileCode: profile.academicSystemProfileCode || null,
             academicSystemProfileName: profile.academicSystemProfileName || null,
+            promotionTransitionOverrideJson: overrideTransitionJson,
+            effectivePromotionTransitionJson: effectiveTransitionJson,
           });
+          setPromotionTransitionDraft(overrideTransitionJson || effectiveTransitionJson || '');
         }
         setAcademicProfiles(profileOptionsResult.status === 'fulfilled' && Array.isArray(profileOptionsResult.value) ? profileOptionsResult.value : []);
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
@@ -506,6 +516,8 @@ export default function SchoolAdminPage() {
           academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
           academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
           academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
+          promotionTransitionOverrideJson: updated.promotionTransitionOverrideJson || current.promotionTransitionOverrideJson,
+          effectivePromotionTransitionJson: updated.effectivePromotionTransitionJson || current.effectivePromotionTransitionJson,
         }));
       }
 
@@ -534,12 +546,17 @@ export default function SchoolAdminPage() {
 
       const updated = text ? JSON.parse(text) : null;
       if (updated) {
+        const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
+        const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
         setSchoolProfile((current) => ({
           ...current,
           academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
           academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
           academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
+          promotionTransitionOverrideJson: overrideTransitionJson,
+          effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
+        setPromotionTransitionDraft(overrideTransitionJson || effectiveTransitionJson || '');
       }
 
       await loadData({ background: true });
@@ -547,6 +564,81 @@ export default function SchoolAdminPage() {
       setAcademicProfileError(e.message || 'Could not update academic system profile.');
     } finally {
       setSavingAcademicProfile(false);
+    }
+  };
+
+  const normalizeJsonForEditor = (raw) => {
+    if (!raw || !String(raw).trim()) return '';
+    try {
+      return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      return raw;
+    }
+  };
+
+  const savePromotionTransitionOverride = async () => {
+    if (savingPromotionTransition) return;
+
+    setSavingPromotionTransition(true);
+    setPromotionTransitionError(null);
+    try {
+      const res = await apiFetch('/api/schools/profile/promotion-transition', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promotionTransitionJson: promotionTransitionDraft }),
+      });
+
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not save promotion transition rules.');
+
+      const updated = text ? JSON.parse(text) : null;
+      if (updated) {
+        const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
+        const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
+        setSchoolProfile((current) => ({
+          ...current,
+          promotionTransitionOverrideJson: overrideTransitionJson,
+          effectivePromotionTransitionJson: effectiveTransitionJson,
+        }));
+        setPromotionTransitionDraft(normalizeJsonForEditor(overrideTransitionJson || effectiveTransitionJson || ''));
+      }
+    } catch (e) {
+      setPromotionTransitionError(e.message || 'Could not save promotion transition rules.');
+    } finally {
+      setSavingPromotionTransition(false);
+    }
+  };
+
+  const resetPromotionTransitionsToProfileDefault = async () => {
+    if (savingPromotionTransition) return;
+
+    setSavingPromotionTransition(true);
+    setPromotionTransitionError(null);
+    try {
+      const res = await apiFetch('/api/schools/profile/promotion-transition', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ useProfileDefault: true }),
+      });
+
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not reset promotion transition rules.');
+
+      const updated = text ? JSON.parse(text) : null;
+      if (updated) {
+        const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
+        const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
+        setSchoolProfile((current) => ({
+          ...current,
+          promotionTransitionOverrideJson: overrideTransitionJson,
+          effectivePromotionTransitionJson: effectiveTransitionJson,
+        }));
+        setPromotionTransitionDraft(normalizeJsonForEditor(effectiveTransitionJson || ''));
+      }
+    } catch (e) {
+      setPromotionTransitionError(e.message || 'Could not reset promotion transition rules.');
+    } finally {
+      setSavingPromotionTransition(false);
     }
   };
 
@@ -1292,6 +1384,45 @@ export default function SchoolAdminPage() {
           </button>
         </div>
         {academicProfileError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{academicProfileError}</p>}
+      </section>
+
+      <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="Promotion transition rules">
+        <h3 className="card-title">Promotion transition rules</h3>
+        <p className="card-desc">
+          Define exactly which target grade(s) each source grade can promote into. This override is school-specific and used when strict promotion validation is enabled.
+        </p>
+        <label className="form-field form-field--full" style={{ marginTop: '0.75rem' }}>Transition map JSON
+          <textarea
+            className="form-input"
+            rows={12}
+            value={promotionTransitionDraft}
+            onChange={(e) => setPromotionTransitionDraft(e.target.value)}
+            placeholder='{"Primary 1":["Primary 2"],"Primary 2":["Primary 3"]}'
+            spellCheck={false}
+          />
+        </label>
+        <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+          Current mode: {schoolProfile.promotionTransitionOverrideJson ? 'Custom school override' : 'Using academic profile defaults'}.
+        </p>
+        <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn-primary-action"
+            onClick={savePromotionTransitionOverride}
+            disabled={savingPromotionTransition || !promotionTransitionDraft.trim()}
+          >
+            {savingPromotionTransition ? 'Saving rules…' : 'Save promotion rules'}
+          </button>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={resetPromotionTransitionsToProfileDefault}
+            disabled={savingPromotionTransition || !schoolProfile.promotionTransitionOverrideJson}
+          >
+            Use profile defaults
+          </button>
+        </div>
+        {promotionTransitionError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{promotionTransitionError}</p>}
       </section>
 
       <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="School profile information">

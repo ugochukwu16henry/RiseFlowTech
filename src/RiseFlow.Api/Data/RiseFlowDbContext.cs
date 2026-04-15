@@ -102,6 +102,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.WhatsAppNumber).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.CacNumber).HasMaxLength(64);
+            e.Property(x => x.PromotionTransitionOverrideJson).HasMaxLength(12000);
             e.Property(x => x.AffiliateReferralCodeUsed).HasMaxLength(64);
             e.Property(x => x.CountryCode).HasMaxLength(2);
             e.Property(x => x.CurrencyCode).HasMaxLength(3);

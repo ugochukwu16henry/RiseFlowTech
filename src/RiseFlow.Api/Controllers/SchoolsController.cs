@@ -89,28 +89,14 @@ public class SchoolsController : ControllerBase
             return Forbid();
 
         var schoolId = _tenant.CurrentSchoolId.Value;
-        var school = await _db.Schools.AsNoTracking().FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        var school = await _db.Schools
+            .AsNoTracking()
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
         if (school == null)
             return NotFound();
 
-        return Ok(new SchoolProfileDto(
-            school.Id,
-            school.Name,
-            school.OwnerName,
-            school.SchoolAdminName,
-            school.PrincipalName,
-            school.Address,
-            school.CountryCode,
-            school.Email,
-            school.Phone,
-            school.WhatsAppNumber,
-            school.CacNumber,
-            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
-            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
-            school.AcademicSystemProfileId,
-            school.AcademicSystemProfile?.Code,
-            school.AcademicSystemProfile?.Name,
-            school.UpdatedAtUtc));
+        return Ok(ToSchoolProfileDto(school));
     }
 
     /// <summary>List active academic system profiles for school setup.</summary>
@@ -187,24 +173,7 @@ public class SchoolsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new SchoolProfileDto(
-            school.Id,
-            school.Name,
-            school.OwnerName,
-            school.SchoolAdminName,
-            school.PrincipalName,
-            school.Address,
-            school.CountryCode,
-            school.Email,
-            school.Phone,
-            school.WhatsAppNumber,
-            school.CacNumber,
-            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
-            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
-            school.AcademicSystemProfileId,
-            school.AcademicSystemProfile?.Code,
-            school.AcademicSystemProfile?.Name,
-            school.UpdatedAtUtc));
+        return Ok(ToSchoolProfileDto(school));
     }
 
     /// <summary>Set academic system profile for current school.</summary>
@@ -233,27 +202,50 @@ public class SchoolsController : ControllerBase
             return BadRequest("Selected academic system profile was not found.");
 
         school.AcademicSystemProfileId = profile.Id;
+        school.PromotionTransitionOverrideJson = null;
         school.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new SchoolProfileDto(
-            school.Id,
-            school.Name,
-            school.OwnerName,
-            school.SchoolAdminName,
-            school.PrincipalName,
-            school.Address,
-            school.CountryCode,
-            school.Email,
-            school.Phone,
-            school.WhatsAppNumber,
-            school.CacNumber,
-            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
-            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
-            profile.Id,
-            profile.Code,
-            profile.Name,
-            school.UpdatedAtUtc));
+        return Ok(ToSchoolProfileDto(school, profile));
+    }
+
+    /// <summary>Set or clear school-specific promotion transition rules (JSON map from source grade to allowed target grades).</summary>
+    [HttpPut("profile/promotion-transition")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(SchoolProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolProfileDto>> UpdatePromotionTransitions([FromBody] UpdatePromotionTransitionRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        if (request == null)
+            return BadRequest("Promotion transition payload is required.");
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var school = await _db.Schools
+            .Include(s => s.AcademicSystemProfile)
+            .FirstOrDefaultAsync(s => s.Id == schoolId, ct);
+        if (school == null)
+            return NotFound();
+
+        if (request.UseProfileDefault)
+        {
+            school.PromotionTransitionOverrideJson = null;
+            school.UpdatedAtUtc = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            return Ok(ToSchoolProfileDto(school));
+        }
+
+        if (!TryNormalizeTransitionJson(request.PromotionTransitionJson, out var normalizedJson, out var error))
+            return BadRequest(error);
+
+        school.PromotionTransitionOverrideJson = normalizedJson;
+        school.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(ToSchoolProfileDto(school));
     }
 
     /// <summary>List classes for the current school (for dropdowns e.g. Add student). SchoolAdmin/Teacher.</summary>
@@ -801,6 +793,90 @@ public class SchoolsController : ControllerBase
         };
     }
 
+    private static SchoolProfileDto ToSchoolProfileDto(School school, AcademicSystemProfile? profile = null)
+    {
+        var selectedProfile = profile ?? school.AcademicSystemProfile;
+        var effectivePromotionTransitionJson = string.IsNullOrWhiteSpace(school.PromotionTransitionOverrideJson)
+            ? selectedProfile?.PromotionTransitionJson
+            : school.PromotionTransitionOverrideJson;
+
+        return new SchoolProfileDto(
+            school.Id,
+            school.Name,
+            school.OwnerName,
+            school.SchoolAdminName,
+            school.PrincipalName,
+            school.Address,
+            school.CountryCode,
+            school.Email,
+            school.Phone,
+            school.WhatsAppNumber,
+            school.CacNumber,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : BuildSchoolLogoPath(school.Id),
+            string.IsNullOrWhiteSpace(school.RegistrationDocumentPath) ? null : BuildRegistrationDocumentPath(school.Id),
+            school.AcademicSystemProfileId,
+            selectedProfile?.Code,
+            selectedProfile?.Name,
+            school.PromotionTransitionOverrideJson,
+            effectivePromotionTransitionJson,
+            school.UpdatedAtUtc);
+    }
+
+    private static bool TryNormalizeTransitionJson(string? rawJson, out string? normalizedJson, out string? error)
+    {
+        normalizedJson = null;
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(rawJson))
+        {
+            error = "PromotionTransitionJson is required unless UseProfileDefault is true.";
+            return false;
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(rawJson);
+            if (parsed == null || parsed.Count == 0)
+            {
+                error = "PromotionTransitionJson must be a non-empty object mapping source grades to target grade arrays.";
+                return false;
+            }
+
+            var normalized = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in parsed)
+            {
+                var source = (entry.Key ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(source))
+                {
+                    error = "PromotionTransitionJson contains an empty source grade key.";
+                    return false;
+                }
+
+                var targets = (entry.Value ?? new List<string>())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (targets.Count == 0)
+                {
+                    error = $"PromotionTransitionJson must include at least one target grade for source '{source}'.";
+                    return false;
+                }
+
+                normalized[source] = targets;
+            }
+
+            normalizedJson = JsonSerializer.Serialize(normalized);
+            return true;
+        }
+        catch (JsonException)
+        {
+            error = "PromotionTransitionJson must be valid JSON (e.g. {\"Primary 1\":[\"Primary 2\"]}).";
+            return false;
+        }
+    }
+
     private static List<SchoolGradeTemplateItemDto> ParseGradeTemplates(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -895,6 +971,8 @@ public record SchoolProfileDto(
     Guid? AcademicSystemProfileId,
     string? AcademicSystemProfileCode,
     string? AcademicSystemProfileName,
+    string? PromotionTransitionOverrideJson,
+    string? EffectivePromotionTransitionJson,
     DateTime? UpdatedAtUtc);
 
 public record SchoolBrandingDto(
@@ -912,6 +990,8 @@ public record AcademicSystemProfileOptionDto(
     string? DefaultGradingScaleCode);
 
 public record UpdateAcademicSystemProfileRequest(Guid AcademicSystemProfileId);
+
+public record UpdatePromotionTransitionRequest(string? PromotionTransitionJson, bool UseProfileDefault = false);
 
 public record SchoolGradeTemplateItemDto(
     string Label,

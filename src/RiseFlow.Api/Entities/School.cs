@@ -19,6 +19,7 @@ public class School
     /// <summary>CAC registration number for Nigerian business verification.</summary>
     public string? CacNumber { get; set; }
     public Guid? AcademicSystemProfileId { get; set; }
+    public string? PromotionTransitionOverrideJson { get; set; }
     public Guid? AffiliateId { get; set; }
     public string? AffiliateReferralCodeUsed { get; set; }
     /// <summary>ISO 3166-1 alpha-2 (e.g. NG, GH, KE). Used for billing and localization.</summary>

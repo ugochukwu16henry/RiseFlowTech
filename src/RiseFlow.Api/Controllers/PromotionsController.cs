@@ -359,7 +359,7 @@ public class PromotionsController : ControllerBase
             return null;
 
         var transitionError = ValidateMatrixPromotion(
-            academicProfile?.PromotionTransitionJson,
+            school?.PromotionTransitionOverrideJson ?? academicProfile?.PromotionTransitionJson,
             sourceClass.Grade.Name,
             targetClass.Grade.Name);
         if (!string.IsNullOrWhiteSpace(transitionError))

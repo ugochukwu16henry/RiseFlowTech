@@ -342,6 +342,8 @@ static async Task EnsureSqliteDevelopmentSchemaAsync(RiseFlowDbContext context, 
         var schoolColumns = await GetColumnsAsync("Schools");
         if (!schoolColumns.Contains("AcademicSystemProfileId"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AcademicSystemProfileId\" TEXT NULL;");
+        if (!schoolColumns.Contains("PromotionTransitionOverrideJson"))
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"PromotionTransitionOverrideJson\" TEXT NULL;");
         if (!schoolColumns.Contains("AffiliateId"))
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"Schools\" ADD COLUMN \"AffiliateId\" TEXT NULL;");
         if (!schoolColumns.Contains("AffiliateReferralCodeUsed"))
@@ -791,6 +793,7 @@ ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "CacNumber" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "WhatsAppNumber" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "RegistrationDocumentPath" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AcademicSystemProfileId" uuid NULL;
+ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "PromotionTransitionOverrideJson" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateId" uuid NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "AffiliateReferralCodeUsed" text NULL;
 ALTER TABLE IF EXISTS "Schools" ADD COLUMN IF NOT EXISTS "DataConsentFormReceivedAt" timestamp with time zone NULL;
