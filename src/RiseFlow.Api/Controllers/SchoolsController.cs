@@ -817,6 +817,7 @@ public class SchoolsController : ControllerBase
             school.AcademicSystemProfileId,
             selectedProfile?.Code,
             selectedProfile?.Name,
+            selectedProfile?.PromotionTransitionJson,
             school.PromotionTransitionOverrideJson,
             effectivePromotionTransitionJson,
             school.UpdatedAtUtc);
@@ -971,6 +972,7 @@ public record SchoolProfileDto(
     Guid? AcademicSystemProfileId,
     string? AcademicSystemProfileCode,
     string? AcademicSystemProfileName,
+    string? ProfilePromotionTransitionJson,
     string? PromotionTransitionOverrideJson,
     string? EffectivePromotionTransitionJson,
     DateTime? UpdatedAtUtc);

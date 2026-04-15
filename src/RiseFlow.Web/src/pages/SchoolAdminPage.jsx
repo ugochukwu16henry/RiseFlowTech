@@ -62,6 +62,15 @@ function toPrettyTransitionJson(map) {
   return JSON.stringify(next, null, 2);
 }
 
+function formatTransitionJsonForEditor(raw) {
+  if (!raw || !String(raw).trim()) return '';
+  try {
+    return toPrettyTransitionJson(JSON.parse(raw));
+  } catch {
+    return String(raw);
+  }
+}
+
 function normalizeNameKey(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -139,6 +148,7 @@ export default function SchoolAdminPage() {
     academicSystemProfileId: null,
     academicSystemProfileCode: null,
     academicSystemProfileName: null,
+    profilePromotionTransitionJson: null,
     promotionTransitionOverrideJson: null,
     effectivePromotionTransitionJson: null,
   });
@@ -212,6 +222,7 @@ export default function SchoolAdminPage() {
 
         setDashboard(dash);
         if (profile) {
+          const profileTransitionJson = profile.profilePromotionTransitionJson || null;
           const overrideTransitionJson = profile.promotionTransitionOverrideJson || null;
           const effectiveTransitionJson = profile.effectivePromotionTransitionJson || null;
           setSchoolProfile({
@@ -230,6 +241,7 @@ export default function SchoolAdminPage() {
             academicSystemProfileId: profile.academicSystemProfileId || null,
             academicSystemProfileCode: profile.academicSystemProfileCode || null,
             academicSystemProfileName: profile.academicSystemProfileName || null,
+            profilePromotionTransitionJson: profileTransitionJson,
             promotionTransitionOverrideJson: overrideTransitionJson,
             effectivePromotionTransitionJson: effectiveTransitionJson,
           });
@@ -400,22 +412,29 @@ export default function SchoolAdminPage() {
   const currentBilling = billing.length > 0 ? billing[0] : null;
   const outstanding = currentBilling ? Math.max(0, (currentBilling.amountDue || 0) - (currentBilling.amountPaid || 0)) : 0;
   const currentSchoolId = dashboard?.schoolId || null;
+  const serverTransitionDraftValue = formatTransitionJsonForEditor(
+    schoolProfile.promotionTransitionOverrideJson
+      || schoolProfile.effectivePromotionTransitionJson
+      || '',
+  );
 
   useEffect(() => {
     if (!currentSchoolId || transitionDraftHydratedSchoolId === currentSchoolId) return;
 
-    const serverValue = schoolProfile.promotionTransitionOverrideJson
-      || schoolProfile.effectivePromotionTransitionJson
-      || '';
+    const serverValue = serverTransitionDraftValue;
 
     let nextDraft = serverValue;
     let usedCachedDraft = false;
     if (typeof localStorage !== 'undefined') {
       try {
-        const cached = localStorage.getItem(buildTransitionDraftStorageKey(currentSchoolId));
-        if (typeof cached === 'string' && cached.trim()) {
-          nextDraft = cached;
+        const key = buildTransitionDraftStorageKey(currentSchoolId);
+        const cached = localStorage.getItem(key);
+        const cachedValue = formatTransitionJsonForEditor(cached || '');
+        if (cachedValue && cachedValue !== serverValue) {
+          nextDraft = cachedValue;
           usedCachedDraft = true;
+        } else if (cachedValue && cachedValue === serverValue) {
+          localStorage.removeItem(key);
         }
       } catch {
         // ignore storage read errors
@@ -428,8 +447,7 @@ export default function SchoolAdminPage() {
   }, [
     currentSchoolId,
     transitionDraftHydratedSchoolId,
-    schoolProfile.promotionTransitionOverrideJson,
-    schoolProfile.effectivePromotionTransitionJson,
+    serverTransitionDraftValue,
   ]);
 
   useEffect(() => {
@@ -437,15 +455,16 @@ export default function SchoolAdminPage() {
 
     try {
       const key = buildTransitionDraftStorageKey(currentSchoolId);
-      if (!promotionTransitionDraft.trim()) {
+      const draftValue = formatTransitionJsonForEditor(promotionTransitionDraft);
+      if (!draftValue || draftValue === serverTransitionDraftValue) {
         localStorage.removeItem(key);
       } else {
-        localStorage.setItem(key, promotionTransitionDraft);
+        localStorage.setItem(key, draftValue);
       }
     } catch {
       // ignore storage write errors
     }
-  }, [currentSchoolId, transitionDraftHydratedSchoolId, promotionTransitionDraft]);
+  }, [currentSchoolId, transitionDraftHydratedSchoolId, promotionTransitionDraft, serverTransitionDraftValue]);
 
     useEffect(() => {
       if (!currentSchoolId || typeof localStorage === 'undefined') return;
@@ -673,6 +692,7 @@ export default function SchoolAdminPage() {
           academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
           academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
           academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
+          profilePromotionTransitionJson: updated.profilePromotionTransitionJson || current.profilePromotionTransitionJson,
           promotionTransitionOverrideJson: updated.promotionTransitionOverrideJson || current.promotionTransitionOverrideJson,
           effectivePromotionTransitionJson: updated.effectivePromotionTransitionJson || current.effectivePromotionTransitionJson,
         }));
@@ -703,6 +723,7 @@ export default function SchoolAdminPage() {
 
       const updated = text ? JSON.parse(text) : null;
       if (updated) {
+        const profileTransitionJson = updated.profilePromotionTransitionJson || null;
         const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
         const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
         setSchoolProfile((current) => ({
@@ -710,6 +731,7 @@ export default function SchoolAdminPage() {
           academicSystemProfileId: updated.academicSystemProfileId || current.academicSystemProfileId,
           academicSystemProfileCode: updated.academicSystemProfileCode || current.academicSystemProfileCode,
           academicSystemProfileName: updated.academicSystemProfileName || current.academicSystemProfileName,
+          profilePromotionTransitionJson: profileTransitionJson,
           promotionTransitionOverrideJson: overrideTransitionJson,
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
@@ -725,12 +747,33 @@ export default function SchoolAdminPage() {
   };
 
   const normalizeJsonForEditor = (raw) => {
-    if (!raw || !String(raw).trim()) return '';
-    try {
-      return toPrettyTransitionJson(JSON.parse(raw));
-    } catch {
-      return raw;
+    return formatTransitionJsonForEditor(raw);
+  };
+
+  const discardLocalTransitionDraft = () => {
+    setPromotionTransitionDraft(serverTransitionDraftValue);
+    setPromotionTransitionError(null);
+    setIsTransitionDraftFromCache(false);
+
+    if (currentSchoolId && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(buildTransitionDraftStorageKey(currentSchoolId));
+      } catch {
+        // ignore storage write errors
+      }
     }
+  };
+
+  const revertEditorToProfileDefaultTransitions = () => {
+    const profileDraft = formatTransitionJsonForEditor(schoolProfile.profilePromotionTransitionJson || '');
+    if (!profileDraft) {
+      setPromotionTransitionError('No profile-default transition map is available for the selected academic profile.');
+      return;
+    }
+
+    setPromotionTransitionDraft(profileDraft);
+    setPromotionTransitionError(null);
+    setIsTransitionDraftFromCache(false);
   };
 
   const parsedTransitionDraft = useMemo(() => parseTransitionJson(promotionTransitionDraft), [promotionTransitionDraft]);
@@ -909,10 +952,12 @@ export default function SchoolAdminPage() {
 
       const updated = text ? JSON.parse(text) : null;
       if (updated) {
+        const profileTransitionJson = updated.profilePromotionTransitionJson || null;
         const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
         const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
         setSchoolProfile((current) => ({
           ...current,
+          profilePromotionTransitionJson: profileTransitionJson,
           promotionTransitionOverrideJson: overrideTransitionJson,
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
@@ -950,10 +995,12 @@ export default function SchoolAdminPage() {
 
       const updated = text ? JSON.parse(text) : null;
       if (updated) {
+        const profileTransitionJson = updated.profilePromotionTransitionJson || null;
         const overrideTransitionJson = updated.promotionTransitionOverrideJson || null;
         const effectiveTransitionJson = updated.effectivePromotionTransitionJson || null;
         setSchoolProfile((current) => ({
           ...current,
+          profilePromotionTransitionJson: profileTransitionJson,
           promotionTransitionOverrideJson: overrideTransitionJson,
           effectivePromotionTransitionJson: effectiveTransitionJson,
         }));
@@ -1876,6 +1923,22 @@ export default function SchoolAdminPage() {
         </p>
         {transitionParseError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{transitionParseError}</p>}
         <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={discardLocalTransitionDraft}
+            disabled={savingPromotionTransition || !isTransitionDraftFromCache}
+          >
+            Discard local draft
+          </button>
+          <button
+            type="button"
+            className="btn-primary-action btn-primary-action--ghost"
+            onClick={revertEditorToProfileDefaultTransitions}
+            disabled={savingPromotionTransition || !schoolProfile.profilePromotionTransitionJson}
+          >
+            Revert editor to profile defaults
+          </button>
           <button
             type="button"
             className="btn-primary-action btn-primary-action--ghost"
