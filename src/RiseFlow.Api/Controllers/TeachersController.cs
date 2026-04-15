@@ -427,7 +427,8 @@ public class TeachersController : ControllerBase
         var lastName = (request.LastName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(firstName)) firstName = email.Split('@')[0];
         var assignedRole = request.IsStaffAccount ? Constants.Roles.Staff : Constants.Roles.Teacher;
-        var roleTitle = string.IsNullOrWhiteSpace(request.RoleTitle) ? "Teacher" : request.RoleTitle.Trim();
+        var defaultRoleTitle = request.IsStaffAccount ? "Support Staff" : "Teacher";
+        var roleTitle = string.IsNullOrWhiteSpace(request.RoleTitle) ? defaultRoleTitle : request.RoleTitle.Trim();
         var department = string.IsNullOrWhiteSpace(request.Department) ? null : request.Department.Trim();
 
         var user = new ApplicationUser
@@ -446,8 +447,20 @@ public class TeachersController : ControllerBase
         if (!createResult.Succeeded)
             return BadRequest(string.Join(" ", createResult.Errors.Select(e => e.Description)));
 
-        await _userManager.AddToRoleAsync(user, assignedRole);
-        await _userManager.AddClaimAsync(user, new Claim("SchoolId", request.SchoolId.ToString()));
+        var addRoleResult = await _userManager.AddToRoleAsync(user, assignedRole);
+        if (!addRoleResult.Succeeded)
+        {
+            await _userManager.DeleteAsync(user);
+            return BadRequest(string.Join(" ", addRoleResult.Errors.Select(e => e.Description)));
+        }
+
+        var addClaimResult = await _userManager.AddClaimAsync(user, new Claim("SchoolId", request.SchoolId.ToString()));
+        if (!addClaimResult.Succeeded)
+        {
+            await _userManager.RemoveFromRoleAsync(user, assignedRole);
+            await _userManager.DeleteAsync(user);
+            return BadRequest(string.Join(" ", addClaimResult.Errors.Select(e => e.Description)));
+        }
 
         var teacher = new Teacher
         {

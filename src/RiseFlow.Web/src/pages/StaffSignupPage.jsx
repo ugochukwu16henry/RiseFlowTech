@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
-import { getApiBase } from '../api';
+import { apiFetch } from '../api';
 import './RolePages.css';
 import './ClaimChildPage.css';
 
@@ -36,9 +36,8 @@ export default function StaffSignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${getApiBase()}/api/teachers/signup`, {
+      const res = await apiFetch('/api/teachers/signup', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schoolId,
@@ -79,7 +78,7 @@ export default function StaffSignupPage() {
         return;
       }
 
-      navigate('/staff', { replace: true });
+      navigate('/login', { replace: true });
     } catch (err) {
       setError(err.message || 'Network error.');
     } finally {
@@ -89,7 +88,7 @@ export default function StaffSignupPage() {
 
   if (!schoolId) {
     return (
-      <PageLayout title="Staff signup" role="teacher">
+      <PageLayout title="Staff signup" role="staff">
         <div className="claim-child">
           <p className="empty-state empty-state--error">
             This signup link is invalid or missing the school. Ask your school admin to resend your staff signup link.
@@ -103,7 +102,7 @@ export default function StaffSignupPage() {
   }
 
   return (
-    <PageLayout title="Staff signup" role="teacher">
+    <PageLayout title="Staff signup" role="staff">
       <div className="claim-child parent-signup">
         <p className="card-desc">
           Create your staff account for this school. After signup, sign in through your school&apos;s login to see your dashboard.
