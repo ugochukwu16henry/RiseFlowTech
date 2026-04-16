@@ -139,6 +139,19 @@ function buildDeniedAttemptsCsv(rows) {
   return `${lines.join('\n')}\n`;
 }
 
+function buildClassSubjectCoverageCsv(rows) {
+  const header = ['Class', 'Subject', 'Order'];
+  const lines = [header.map(toCsvCell).join(',')];
+  rows.forEach((row) => {
+    lines.push([
+      row.className || '',
+      row.subjectName || '',
+      row.order ?? '',
+    ].map(toCsvCell).join(','));
+  });
+  return `${lines.join('\n')}\n`;
+}
+
 function resolvePeopleRole(person) {
   const fromApi = String(person?.personRole || '').trim();
   if (fromApi.toLowerCase() === 'staff') return 'Staff';
@@ -243,6 +256,12 @@ export default function SchoolAdminPage({ view = 'overview' }) {
   const [teacherSubjectSubjectId, setTeacherSubjectSubjectId] = useState('');
   const [savingTeacherClassSubject, setSavingTeacherClassSubject] = useState(false);
   const [removingTeacherClassSubjectKey, setRemovingTeacherClassSubjectKey] = useState(null);
+  const [classSubjectAuditRows, setClassSubjectAuditRows] = useState([]);
+  const [classSubjectAuditLoading, setClassSubjectAuditLoading] = useState(false);
+  const [classSubjectAuditError, setClassSubjectAuditError] = useState(null);
+  const [classSubjectAuditClassFilter, setClassSubjectAuditClassFilter] = useState('');
+  const [classSubjectAuditSubjectFilter, setClassSubjectAuditSubjectFilter] = useState('');
+  const [exportingClassSubjectCoverage, setExportingClassSubjectCoverage] = useState(false);
   const [staffStructureOptions, setStaffStructureOptions] = useState(null);
   const [staffStructureConfig, setStaffStructureConfig] = useState(null);
   const [staffPermissionMatrixDraft, setStaffPermissionMatrixDraft] = useState([]);
@@ -819,6 +838,67 @@ export default function SchoolAdminPage({ view = 'overview' }) {
     });
     return map;
   }, [subjects]);
+  const loadClassSubjectAuditRows = useCallback(async () => {
+    if (subjects.length === 0) {
+      setClassSubjectAuditRows([]);
+      setClassSubjectAuditError(null);
+      return;
+    }
+
+    setClassSubjectAuditLoading(true);
+    setClassSubjectAuditError(null);
+    try {
+      const detailedSubjects = await Promise.allSettled(subjects.map(async (subject) => {
+        const res = await apiFetch(`/api/subjects/${subject.id}`);
+        if (!res.ok) throw new Error(await res.text().catch(() => ''));
+        return res.json();
+      }));
+
+      const rows = [];
+      detailedSubjects.forEach((result, index) => {
+        const fallbackSubject = subjects[index] || null;
+        if (result.status !== 'fulfilled') {
+          return;
+        }
+
+        const subjectData = result.value || {};
+        const subjectId = subjectData.id || fallbackSubject?.id;
+        const subjectName = subjectData.name || fallbackSubject?.name || subjectId;
+        const classSubjects = Array.isArray(subjectData.classSubjects) ? subjectData.classSubjects : [];
+
+        classSubjects.forEach((link) => {
+          const classId = link.classId || link.class?.id;
+          if (!classId || !subjectId) return;
+          rows.push({
+            classId,
+            subjectId,
+            className: link.class?.name || classNameById.get(classId) || classId,
+            subjectName,
+            order: Number.isInteger(link.order) ? link.order : null,
+          });
+        });
+      });
+
+      const deduped = Array.from(new Map(rows.map((row) => [`${row.classId}:${row.subjectId}`, row])).values())
+        .sort((a, b) => {
+          const left = `${a.className} ${a.subjectName}`.toLowerCase();
+          const right = `${b.className} ${b.subjectName}`.toLowerCase();
+          return left.localeCompare(right);
+        });
+
+      setClassSubjectAuditRows(deduped);
+    } catch (e) {
+      setClassSubjectAuditRows([]);
+      setClassSubjectAuditError(e.message || 'Could not load class-subject coverage.');
+    } finally {
+      setClassSubjectAuditLoading(false);
+    }
+  }, [classNameById, subjects]);
+  const filteredClassSubjectAuditRows = useMemo(() => classSubjectAuditRows.filter((row) => {
+    if (classSubjectAuditClassFilter && row.classId !== classSubjectAuditClassFilter) return false;
+    if (classSubjectAuditSubjectFilter && row.subjectId !== classSubjectAuditSubjectFilter) return false;
+    return true;
+  }), [classSubjectAuditClassFilter, classSubjectAuditRows, classSubjectAuditSubjectFilter]);
   const selectedTeacherClassSubjects = useMemo(() => {
     const rows = selectedTeacher?.teacherClassSubjects || [];
     return rows
@@ -839,6 +919,11 @@ export default function SchoolAdminPage({ view = 'overview' }) {
     ? 0
     : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
 
+  useEffect(() => {
+    if (activeView !== 'people') return;
+    loadClassSubjectAuditRows();
+  }, [activeView, loadClassSubjectAuditRows]);
+
   const assignSubjectToClass = async () => {
     if (!classSubjectClassId || !classSubjectSubjectId || savingClassSubject) return;
     setSavingClassSubject(true);
@@ -853,6 +938,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       setClassSubjectClassId('');
       setClassSubjectSubjectId('');
       await loadData({ background: true });
+      await loadClassSubjectAuditRows();
       if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
     } catch (e) {
       setError(e.message || 'Could not assign subject to class.');
@@ -873,6 +959,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       if (!res.ok) throw new Error(text || 'Could not remove subject from class.');
 
       await loadData({ background: true });
+      await loadClassSubjectAuditRows();
       if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
     } catch (e) {
       setError(e.message || 'Could not remove subject from class.');
@@ -1142,6 +1229,26 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       URL.revokeObjectURL(url);
     } finally {
       setExportingDeniedAttempts(false);
+    }
+  };
+
+  const exportClassSubjectCoverageCsv = async () => {
+    if (filteredClassSubjectAuditRows.length === 0 || exportingClassSubjectCoverage) return;
+    setExportingClassSubjectCoverage(true);
+    try {
+      const csv = buildClassSubjectCoverageCsv(filteredClassSubjectAuditRows);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `class-subject-coverage-${stamp}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingClassSubjectCoverage(false);
     }
   };
 
@@ -2374,6 +2481,106 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                         </td>
                         <td>{item.action || '—'}</td>
                         <td>{item.details || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="progress-section" style={{ marginTop: '1rem' }} aria-label="Class subject coverage">
+            <h3 className="card-title">Class-subject coverage</h3>
+            <p className="card-desc">
+              School-wide audit of subject mappings per class. Use filters to validate curriculum coverage quickly.
+            </p>
+
+            <div className="form-grid" style={{ marginTop: '0.75rem' }}>
+              <label className="form-field">Class
+                <select
+                  className="form-input"
+                  value={classSubjectAuditClassFilter}
+                  onChange={(e) => setClassSubjectAuditClassFilter(e.target.value)}
+                >
+                  <option value="">All classes</option>
+                  {classes.map((schoolClass) => (
+                    <option key={schoolClass.id} value={schoolClass.id}>
+                      {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-field">Subject
+                <select
+                  className="form-input"
+                  value={classSubjectAuditSubjectFilter}
+                  onChange={(e) => setClassSubjectAuditSubjectFilter(e.target.value)}
+                >
+                  <option value="">All subjects</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => {
+                setClassSubjectAuditClassFilter('');
+                setClassSubjectAuditSubjectFilter('');
+              }}>
+                Clear filters
+              </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={exportClassSubjectCoverageCsv}
+                disabled={classSubjectAuditLoading || filteredClassSubjectAuditRows.length === 0 || exportingClassSubjectCoverage}
+              >
+                {exportingClassSubjectCoverage ? 'Exporting…' : `Export CSV (${filteredClassSubjectAuditRows.length})`}
+              </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={loadClassSubjectAuditRows}
+                disabled={classSubjectAuditLoading}
+              >
+                {classSubjectAuditLoading ? 'Refreshing…' : 'Refresh coverage'}
+              </button>
+            </div>
+
+            <p className="card-desc" style={{ marginTop: '0.35rem' }}>
+              Showing {filteredClassSubjectAuditRows.length} mapping(s) from {classSubjectAuditRows.length} total.
+            </p>
+
+            {classSubjectAuditError && (
+              <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{classSubjectAuditError}</p>
+            )}
+
+            {!classSubjectAuditError && classSubjectAuditLoading && (
+              <p className="empty-state" style={{ marginTop: '0.75rem' }} aria-busy="true">Loading class-subject coverage…</p>
+            )}
+
+            {!classSubjectAuditError && !classSubjectAuditLoading && filteredClassSubjectAuditRows.length === 0 && (
+              <p className="empty-state" style={{ marginTop: '0.75rem' }}>No class-subject mappings found for the selected filters.</p>
+            )}
+
+            {!classSubjectAuditError && filteredClassSubjectAuditRows.length > 0 && (
+              <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Class</th>
+                      <th>Subject</th>
+                      <th>Order</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClassSubjectAuditRows.map((row) => (
+                      <tr key={`${row.classId}:${row.subjectId}`}>
+                        <td>{row.className}</td>
+                        <td>{row.subjectName}</td>
+                        <td>{row.order ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
