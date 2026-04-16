@@ -3315,43 +3315,43 @@ export default function SchoolAdminPage({ view = 'overview' }) {
         {promotionTransitionError && <p className="empty-state empty-state--error" style={{ marginTop: '0.75rem' }}>{promotionTransitionError}</p>}
       </section>
 
-      <section className="dashboard-panel" style={{ marginTop: '0.75rem' }} aria-label="School profile information">
+      <section className="dashboard-panel" style={{ ...governancePanelStyle, marginTop: '0.75rem' }} aria-label="School profile information">
         <h3 className="card-title">School information</h3>
-        <p className="card-desc">Update your school profile, contacts, compliance details, and leadership names shown to Super Admin.</p>
-        <p className="card-desc" style={{ marginTop: '0.4rem' }}>
+        <p className="card-desc" style={governanceDescStyle}>Update your school profile, contacts, compliance details, and leadership names shown to Super Admin.</p>
+        <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.4rem' }}>
           Terms per year:{' '}
           <strong>{Number.isInteger(schoolProfile.termsPerYear) ? schoolProfile.termsPerYear : 'Not set'}</strong>
         </p>
         <div className="form-grid" style={{ marginTop: '0.75rem' }}>
-          <label className="form-field">School name
-            <input className="form-input" value={schoolProfile.name} onChange={(e) => onSchoolProfileFieldChange('name', e.target.value)} placeholder="School name" />
+          <label className="form-field" style={governanceLabelStyle}>School name
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.name} onChange={(e) => onSchoolProfileFieldChange('name', e.target.value)} placeholder="School name" />
           </label>
-          <label className="form-field">Owner name
-            <input className="form-input" value={schoolProfile.ownerName} onChange={(e) => onSchoolProfileFieldChange('ownerName', e.target.value)} placeholder="School owner name" />
+          <label className="form-field" style={governanceLabelStyle}>Owner name
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.ownerName} onChange={(e) => onSchoolProfileFieldChange('ownerName', e.target.value)} placeholder="School owner name" />
           </label>
-          <label className="form-field">School admin name
-            <input className="form-input" value={schoolProfile.schoolAdminName} onChange={(e) => onSchoolProfileFieldChange('schoolAdminName', e.target.value)} placeholder="School admin full name" />
+          <label className="form-field" style={governanceLabelStyle}>School admin name
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.schoolAdminName} onChange={(e) => onSchoolProfileFieldChange('schoolAdminName', e.target.value)} placeholder="School admin full name" />
           </label>
-          <label className="form-field">Principal name
-            <input className="form-input" value={schoolProfile.principalName} onChange={(e) => onSchoolProfileFieldChange('principalName', e.target.value)} placeholder="Principal name" />
+          <label className="form-field" style={governanceLabelStyle}>Principal name
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.principalName} onChange={(e) => onSchoolProfileFieldChange('principalName', e.target.value)} placeholder="Principal name" />
           </label>
-          <label className="form-field">School email
-            <input className="form-input" type="email" value={schoolProfile.email} onChange={(e) => onSchoolProfileFieldChange('email', e.target.value)} placeholder="school@example.com" />
+          <label className="form-field" style={governanceLabelStyle}>School email
+            <input className="form-input" style={governanceInputStyle} type="email" value={schoolProfile.email} onChange={(e) => onSchoolProfileFieldChange('email', e.target.value)} placeholder="school@example.com" />
           </label>
-          <label className="form-field">Phone
-            <input className="form-input" value={schoolProfile.phone} onChange={(e) => onSchoolProfileFieldChange('phone', e.target.value)} placeholder="+234..." />
+          <label className="form-field" style={governanceLabelStyle}>Phone
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.phone} onChange={(e) => onSchoolProfileFieldChange('phone', e.target.value)} placeholder="+234..." />
           </label>
-          <label className="form-field">WhatsApp number
-            <input className="form-input" value={schoolProfile.whatsAppNumber} onChange={(e) => onSchoolProfileFieldChange('whatsAppNumber', e.target.value)} placeholder="+234..." />
+          <label className="form-field" style={governanceLabelStyle}>WhatsApp number
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.whatsAppNumber} onChange={(e) => onSchoolProfileFieldChange('whatsAppNumber', e.target.value)} placeholder="+234..." />
           </label>
-          <label className="form-field">Country code (ISO2)
-            <input className="form-input" value={schoolProfile.countryCode} onChange={(e) => onSchoolProfileFieldChange('countryCode', e.target.value.toUpperCase())} maxLength={2} placeholder="NG" />
+          <label className="form-field" style={governanceLabelStyle}>Country code (ISO2)
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.countryCode} onChange={(e) => onSchoolProfileFieldChange('countryCode', e.target.value.toUpperCase())} maxLength={2} placeholder="NG" />
           </label>
-          <label className="form-field">CAC / registration number
-            <input className="form-input" value={schoolProfile.cacNumber} onChange={(e) => onSchoolProfileFieldChange('cacNumber', e.target.value)} placeholder="RC1234567" />
+          <label className="form-field" style={governanceLabelStyle}>CAC / registration number
+            <input className="form-input" style={governanceInputStyle} value={schoolProfile.cacNumber} onChange={(e) => onSchoolProfileFieldChange('cacNumber', e.target.value)} placeholder="RC1234567" />
           </label>
-          <label className="form-field form-field--full">School address
-            <textarea className="form-input" rows={3} value={schoolProfile.address} onChange={(e) => onSchoolProfileFieldChange('address', e.target.value)} placeholder="Street, city, state, country" />
+          <label className="form-field form-field--full" style={governanceLabelStyle}>School address
+            <textarea className="form-input" style={governanceInputStyle} rows={3} value={schoolProfile.address} onChange={(e) => onSchoolProfileFieldChange('address', e.target.value)} placeholder="Street, city, state, country" />
           </label>
         </div>
         <div className="form-actions" style={{ marginTop: '0.75rem' }}>
