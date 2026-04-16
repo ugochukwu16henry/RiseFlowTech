@@ -710,12 +710,76 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       }
     }, [currentSchoolId, terminalToggleHydratedSchoolId, treatTerminalGradesAsValid]);
   const selectedTeacher = selectedTeacherProfile?.teacher || teachers.find((teacher) => teacher.id === selectedTeacherId) || null;
-  const teacherCount = useMemo(() => teachers.filter((person) => resolvePeopleRole(person) === 'Teacher').length, [teachers]);
-  const staffCount = useMemo(() => teachers.filter((person) => resolvePeopleRole(person) === 'Staff').length, [teachers]);
+  const peopleRows = useMemo(() => {
+    const teacherRows = teachers.map((teacher) => {
+      const accountRole = resolvePeopleRole(teacher);
+      return {
+        id: `teacher-${teacher.id}`,
+        sourceType: 'teacher',
+        sourceId: teacher.id,
+        fullName: [teacher.firstName, teacher.middleName, teacher.lastName].filter(Boolean).join(' '),
+        accountRole,
+        roleLabel: teacher.roleTitle || accountRole,
+        department: teacher.department || teacher.subjectSpecialization || '—',
+        isActive: teacher.isActive !== false,
+      };
+    });
+
+    const studentRows = students.map((student) => ({
+      id: `student-${student.id}`,
+      sourceType: 'student',
+      sourceId: student.id,
+      fullName: [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' '),
+      accountRole: 'Student',
+      roleLabel: 'Student',
+      department: student.className || '—',
+      isActive: student.isActive !== false,
+    }));
+
+    const parentRows = parents.map((parent) => ({
+      id: `parent-${parent.id}`,
+      sourceType: 'parent',
+      sourceId: parent.id,
+      fullName: [parent.firstName, parent.middleName, parent.lastName].filter(Boolean).join(' '),
+      accountRole: 'Parent',
+      roleLabel: 'Parent',
+      department: '—',
+      isActive: parent.isActive !== false,
+    }));
+
+    return [...teacherRows, ...studentRows, ...parentRows];
+  }, [teachers, students, parents]);
+
+  const peopleRoleOptions = useMemo(() => {
+    const preferredOrder = ['Teacher', 'Staff', 'Student', 'Parent'];
+    const counts = new Map();
+    peopleRows.forEach((row) => {
+      const key = String(row.accountRole || '').trim();
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    const ordered = [];
+    preferredOrder.forEach((role) => {
+      if (counts.has(role)) {
+        ordered.push({ value: role.toLowerCase(), label: role, count: counts.get(role) });
+        counts.delete(role);
+      }
+    });
+
+    Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .forEach(([role, count]) => {
+        ordered.push({ value: role.toLowerCase(), label: role, count });
+      });
+
+    return ordered;
+  }, [peopleRows]);
+
   const filteredPeople = useMemo(() => {
-    if (peopleRoleFilter === 'all') return teachers;
-    return teachers.filter((person) => resolvePeopleRole(person).toLowerCase() === peopleRoleFilter);
-  }, [peopleRoleFilter, teachers]);
+    if (peopleRoleFilter === 'all') return peopleRows;
+    return peopleRows.filter((person) => String(person.accountRole || '').toLowerCase() === peopleRoleFilter);
+  }, [peopleRoleFilter, peopleRows]);
   const staffCatalogRoles = useMemo(() => {
     const configRoles = Array.isArray(staffStructureConfig?.roleCatalog)
       ? staffStructureConfig.roleCatalog
@@ -2022,11 +2086,14 @@ export default function SchoolAdminPage({ view = 'overview' }) {
               Role filter
               <select className="form-input" value={peopleRoleFilter} onChange={(e) => setPeopleRoleFilter(e.target.value)}>
                 <option value="all">All people</option>
-                <option value="teacher">Teachers ({teacherCount})</option>
-                <option value="staff">Staff ({staffCount})</option>
+                {peopleRoleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}s ({option.count})
+                  </option>
+                ))}
               </select>
             </label>
-            <span className="card-desc">Showing {filteredPeople.length} of {teachers.length} people.</span>
+            <span className="card-desc">Showing {filteredPeople.length} of {peopleRows.length} people.</span>
           </div>
           <p className="card-desc" style={{ marginBottom: '0.75rem' }}>
             Teacher contact details stay hidden here until you click <strong>View details</strong>.
@@ -2044,21 +2111,23 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredPeople.map((t) => (
-                  <tr key={t.id}>
-                    <td>{[t.firstName, t.middleName, t.lastName].filter(Boolean).join(' ')}</td>
-                    <td>{resolvePeopleRole(t)}</td>
-                    <td>{t.roleTitle || 'Teacher'}</td>
-                    <td>{t.department || t.subjectSpecialization || '—'}</td>
-                    <td>{t.isActive ? 'Active' : 'Inactive'}</td>
+                {filteredPeople.map((person) => (
+                  <tr key={person.id}>
+                    <td>{person.fullName || '—'}</td>
+                    <td>{person.accountRole}</td>
+                    <td>{person.roleLabel || person.accountRole}</td>
+                    <td>{person.department || '—'}</td>
+                    <td>{person.isActive ? 'Active' : 'Inactive'}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn-primary-action btn-primary-action--ghost"
-                        onClick={() => openTeacherProfile(t.id)}
-                      >
-                        {selectedTeacherId === t.id ? 'Hide details' : 'View details'}
-                      </button>
+                      {person.sourceType === 'teacher' ? (
+                        <button
+                          type="button"
+                          className="btn-primary-action btn-primary-action--ghost"
+                          onClick={() => openTeacherProfile(person.sourceId)}
+                        >
+                          {selectedTeacherId === person.sourceId ? 'Hide details' : 'View details'}
+                        </button>
+                      ) : '—'}
                     </td>
                   </tr>
                 ))}
