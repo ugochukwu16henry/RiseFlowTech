@@ -62,6 +62,196 @@ function isFinanceRoleTitle(value) {
     || role.includes('billing');
 }
 
+function resolveRoleDashboardConfig(roleTitle, mode) {
+  const key = normalizeRoleTitle(roleTitle).toLowerCase();
+
+  const defaults = mode.isLeadership
+    ? {
+      pageTitle: 'Leadership Dashboard',
+      dashboardTitle: 'Leadership overview',
+      primaryActionLabel: 'Open student oversight',
+      studentsLabel: 'Students under oversight',
+      studentsSub: 'Across classes currently under your role scope.',
+      classesLabel: 'Classes supervised',
+      classesSub: 'Distinct classes currently visible to your leadership view.',
+      modeSub: 'Leadership mode enabled from your role title.',
+    }
+    : mode.isFinance
+      ? {
+        pageTitle: 'Bursar Dashboard',
+        dashboardTitle: 'Finance overview',
+        primaryActionLabel: 'Open fee ledger',
+        studentsLabel: 'Students with fee profiles',
+        studentsSub: 'Track fee obligations and payment status by student.',
+        classesLabel: 'Fee-linked classes',
+        classesSub: 'Use class fee status to monitor paid, partial, and unpaid students.',
+        modeSub: 'Bursar/Finance mode enabled from your role title.',
+      }
+      : mode.isClassTeacher
+        ? {
+          pageTitle: 'Class Teacher Dashboard',
+          dashboardTitle: 'Class teacher overview',
+          primaryActionLabel: 'Open class register',
+          studentsLabel: 'Students in my class',
+          studentsSub: 'Across your form/class teacher assignments.',
+          classesLabel: 'My class groups',
+          classesSub: 'Use attendance, grading, and assignments for these classes.',
+          modeSub: 'Class Teacher mode enabled from your role title.',
+        }
+        : mode.isSubjectTeacher
+          ? {
+            pageTitle: 'Subject Teacher Dashboard',
+            dashboardTitle: 'Subject teacher overview',
+            primaryActionLabel: 'Open subject learners',
+            studentsLabel: 'Students in my subjects',
+            studentsSub: 'Across your assigned subject classes and streams.',
+            classesLabel: 'Subject classes',
+            classesSub: 'Use grading and assignments to manage subject delivery.',
+            modeSub: 'Subject Teacher mode enabled from your role title.',
+          }
+          : mode.isAssistantClassTeacher
+            ? {
+              pageTitle: 'Assistant Class Teacher Dashboard',
+              dashboardTitle: 'Assistant class teacher overview',
+              primaryActionLabel: 'Open assisted class register',
+              studentsLabel: 'Students in assisted classes',
+              studentsSub: 'Across classes where you support the lead class teacher.',
+              classesLabel: 'Assisted classes',
+              classesSub: 'Support attendance, grading, and class operations for assigned classes.',
+              modeSub: 'Assistant Class Teacher mode enabled from your role title.',
+            }
+            : {
+              pageTitle: 'Teacher Dashboard',
+              dashboardTitle: 'Classroom snapshot',
+              primaryActionLabel: 'Open my students',
+              studentsLabel: 'Students you teach',
+              studentsSub: 'Across your assigned classes (tenant-scoped).',
+              classesLabel: 'Classes',
+              classesSub: 'Distinct classes on your timetable.',
+              modeSub: 'Teacher mode enabled.',
+            };
+
+  const titleProfiles = {
+    'head teacher': {
+      pageTitle: 'Head Teacher Dashboard',
+      dashboardTitle: 'Head Teacher overview',
+      primaryActionLabel: 'Open school oversight',
+    },
+    'assistant head teacher': {
+      pageTitle: 'Assistant Head Teacher Dashboard',
+      dashboardTitle: 'Assistant Head overview',
+      primaryActionLabel: 'Open delegated oversight',
+    },
+    'deputy head teacher': {
+      pageTitle: 'Deputy Head Teacher Dashboard',
+      dashboardTitle: 'Deputy Head overview',
+      primaryActionLabel: 'Open delegated oversight',
+    },
+    'nursery head': {
+      pageTitle: 'Nursery Head Dashboard',
+      dashboardTitle: 'Nursery leadership overview',
+      primaryActionLabel: 'Open nursery oversight',
+    },
+    'pre-primary lead': {
+      pageTitle: 'Pre-Primary Lead Dashboard',
+      dashboardTitle: 'Pre-Primary leadership overview',
+      primaryActionLabel: 'Open pre-primary oversight',
+    },
+    'primary head': {
+      pageTitle: 'Primary Head Dashboard',
+      dashboardTitle: 'Primary leadership overview',
+      primaryActionLabel: 'Open primary oversight',
+    },
+    'primary section head': {
+      pageTitle: 'Primary Section Head Dashboard',
+      dashboardTitle: 'Primary section overview',
+      primaryActionLabel: 'Open primary section oversight',
+    },
+    'secondary head': {
+      pageTitle: 'Secondary Head Dashboard',
+      dashboardTitle: 'Secondary leadership overview',
+      primaryActionLabel: 'Open secondary oversight',
+    },
+    'jhs lead': {
+      pageTitle: 'JHS Lead Dashboard',
+      dashboardTitle: 'JHS leadership overview',
+      primaryActionLabel: 'Open JHS oversight',
+    },
+    'shs lead': {
+      pageTitle: 'SHS Lead Dashboard',
+      dashboardTitle: 'SHS leadership overview',
+      primaryActionLabel: 'Open SHS oversight',
+    },
+    'junior secondary lead': {
+      pageTitle: 'Junior Secondary Lead Dashboard',
+      dashboardTitle: 'Junior secondary overview',
+      primaryActionLabel: 'Open junior secondary oversight',
+    },
+    'senior secondary lead': {
+      pageTitle: 'Senior Secondary Lead Dashboard',
+      dashboardTitle: 'Senior secondary overview',
+      primaryActionLabel: 'Open senior secondary oversight',
+    },
+    directeur: {
+      pageTitle: 'Directeur Dashboard',
+      dashboardTitle: 'Direction overview',
+      primaryActionLabel: 'Ouvrir supervision globale',
+    },
+    'directeur adjoint': {
+      pageTitle: 'Directeur Adjoint Dashboard',
+      dashboardTitle: 'Direction adjointe overview',
+      primaryActionLabel: 'Ouvrir supervision deleguee',
+    },
+    'responsable maternelle': {
+      pageTitle: 'Responsable Maternelle Dashboard',
+      dashboardTitle: 'Maternelle overview',
+      primaryActionLabel: 'Ouvrir supervision maternelle',
+    },
+    'responsable primaire': {
+      pageTitle: 'Responsable Primaire Dashboard',
+      dashboardTitle: 'Primaire overview',
+      primaryActionLabel: 'Ouvrir supervision primaire',
+    },
+    'responsable college': {
+      pageTitle: 'Responsable College Dashboard',
+      dashboardTitle: 'College overview',
+      primaryActionLabel: 'Ouvrir supervision college',
+    },
+    'professeur principal': {
+      pageTitle: 'Professeur Principal Dashboard',
+      dashboardTitle: 'Professeur principal overview',
+      primaryActionLabel: 'Ouvrir registre de classe',
+    },
+    enseignant: {
+      pageTitle: 'Enseignant Dashboard',
+      dashboardTitle: 'Enseignant overview',
+      primaryActionLabel: 'Ouvrir mes apprenants',
+    },
+    'assistant enseignant': {
+      pageTitle: 'Assistant Enseignant Dashboard',
+      dashboardTitle: 'Assistant enseignant overview',
+      primaryActionLabel: 'Ouvrir classes assistees',
+    },
+    'class teacher': {
+      pageTitle: 'Class Teacher Dashboard',
+      dashboardTitle: 'Class Teacher overview',
+      primaryActionLabel: 'Open class register',
+    },
+    'assistant class teacher': {
+      pageTitle: 'Assistant Class Teacher Dashboard',
+      dashboardTitle: 'Assistant Class Teacher overview',
+      primaryActionLabel: 'Open assisted class register',
+    },
+    'subject teacher': {
+      pageTitle: 'Subject Teacher Dashboard',
+      dashboardTitle: 'Subject Teacher overview',
+      primaryActionLabel: 'Open subject learners',
+    },
+  };
+
+  return { ...defaults, ...(titleProfiles[key] || {}) };
+}
+
 export default function TeacherPage() {
   const location = useLocation();
   const [me, setMe] = useState(null);
@@ -89,6 +279,7 @@ export default function TeacherPage() {
   const [submissionWindow, setSubmissionWindow] = useState(null);
   const [notices, setNotices] = useState([]);
   const [events, setEvents] = useState([]);
+  const [rolePermissions, setRolePermissions] = useState(null);
   const [examForm, setExamForm] = useState({ name: '', classId: '', subjectId: '', termId: '', startDateUtc: '', endDateUtc: '' });
   const [resultForm, setResultForm] = useState({ studentId: '', subjectId: '', termId: '', examId: '', assessmentType: 'Exam', score: '', maxScore: '100', gradeLetter: '', comment: '' });
   const [fieldSettings, setFieldSettings] = useState([]);
@@ -131,6 +322,7 @@ export default function TeacherPage() {
         if (cancelled) return;
         const profile = profileConfig?.teacher || profileConfig || null;
         setMe(profile);
+        setRolePermissions(profileConfig?.permissions || null);
         setFieldSettings(Array.isArray(profileConfig?.fieldSettings) ? profileConfig.fieldSettings : []);
         setCustomFieldValues(profileConfig?.customFields && typeof profileConfig.customFields === 'object' ? profileConfig.customFields : {});
         const arr = Array.isArray(list) ? list : [];
@@ -535,156 +727,118 @@ export default function TeacherPage() {
     && !isClassTeacherDashboard
     && !isSubjectTeacherDashboard
     && isAssistantClassTeacherRoleTitle(roleTitle);
-  const dashboardTitle = isLeadershipDashboard
-    ? 'Leadership overview'
-    : isFinanceDashboard
-      ? 'Finance overview'
-    : isClassTeacherDashboard
-      ? 'Class teacher overview'
-      : isSubjectTeacherDashboard
-        ? 'Subject teacher overview'
-        : isAssistantClassTeacherDashboard
-          ? 'Assistant class teacher overview'
-          : 'Classroom snapshot';
-  const pageTitle = isLeadershipDashboard
-    ? 'Head Teacher Dashboard'
-    : isFinanceDashboard
-      ? 'Bursar Dashboard'
-    : isClassTeacherDashboard
-      ? 'Class Teacher Dashboard'
-      : isSubjectTeacherDashboard
-        ? 'Subject Teacher Dashboard'
-        : isAssistantClassTeacherDashboard
-          ? 'Assistant Class Teacher Dashboard'
-          : 'Teacher';
+  const roleDashboard = resolveRoleDashboardConfig(roleTitle, {
+    isLeadership: isLeadershipDashboard,
+    isFinance: isFinanceDashboard,
+    isClassTeacher: isClassTeacherDashboard,
+    isSubjectTeacher: isSubjectTeacherDashboard,
+    isAssistantClassTeacher: isAssistantClassTeacherDashboard,
+  });
+  const dashboardTitle = roleDashboard.dashboardTitle;
+  const pageTitle = roleDashboard.pageTitle;
+
+  const can = (key, fallback = true) => {
+    if (!rolePermissions || typeof rolePermissions[key] !== 'boolean') return fallback;
+    return !!rolePermissions[key];
+  };
+
+  const canViewOverview = true;
+  const canViewStudents = !isFinanceDashboard;
+  const canViewAttendance = !isFinanceDashboard && classes.length > 0 && can('canManageAttendance', true);
+  const canViewGrading = !isFinanceDashboard && can('canManageAssessments', true);
+  const canViewFees = classes.length > 0 && (isFinanceDashboard || can('canManageFees', false));
+  const canViewAssignments = !isFinanceDashboard && can('canManageAssessments', true);
+
+  const activeSection = (() => {
+    if (activeView === 'students' && canViewStudents) return 'students';
+    if (activeView === 'attendance' && canViewAttendance) return 'attendance';
+    if (activeView === 'grading' && canViewGrading) return 'grading';
+    if (activeView === 'fees' && canViewFees) return 'fees';
+    return canViewOverview ? 'overview' : 'overview';
+  })();
 
   return (
     <PageLayout title={pageTitle} role="teacher">
       <div className="school-admin-shell">
         <aside className="school-admin-nav" aria-label="Teacher sections">
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
+          <button type="button" className={`school-admin-nav-btn ${activeSection === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
             Overview
           </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'students' ? 'is-active' : ''}`} onClick={() => setActiveView('students')}>
-            My students
-          </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'attendance' ? 'is-active' : ''}`} onClick={() => setActiveView('attendance')} disabled={classes.length === 0}>
-            Attendance
-          </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'grading' ? 'is-active' : ''}`} onClick={() => setActiveView('grading')}>
-            Grading
-          </button>
-          <button type="button" className={`school-admin-nav-btn ${activeView === 'fees' ? 'is-active' : ''}`} onClick={() => setActiveView('fees')} disabled={classes.length === 0}>
-            Fees
-          </button>
-          <Link to="/teacher/assignments" className="school-admin-nav-btn school-admin-nav-link">
-            Assignments
-          </Link>
+          {canViewStudents && (
+            <button type="button" className={`school-admin-nav-btn ${activeSection === 'students' ? 'is-active' : ''}`} onClick={() => setActiveView('students')}>
+              My students
+            </button>
+          )}
+          {canViewAttendance && (
+            <button type="button" className={`school-admin-nav-btn ${activeSection === 'attendance' ? 'is-active' : ''}`} onClick={() => setActiveView('attendance')}>
+              Attendance
+            </button>
+          )}
+          {canViewGrading && (
+            <button type="button" className={`school-admin-nav-btn ${activeSection === 'grading' ? 'is-active' : ''}`} onClick={() => setActiveView('grading')}>
+              Grading
+            </button>
+          )}
+          {canViewFees && (
+            <button type="button" className={`school-admin-nav-btn ${activeSection === 'fees' ? 'is-active' : ''}`} onClick={() => setActiveView('fees')}>
+              Fees
+            </button>
+          )}
+          {canViewAssignments && (
+            <Link to="/teacher/assignments" className="school-admin-nav-btn school-admin-nav-link">
+              Assignments
+            </Link>
+          )}
         </aside>
 
         <section className="school-admin-view">
-          {activeView === 'overview' && (
+          {activeSection === 'overview' && (
             <>
               <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
-                <button type="button" className="btn-primary-action" onClick={() => setActiveView(isFinanceDashboard ? 'fees' : 'students')}>
-                  {isLeadershipDashboard
-                    ? 'Open student oversight'
-                    : isFinanceDashboard
-                      ? 'Open fee ledger'
-                    : isClassTeacherDashboard
-                      ? 'Open class register'
-                      : isSubjectTeacherDashboard
-                        ? 'Open subject learners'
-                        : isAssistantClassTeacherDashboard
-                          ? 'Open assisted class register'
-                        : 'Open my students'}
+                <button
+                  type="button"
+                  className="btn-primary-action"
+                  onClick={() => setActiveView(isFinanceDashboard ? 'fees' : (canViewStudents ? 'students' : 'overview'))}
+                >
+                  {roleDashboard.primaryActionLabel}
                 </button>
-                <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('attendance')} disabled={classes.length === 0}>
-                  Attendance
-                </button>
-                <Link to="/teacher/grading" className="btn-primary-action btn-primary-action--ghost">
-                  Grading workspace
-                </Link>
-                <Link to="/teacher/assignments" className="btn-primary-action btn-primary-action--ghost">
-                  Assignments
-                </Link>
+                {canViewAttendance && (
+                  <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('attendance')}>
+                    Attendance
+                  </button>
+                )}
+                {canViewGrading && (
+                  <Link to="/teacher/grading" className="btn-primary-action btn-primary-action--ghost">
+                    Grading workspace
+                  </Link>
+                )}
+                {canViewAssignments && (
+                  <Link to="/teacher/assignments" className="btn-primary-action btn-primary-action--ghost">
+                    Assignments
+                  </Link>
+                )}
+                {canViewFees && (
+                  <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('fees')}>
+                    Fee status
+                  </button>
+                )}
               </div>
               <section aria-label={dashboardTitle}>
                 <div className="dashboard-grid">
                   <article className="dashboard-card dashboard-card--highlight">
-                    <p className="dashboard-label">
-                      {isLeadershipDashboard
-                        ? 'Students under oversight'
-                        : isFinanceDashboard
-                          ? 'Students with fee profiles'
-                        : isClassTeacherDashboard
-                          ? 'Students in my class'
-                          : isSubjectTeacherDashboard
-                            ? 'Students in my subjects'
-                            : isAssistantClassTeacherDashboard
-                              ? 'Students in assisted classes'
-                            : 'Students you teach'}
-                    </p>
+                    <p className="dashboard-label">{roleDashboard.studentsLabel}</p>
                     <p className="dashboard-value">{students.length}</p>
-                    <p className="dashboard-sub">
-                      {isLeadershipDashboard
-                        ? 'Across classes currently under your role scope.'
-                        : isFinanceDashboard
-                          ? 'Track fee obligations and payment status by student.'
-                        : isClassTeacherDashboard
-                          ? 'Across your form/class teacher assignments.'
-                          : isSubjectTeacherDashboard
-                            ? 'Across your assigned subject classes and streams.'
-                            : isAssistantClassTeacherDashboard
-                              ? 'Across classes where you support the lead class teacher.'
-                        : 'Across your assigned classes (tenant-scoped).'}
-                    </p>
+                    <p className="dashboard-sub">{roleDashboard.studentsSub}</p>
                   </article>
                   <article className="dashboard-card">
-                    <p className="dashboard-label">
-                      {isLeadershipDashboard
-                        ? 'Classes supervised'
-                        : isFinanceDashboard
-                          ? 'Fee-linked classes'
-                        : isClassTeacherDashboard
-                          ? 'My class groups'
-                          : isSubjectTeacherDashboard
-                            ? 'Subject classes'
-                            : isAssistantClassTeacherDashboard
-                              ? 'Assisted classes'
-                            : 'Classes'}
-                    </p>
+                    <p className="dashboard-label">{roleDashboard.classesLabel}</p>
                     <p className="dashboard-value">{classCount}</p>
-                    <p className="dashboard-sub">
-                      {isLeadershipDashboard
-                        ? 'Distinct classes currently visible to your leadership view.'
-                        : isFinanceDashboard
-                          ? 'Use class fee status to monitor paid, partial, and unpaid students.'
-                        : isClassTeacherDashboard
-                          ? 'Use attendance, grading, and assignments for these classes.'
-                          : isSubjectTeacherDashboard
-                            ? 'Use grading and assignments to manage subject delivery.'
-                            : isAssistantClassTeacherDashboard
-                              ? 'Support attendance, grading, and class operations for assigned classes.'
-                        : 'Distinct classes on your timetable.'}
-                    </p>
+                    <p className="dashboard-sub">{roleDashboard.classesSub}</p>
                   </article>
                   <article className="dashboard-card">
                     <p className="dashboard-label">Role</p>
                     <p className="dashboard-value">{roleTitle}</p>
-                    <p className="dashboard-sub">
-                      {isLeadershipDashboard
-                        ? 'Leadership mode enabled from your role title.'
-                        : isFinanceDashboard
-                          ? 'Bursar/Finance mode enabled from your role title.'
-                        : isClassTeacherDashboard
-                          ? 'Class Teacher mode enabled from your role title.'
-                          : isSubjectTeacherDashboard
-                            ? 'Subject Teacher mode enabled from your role title.'
-                            : isAssistantClassTeacherDashboard
-                              ? 'Assistant Class Teacher mode enabled from your role title.'
-                        : 'Teacher mode enabled.'}
-                    </p>
+                    <p className="dashboard-sub">{roleDashboard.modeSub}</p>
                   </article>
                   <article className="dashboard-card">
                     <p className="dashboard-label">Notices and events</p>
@@ -857,7 +1011,7 @@ export default function TeacherPage() {
             </>
           )}
 
-          {activeView === 'students' && (
+          {activeSection === 'students' && canViewStudents && (
             <>
               <h2 className="section-title">My students</h2>
               {students.length === 0 ? (
@@ -922,7 +1076,7 @@ export default function TeacherPage() {
             </>
           )}
 
-          {activeView === 'attendance' && classes.length > 0 && (
+          {activeSection === 'attendance' && canViewAttendance && (
             <section aria-label="Quick attendance capture">
               <h2 className="section-title">Quick attendance (online)</h2>
               <p className="card-desc">
@@ -996,7 +1150,7 @@ export default function TeacherPage() {
             </section>
           )}
 
-          {activeView === 'grading' && (
+          {activeSection === 'grading' && canViewGrading && (
             <section aria-label="Grading workspace">
               <h2 className="section-title">Grading workspace</h2>
               <p className="card-desc">Create exams, monitor submission window status, and submit marks for your assigned students.</p>
@@ -1128,7 +1282,7 @@ export default function TeacherPage() {
             </section>
           )}
 
-          {activeView === 'fees' && (
+          {activeSection === 'fees' && canViewFees && (
             <section aria-label="Class fees status">
               <h2 className="section-title">Class Fee Status</h2>
               <p className="card-desc">See who has paid for each term fee schedule in your assigned class.</p>

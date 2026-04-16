@@ -29,12 +29,14 @@ function toFriendlyDate(value) {
 export default function StaffPage() {
   const [metrics, setMetrics] = useState(null);
   const [me, setMe] = useState(null);
+  const [rolePermissions, setRolePermissions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState(null);
   const [notices, setNotices] = useState([]);
   const [events, setEvents] = useState([]);
+  const [activeView, setActiveView] = useState('overview');
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -59,6 +61,7 @@ export default function StaffPage() {
         if (cancelled) return;
         const profile = profileConfig?.teacher || profileConfig || null;
         setMe(profile);
+        setRolePermissions(profileConfig?.permissions || null);
         setMetrics(metricsPayload);
         setNotices(Array.isArray(noticeList) ? noticeList : []);
         setEvents(Array.isArray(eventList) ? eventList : []);
@@ -87,6 +90,22 @@ export default function StaffPage() {
   }, [me]);
 
   const profileCompletion = useMemo(() => percentComplete(me), [me]);
+  const can = (key, fallback = true) => {
+    if (!rolePermissions || typeof rolePermissions[key] !== 'boolean') return fallback;
+    return !!rolePermissions[key];
+  };
+
+  const canViewApprovals = can('canApproveResults', true) || can('canManageFees', true);
+  const canViewOfficeQueue = can('canManageTeachers', true) || can('canAssignClasses', true) || can('canManageFees', true);
+  const canViewCommunications = can('canSendParentBroadcasts', true);
+
+  const currentView = (() => {
+    if (activeView === 'approvals' && canViewApprovals) return 'approvals';
+    if (activeView === 'operations' && canViewOfficeQueue) return 'operations';
+    if (activeView === 'communications' && canViewCommunications) return 'communications';
+    if (activeView === 'profile') return 'profile';
+    return 'overview';
+  })();
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -128,6 +147,7 @@ export default function StaffPage() {
       const updated = await res.json();
       const profile = updated?.teacher || updated;
       setMe(profile);
+      setRolePermissions(updated?.permissions || rolePermissions);
       // eslint-disable-next-line no-alert
       alert('Staff profile updated successfully.');
     } catch (e) {
@@ -172,42 +192,72 @@ export default function StaffPage() {
 
   return (
     <PageLayout title="Staff dashboard" role="staff">
-      <main className="main">
-        <section className="dashboard-grid">
-          <article className="dashboard-card dashboard-card--warning">
-            <p className="dashboard-label">Tasks</p>
-            <p className="dashboard-value">{metrics?.tasksCount ?? 0}</p>
-            <p className="dashboard-sub">
-              {metrics?.personalAssignmentsCount ?? 0} personal assignments, {metrics?.pendingPromotionRequestsCount ?? 0} promotion requests.
-            </p>
-          </article>
+      <div className="school-admin-shell">
+        <aside className="school-admin-nav" aria-label="Staff sections">
+          <button type="button" className={`school-admin-nav-btn ${currentView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
+            Overview
+          </button>
+          <button type="button" className={`school-admin-nav-btn ${currentView === 'profile' ? 'is-active' : ''}`} onClick={() => setActiveView('profile')}>
+            Profile
+          </button>
+          {canViewApprovals && (
+            <button type="button" className={`school-admin-nav-btn ${currentView === 'approvals' ? 'is-active' : ''}`} onClick={() => setActiveView('approvals')}>
+              Approvals
+            </button>
+          )}
+          {canViewOfficeQueue && (
+            <button type="button" className={`school-admin-nav-btn ${currentView === 'operations' ? 'is-active' : ''}`} onClick={() => setActiveView('operations')}>
+              Operations
+            </button>
+          )}
+          {canViewCommunications && (
+            <button type="button" className={`school-admin-nav-btn ${currentView === 'communications' ? 'is-active' : ''}`} onClick={() => setActiveView('communications')}>
+              Communications
+            </button>
+          )}
+        </aside>
 
-          <article className="dashboard-card">
-            <p className="dashboard-label">Pending approvals</p>
-            <p className="dashboard-value">{metrics?.pendingApprovalsCount ?? 0}</p>
-            <p className="dashboard-sub">
-              {metrics?.pendingFeeVerificationsCount ?? 0} fee verifications, {metrics?.pendingResultEntriesCount ?? 0} result entries.
-            </p>
-          </article>
+        <main className="main school-admin-view">
+          {currentView === 'overview' && (
+            <section className="dashboard-grid">
+              <article className="dashboard-card dashboard-card--warning">
+                <p className="dashboard-label">Tasks</p>
+                <p className="dashboard-value">{metrics?.tasksCount ?? 0}</p>
+                <p className="dashboard-sub">
+                  {metrics?.personalAssignmentsCount ?? 0} personal assignments, {metrics?.pendingPromotionRequestsCount ?? 0} promotion requests.
+                </p>
+              </article>
 
-          <article className="dashboard-card">
-            <p className="dashboard-label">Office queue</p>
-            <p className="dashboard-value">{metrics?.officeQueueCount ?? 0}</p>
-            <p className="dashboard-sub">Includes {metrics?.recentDeniedAttemptsCount ?? 0} denied attempts in the last 7 days.</p>
-          </article>
+              {canViewApprovals && (
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Pending approvals</p>
+                  <p className="dashboard-value">{metrics?.pendingApprovalsCount ?? 0}</p>
+                  <p className="dashboard-sub">
+                    {metrics?.pendingFeeVerificationsCount ?? 0} fee verifications, {metrics?.pendingResultEntriesCount ?? 0} result entries.
+                  </p>
+                </article>
+              )}
 
-          <article className="dashboard-card dashboard-card--highlight">
-            <p className="dashboard-label">Profile completion</p>
-            <p className="dashboard-value">{profileCompletion}%</p>
-            <p className="dashboard-sub">Role: {me?.roleTitle || 'Staff'} • Department: {me?.department || 'Not set'}</p>
-          </article>
-        </section>
+              {canViewOfficeQueue && (
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Office queue</p>
+                  <p className="dashboard-value">{metrics?.officeQueueCount ?? 0}</p>
+                  <p className="dashboard-sub">Includes {metrics?.recentDeniedAttemptsCount ?? 0} denied attempts in the last 7 days.</p>
+                </article>
+              )}
 
-        {loading && <p className="card-desc">Loading staff workspace...</p>}
-        {error && <p className="card-desc" style={{ color: '#b91c1c' }}>{error}</p>}
+              <article className="dashboard-card dashboard-card--highlight">
+                <p className="dashboard-label">Profile completion</p>
+                <p className="dashboard-value">{profileCompletion}%</p>
+                <p className="dashboard-sub">Role: {me?.roleTitle || 'Staff'} • Department: {me?.department || 'Not set'}</p>
+              </article>
+            </section>
+          )}
 
-        {!loading && me && (
-          <>
+          {loading && <p className="card-desc">Loading staff workspace...</p>}
+          {error && <p className="card-desc" style={{ color: '#b91c1c' }}>{error}</p>}
+
+          {!loading && me && currentView === 'profile' && (
             <section className="card" style={{ marginBottom: '1rem' }}>
               <h3 className="section-title">My staff profile</h3>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -274,45 +324,97 @@ export default function StaffPage() {
                 </div>
               </div>
             </section>
+          )}
 
+          {!loading && me && currentView === 'approvals' && canViewApprovals && (
             <section className="card" style={{ marginBottom: '1rem' }}>
-              <h3 className="section-title">Recent notices</h3>
-              {notices.length === 0 ? (
-                <p className="card-desc">No notices yet.</p>
-              ) : (
-                <ul className="card-list">
-                  {notices.map((notice) => (
-                    <li key={notice.id}>
-                      <p className="card-title" style={{ marginBottom: '0.2rem' }}>{notice.title || 'Notice'}</p>
-                      <p className="card-desc">{notice.message || 'No details provided.'}</p>
-                      <p className="card-desc" style={{ marginTop: '0.3rem' }}>{toFriendlyDate(notice.createdAtUtc || notice.createdAt)}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <h3 className="section-title">Approvals workspace</h3>
+              <p className="card-desc">Pending approvals requiring your role permissions.</p>
+              <div className="dashboard-grid" style={{ marginTop: '0.75rem' }}>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Total pending approvals</p>
+                  <p className="dashboard-value">{metrics?.pendingApprovalsCount ?? 0}</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Fee verifications</p>
+                  <p className="dashboard-value">{metrics?.pendingFeeVerificationsCount ?? 0}</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Result entries</p>
+                  <p className="dashboard-value">{metrics?.pendingResultEntriesCount ?? 0}</p>
+                </article>
+              </div>
             </section>
+          )}
 
-            <section className="card">
-              <h3 className="section-title">Upcoming events</h3>
-              {events.length === 0 ? (
-                <p className="card-desc">No events available.</p>
-              ) : (
-                <ul className="card-list">
-                  {events.map((event) => (
-                    <li key={event.id}>
-                      <p className="card-title" style={{ marginBottom: '0.2rem' }}>{event.title || event.name || 'Event'}</p>
-                      <p className="card-desc">{event.description || 'No description.'}</p>
-                      <p className="card-desc" style={{ marginTop: '0.3rem' }}>
-                        {toFriendlyDate(event.startDateUtc || event.startsAtUtc || event.startDate)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {!loading && me && currentView === 'operations' && canViewOfficeQueue && (
+            <section className="card" style={{ marginBottom: '1rem' }}>
+              <h3 className="section-title">Operations queue</h3>
+              <p className="card-desc">Operational backlog and governance queue in your scope.</p>
+              <div className="dashboard-grid" style={{ marginTop: '0.75rem' }}>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Office queue</p>
+                  <p className="dashboard-value">{metrics?.officeQueueCount ?? 0}</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Denied attempts (7 days)</p>
+                  <p className="dashboard-value">{metrics?.recentDeniedAttemptsCount ?? 0}</p>
+                </article>
+                <article className="dashboard-card">
+                  <p className="dashboard-label">Promotion requests</p>
+                  <p className="dashboard-value">{metrics?.pendingPromotionRequestsCount ?? 0}</p>
+                </article>
+              </div>
             </section>
-          </>
-        )}
-      </main>
+          )}
+
+          {!loading && me && currentView === 'communications' && canViewCommunications && (
+            <>
+              <section className="card" style={{ marginBottom: '1rem' }}>
+                <h3 className="section-title">Recent notices</h3>
+                {notices.length === 0 ? (
+                  <p className="card-desc">No notices yet.</p>
+                ) : (
+                  <ul className="card-list">
+                    {notices.map((notice) => (
+                      <li key={notice.id}>
+                        <p className="card-title" style={{ marginBottom: '0.2rem' }}>{notice.title || 'Notice'}</p>
+                        <p className="card-desc">{notice.message || 'No details provided.'}</p>
+                        <p className="card-desc" style={{ marginTop: '0.3rem' }}>{toFriendlyDate(notice.createdAtUtc || notice.createdAt)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="card">
+                <h3 className="section-title">Upcoming events</h3>
+                {events.length === 0 ? (
+                  <p className="card-desc">No events available.</p>
+                ) : (
+                  <ul className="card-list">
+                    {events.map((event) => (
+                      <li key={event.id}>
+                        <p className="card-title" style={{ marginBottom: '0.2rem' }}>{event.title || event.name || 'Event'}</p>
+                        <p className="card-desc">{event.description || 'No description.'}</p>
+                        <p className="card-desc" style={{ marginTop: '0.3rem' }}>
+                          {toFriendlyDate(event.startDateUtc || event.startsAtUtc || event.startDate)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
+
+          {!loading && me && currentView === 'overview' && (
+            <p className="card-desc" style={{ marginTop: '1rem' }}>
+              Use the left menu to access only the sections your role is allowed to use.
+            </p>
+          )}
+        </main>
+      </div>
     </PageLayout>
   );
 }
