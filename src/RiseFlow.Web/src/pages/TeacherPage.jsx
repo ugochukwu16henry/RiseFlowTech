@@ -7,6 +7,61 @@ import StudentRecordPanel from '../components/StudentRecordPanel';
 import { apiFetch } from '../api';
 import './RolePages.css';
 
+function normalizeRoleTitle(value) {
+  return String(value || '').trim();
+}
+
+function isLeadershipRoleTitle(value) {
+  const role = normalizeRoleTitle(value).toLowerCase();
+  if (!role) return false;
+  return role.includes('head')
+    || role.includes('deputy')
+    || role.includes('principal')
+    || role.includes('director')
+    || role.includes('directeur')
+    || role.includes('lead');
+}
+
+function isClassTeacherRoleTitle(value) {
+  const role = normalizeRoleTitle(value).toLowerCase();
+  if (!role) return false;
+  return role.includes('class teacher')
+    || role.includes('form teacher')
+    || role.includes('form tutor')
+    || role.includes('professeur principal');
+}
+
+function isSubjectTeacherRoleTitle(value) {
+  const role = normalizeRoleTitle(value).toLowerCase();
+  if (!role) return false;
+  return role.includes('subject teacher')
+    || role.includes('subject lead')
+    || role.includes('subject specialist')
+    || role.includes('professeur de matiere')
+    || role.includes('subject master');
+}
+
+function isAssistantClassTeacherRoleTitle(value) {
+  const role = normalizeRoleTitle(value).toLowerCase();
+  if (!role) return false;
+  return role.includes('assistant class teacher')
+    || role.includes('assistant form teacher')
+    || role.includes('assistant form tutor')
+    || role.includes('assistant de classe');
+}
+
+function isFinanceRoleTitle(value) {
+  const role = normalizeRoleTitle(value).toLowerCase();
+  if (!role) return false;
+  return role.includes('bursar')
+    || role.includes('finance')
+    || role.includes('accountant')
+    || role.includes('accounts')
+    || role.includes('cashier')
+    || role.includes('fees officer')
+    || role.includes('billing');
+}
+
 export default function TeacherPage() {
   const location = useLocation();
   const [me, setMe] = useState(null);
@@ -470,9 +525,41 @@ export default function TeacherPage() {
   if (error) return <PageLayout title="Teacher" role="teacher"><p className="empty-state empty-state--error">{error}</p></PageLayout>;
 
   const classCount = classes.length;
+  const roleTitle = normalizeRoleTitle(me?.roleTitle) || 'Teacher';
+  const isLeadershipDashboard = isLeadershipRoleTitle(roleTitle);
+  const isFinanceDashboard = !isLeadershipDashboard && isFinanceRoleTitle(roleTitle);
+  const isClassTeacherDashboard = !isLeadershipDashboard && !isFinanceDashboard && isClassTeacherRoleTitle(roleTitle);
+  const isSubjectTeacherDashboard = !isLeadershipDashboard && !isFinanceDashboard && !isClassTeacherDashboard && isSubjectTeacherRoleTitle(roleTitle);
+  const isAssistantClassTeacherDashboard = !isLeadershipDashboard
+    && !isFinanceDashboard
+    && !isClassTeacherDashboard
+    && !isSubjectTeacherDashboard
+    && isAssistantClassTeacherRoleTitle(roleTitle);
+  const dashboardTitle = isLeadershipDashboard
+    ? 'Leadership overview'
+    : isFinanceDashboard
+      ? 'Finance overview'
+    : isClassTeacherDashboard
+      ? 'Class teacher overview'
+      : isSubjectTeacherDashboard
+        ? 'Subject teacher overview'
+        : isAssistantClassTeacherDashboard
+          ? 'Assistant class teacher overview'
+          : 'Classroom snapshot';
+  const pageTitle = isLeadershipDashboard
+    ? 'Head Teacher Dashboard'
+    : isFinanceDashboard
+      ? 'Bursar Dashboard'
+    : isClassTeacherDashboard
+      ? 'Class Teacher Dashboard'
+      : isSubjectTeacherDashboard
+        ? 'Subject Teacher Dashboard'
+        : isAssistantClassTeacherDashboard
+          ? 'Assistant Class Teacher Dashboard'
+          : 'Teacher';
 
   return (
-    <PageLayout title="Teacher" role="teacher">
+    <PageLayout title={pageTitle} role="teacher">
       <div className="school-admin-shell">
         <aside className="school-admin-nav" aria-label="Teacher sections">
           <button type="button" className={`school-admin-nav-btn ${activeView === 'overview' ? 'is-active' : ''}`} onClick={() => setActiveView('overview')}>
@@ -499,8 +586,18 @@ export default function TeacherPage() {
           {activeView === 'overview' && (
             <>
               <div className="dashboard-actions" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
-                <button type="button" className="btn-primary-action" onClick={() => setActiveView('students')}>
-                  Open my students
+                <button type="button" className="btn-primary-action" onClick={() => setActiveView(isFinanceDashboard ? 'fees' : 'students')}>
+                  {isLeadershipDashboard
+                    ? 'Open student oversight'
+                    : isFinanceDashboard
+                      ? 'Open fee ledger'
+                    : isClassTeacherDashboard
+                      ? 'Open class register'
+                      : isSubjectTeacherDashboard
+                        ? 'Open subject learners'
+                        : isAssistantClassTeacherDashboard
+                          ? 'Open assisted class register'
+                        : 'Open my students'}
                 </button>
                 <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setActiveView('attendance')} disabled={classes.length === 0}>
                   Attendance
@@ -512,22 +609,87 @@ export default function TeacherPage() {
                   Assignments
                 </Link>
               </div>
-              <section aria-label="Classroom snapshot">
+              <section aria-label={dashboardTitle}>
                 <div className="dashboard-grid">
                   <article className="dashboard-card dashboard-card--highlight">
-                    <p className="dashboard-label">Students you teach</p>
+                    <p className="dashboard-label">
+                      {isLeadershipDashboard
+                        ? 'Students under oversight'
+                        : isFinanceDashboard
+                          ? 'Students with fee profiles'
+                        : isClassTeacherDashboard
+                          ? 'Students in my class'
+                          : isSubjectTeacherDashboard
+                            ? 'Students in my subjects'
+                            : isAssistantClassTeacherDashboard
+                              ? 'Students in assisted classes'
+                            : 'Students you teach'}
+                    </p>
                     <p className="dashboard-value">{students.length}</p>
-                    <p className="dashboard-sub">Across your assigned classes (tenant-scoped).</p>
+                    <p className="dashboard-sub">
+                      {isLeadershipDashboard
+                        ? 'Across classes currently under your role scope.'
+                        : isFinanceDashboard
+                          ? 'Track fee obligations and payment status by student.'
+                        : isClassTeacherDashboard
+                          ? 'Across your form/class teacher assignments.'
+                          : isSubjectTeacherDashboard
+                            ? 'Across your assigned subject classes and streams.'
+                            : isAssistantClassTeacherDashboard
+                              ? 'Across classes where you support the lead class teacher.'
+                        : 'Across your assigned classes (tenant-scoped).'}
+                    </p>
                   </article>
                   <article className="dashboard-card">
-                    <p className="dashboard-label">Classes</p>
+                    <p className="dashboard-label">
+                      {isLeadershipDashboard
+                        ? 'Classes supervised'
+                        : isFinanceDashboard
+                          ? 'Fee-linked classes'
+                        : isClassTeacherDashboard
+                          ? 'My class groups'
+                          : isSubjectTeacherDashboard
+                            ? 'Subject classes'
+                            : isAssistantClassTeacherDashboard
+                              ? 'Assisted classes'
+                            : 'Classes'}
+                    </p>
                     <p className="dashboard-value">{classCount}</p>
-                    <p className="dashboard-sub">Distinct classes on your timetable.</p>
+                    <p className="dashboard-sub">
+                      {isLeadershipDashboard
+                        ? 'Distinct classes currently visible to your leadership view.'
+                        : isFinanceDashboard
+                          ? 'Use class fee status to monitor paid, partial, and unpaid students.'
+                        : isClassTeacherDashboard
+                          ? 'Use attendance, grading, and assignments for these classes.'
+                          : isSubjectTeacherDashboard
+                            ? 'Use grading and assignments to manage subject delivery.'
+                            : isAssistantClassTeacherDashboard
+                              ? 'Support attendance, grading, and class operations for assigned classes.'
+                        : 'Distinct classes on your timetable.'}
+                    </p>
                   </article>
                   <article className="dashboard-card">
-                    <p className="dashboard-label">Profile</p>
-                    <p className="dashboard-value">{me ? 'Complete' : '—'}</p>
-                    <p className="dashboard-sub">Photo and contact details.</p>
+                    <p className="dashboard-label">Role</p>
+                    <p className="dashboard-value">{roleTitle}</p>
+                    <p className="dashboard-sub">
+                      {isLeadershipDashboard
+                        ? 'Leadership mode enabled from your role title.'
+                        : isFinanceDashboard
+                          ? 'Bursar/Finance mode enabled from your role title.'
+                        : isClassTeacherDashboard
+                          ? 'Class Teacher mode enabled from your role title.'
+                          : isSubjectTeacherDashboard
+                            ? 'Subject Teacher mode enabled from your role title.'
+                            : isAssistantClassTeacherDashboard
+                              ? 'Assistant Class Teacher mode enabled from your role title.'
+                        : 'Teacher mode enabled.'}
+                    </p>
+                  </article>
+                  <article className="dashboard-card">
+                    <p className="dashboard-label">Notices and events</p>
+                    <p className="dashboard-value">{notices.length + events.length}</p>
+                    <p className="dashboard-sub">{notices.length} notices and {events.length} upcoming events.</p>
                   </article>
                 </div>
               </section>

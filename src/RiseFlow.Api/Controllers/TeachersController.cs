@@ -1041,7 +1041,17 @@ public class TeachersController : ControllerBase
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
         }
 
-        return new TeacherProfileConfigDto(teacher, settingsDto, customMap);
+        var permissions = new TeacherRolePermissionsDto(
+            canManageTeachers: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageTeachers, ct),
+            canAssignClasses: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanAssignClasses, ct),
+            canApproveResults: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, ct),
+            canSendParentBroadcasts: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanSendParentBroadcasts, ct),
+            canManageFees: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageFees, ct),
+            canManageAttendance: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAttendance, ct),
+            canManageAssessments: teacherView && await _staffPermissions.HasTeacherPermissionAsync(User, StaffPermissionKeys.CanManageAssessments, ct)
+        );
+
+        return new TeacherProfileConfigDto(teacher, settingsDto, customMap, permissions);
     }
 
     private static TeacherProfileFieldSettingDto MapSettingDto(TeacherProfileFieldSetting setting)
@@ -1085,4 +1095,14 @@ public record UpsertTeacherProfileFieldSettingRequest(
 public record TeacherProfileConfigDto(
     Teacher teacher,
     List<TeacherProfileFieldSettingDto> fieldSettings,
-    Dictionary<string, string> customFields);
+    Dictionary<string, string> customFields,
+    TeacherRolePermissionsDto permissions);
+
+public record TeacherRolePermissionsDto(
+    bool canManageTeachers,
+    bool canAssignClasses,
+    bool canApproveResults,
+    bool canSendParentBroadcasts,
+    bool canManageFees,
+    bool canManageAttendance,
+    bool canManageAssessments);

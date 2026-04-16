@@ -23,6 +23,7 @@
                 "SuperAdmin" => "Platform Control Room",
                 "SchoolAdmin" => "School Administration",
                 "Teacher" => "Teacher Portal",
+                "Staff" => "Staff Workspace",
                 "Parent" => "Family View",
                 "Student" => "Student Portal",
                 _ => ""
@@ -62,6 +63,12 @@
     <AuthorizeView Roles="Teacher">
         <NavItem Href="/teacher/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
         <NavItem Href="/teacher/grading" Icon="book" Label="Grading" />
+    </AuthorizeView>
+
+    <!-- ── Staff only ──────────────────────────────────────────────── -->
+    <AuthorizeView Roles="Staff">
+        <NavItem Href="/staff/dashboard" Icon="chart" Label="Dashboard" ExactMatch="true" />
+        <NavItem Href="/staff/grading" Icon="book" Label="Grading" />
     </AuthorizeView>
 
     <!-- ── Parent only ─────────────────────────────────────────────── -->

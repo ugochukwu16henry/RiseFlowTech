@@ -22,6 +22,7 @@ public sealed class UserSession
         "SuperAdmin" => "/super-admin/dashboard",
         "SchoolAdmin" => "/admin/dashboard",
         "Teacher" => "/teacher/dashboard",
+        "Staff" => "/staff/dashboard",
         "Parent" => "/parent/dashboard",
         "Student" => "/student/dashboard",
         _ => "/login",

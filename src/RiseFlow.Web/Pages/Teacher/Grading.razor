@@ -1,8 +1,11 @@
 @page "/teacher/grading"
 @page "/teacher/grading/{AssessmentId:guid}"
-@attribute [Authorize(Roles = "Teacher")]
+@page "/staff/grading"
+@page "/staff/grading/{AssessmentId:guid}"
+@attribute [Authorize(Roles = "Teacher,Staff")]
 @layout DashboardLayout
 @inject ApiService Api
+@inject RiseFlowAuthStateProvider AuthState
 
 <PageTitle>Grading – RiseFlow</PageTitle>
 
@@ -48,7 +51,7 @@
                 <div class="space-y-2">
                     @foreach (var a in _assessments)
                     {
-                        <a href="/teacher/grading/@a.Id"
+                        <a href="@($"{RoleRoot}/grading/{a.Id}")"
                            class="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                             <div>
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">@a.Name</p>
@@ -118,6 +121,9 @@
     private bool _loading;
     private bool _saving;
     private bool _saveSuccess;
+    private string RoleRoot => string.Equals(AuthState.CurrentSession?.Role, "Staff", StringComparison.OrdinalIgnoreCase)
+        ? "/staff"
+        : "/teacher";
     private string? _saveError;
 
     protected override async Task OnParametersSetAsync()

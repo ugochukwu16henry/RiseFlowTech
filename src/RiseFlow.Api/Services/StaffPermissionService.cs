@@ -46,7 +46,7 @@ public class StaffPermissionService
         if (allowed)
             return true;
 
-        if (user.IsInRole(Roles.Teacher))
+        if (user.IsInRole(Roles.Teacher) || user.IsInRole(Roles.Staff))
         {
             await _audit.LogAsync(
                 _tenant.CurrentSchoolId,
@@ -55,7 +55,7 @@ public class StaffPermissionService
                 entityId,
                 _tenant.CurrentUserEmail,
                 user.Identity?.Name,
-                $"Teacher denied '{action}' because '{permissionKey}' is not granted by staff structure permissions.",
+            $"Staff/Teacher denied '{action}' because '{permissionKey}' is not granted by staff structure permissions.",
                 ct);
         }
 
@@ -67,7 +67,7 @@ public class StaffPermissionService
         if (user.IsInRole(Roles.SchoolAdmin))
             return true;
 
-        if (!user.IsInRole(Roles.Teacher))
+        if (!user.IsInRole(Roles.Teacher) && !user.IsInRole(Roles.Staff))
             return false;
 
         if (!_tenant.CurrentSchoolId.HasValue)
