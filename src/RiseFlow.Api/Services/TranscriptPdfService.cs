@@ -42,13 +42,14 @@ public class TranscriptPdfService
             .AsNoTracking()
             .Include(r => r.Subject)
             .Include(r => r.Term)
-            .Where(r => r.StudentId == studentId);
+            .Where(r => r.StudentId == studentId && r.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked);
         if (termIds != null)
         {
             var ids = termIds.ToList();
             if (ids.Count > 0) resultsQuery = resultsQuery.Where(r => ids.Contains(r.TermId));
         }
         var results = await resultsQuery.OrderBy(r => r.Term!.StartDate).ThenBy(r => r.Subject!.Name).ToListAsync(ct);
+        var termPositions = await ComputeTermPositionsAsync(studentId, student.ClassId, results.Select(r => r.TermId).Distinct().ToList(), ct);
 
         var issuedAt = DateTime.UtcNow;
         var canonical = BuildCanonicalContent(student, school, results, issuedAt, issuedToName);
@@ -69,8 +70,53 @@ public class TranscriptPdfService
         await _db.SaveChangesAsync(ct);
 
         var verifyUrl = $"{verificationBaseUrl.TrimEnd('/')}/verify/transcript/{token}";
-        var pdfBytes = BuildPdf(student, school, results, verifyUrl, contentHash);
+        var pdfBytes = BuildPdf(student, school, results, termPositions, verifyUrl, contentHash);
         return (verification, pdfBytes);
+    }
+
+    private async Task<Dictionary<Guid, int?>> ComputeTermPositionsAsync(
+        Guid studentId,
+        Guid? classId,
+        IReadOnlyCollection<Guid> termIds,
+        CancellationToken ct)
+    {
+        var positions = new Dictionary<Guid, int?>();
+        if (!classId.HasValue || termIds.Count == 0)
+            return positions;
+
+        var rows = await _db.StudentResults
+            .AsNoTracking()
+            .Include(r => r.Student)
+            .Where(r => termIds.Contains(r.TermId)
+                        && r.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked
+                        && r.Student.ClassId == classId.Value)
+            .Select(r => new { r.TermId, r.StudentId, r.Score })
+            .ToListAsync(ct);
+
+        foreach (var termGroup in rows.GroupBy(r => r.TermId))
+        {
+            var totals = termGroup
+                .GroupBy(r => r.StudentId)
+                .Select(g => new { StudentId = g.Key, TotalScore = g.Sum(x => x.Score) })
+                .OrderByDescending(x => x.TotalScore)
+                .ToList();
+
+            int position = 0;
+            decimal? lastScore = null;
+            foreach (var total in totals)
+            {
+                if (lastScore == null || total.TotalScore < lastScore.Value)
+                    position++;
+                if (total.StudentId == studentId)
+                {
+                    positions[termGroup.Key] = position;
+                    break;
+                }
+                lastScore = total.TotalScore;
+            }
+        }
+
+        return positions;
     }
 
     private static string BuildCanonicalContent(Student student, School school, List<StudentResult> results, DateTime issuedAt, string? issuedToName)
@@ -88,10 +134,34 @@ public class TranscriptPdfService
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
-    private static byte[] BuildPdf(Student student, School school, List<StudentResult> results, string verifyUrl, string? contentHash)
+    private static byte[] BuildPdf(
+        Student student,
+        School school,
+        List<StudentResult> results,
+        IReadOnlyDictionary<Guid, int?> termPositions,
+        string verifyUrl,
+        string? contentHash)
     {
         QuestPDF.Settings.License = LicenseType.Community;
         var qrBytes = GenerateQrPng(verifyUrl);
+        var termSummaries = results
+            .GroupBy(r => r.TermId)
+            .Select(g => new
+            {
+                TermId = g.Key,
+                TermName = g.First().Term?.Name ?? "—",
+                Rows = g.GroupBy(x => x.SubjectId)
+                    .Select(sg => new
+                    {
+                        SubjectName = sg.First().Subject?.Name ?? "—",
+                        Score = sg.Sum(x => x.Score),
+                        MaxScore = sg.Sum(x => x.MaxScore),
+                        GradeLetter = sg.LastOrDefault(x => !string.IsNullOrWhiteSpace(x.GradeLetter))?.GradeLetter
+                    })
+                    .OrderBy(x => x.SubjectName)
+                    .ToList()
+            })
+            .ToList();
 
         return Document.Create(container =>
         {
@@ -105,43 +175,54 @@ public class TranscriptPdfService
                 {
                     c.Item().Text("ACADEMIC TRANSCRIPT").Bold().FontSize(14);
                     c.Item().Text(school.Name).FontSize(12);
+                    c.Item().Text($"School ID: {school.Id}").FontSize(9);
+                    c.Item().Text($"Email: {school.Email ?? "—"}  |  Phone: {school.Phone ?? "—"}").FontSize(9);
                     c.Item().Text($"Issued: {DateTime.UtcNow:yyyy-MM-dd}").FontSize(9);
                 });
 
                 page.Content().Column(c =>
                 {
                     c.Spacing(10);
-                    c.Item().Text($"Student: {student.FirstName} {student.LastName}").Bold();
+                    c.Item().Text($"Student: {student.FirstName} {student.MiddleName} {student.LastName}".Replace("  ", " ").Trim()).Bold();
                     c.Item().Text($"Admission: {student.AdmissionNumber ?? "—"}  |  Class: {student.Class?.Name ?? "—"}  |  Grade: {student.Grade?.Name ?? "—"}");
                     c.Spacing(10);
-                    c.Item().Text("RESULTS").Bold();
-                    c.Item().Table(t =>
+
+                    foreach (var term in termSummaries)
                     {
-                        t.ColumnsDefinition(d =>
+                        c.Item().Text($"TERM: {term.TermName}").Bold();
+                        c.Item().Table(t =>
                         {
-                            d.ConstantColumn(80);
-                            d.RelativeColumn(2);
-                            d.ConstantColumn(60);
-                            d.ConstantColumn(60);
-                            d.ConstantColumn(80);
+                            t.ColumnsDefinition(d =>
+                            {
+                                d.RelativeColumn(2);
+                                d.ConstantColumn(70);
+                                d.ConstantColumn(70);
+                                d.ConstantColumn(80);
+                            });
+                            t.Header(h =>
+                            {
+                                h.Cell().Element(CellStyle).Text("Subject");
+                                h.Cell().Element(CellStyle).Text("Score");
+                                h.Cell().Element(CellStyle).Text("Percent");
+                                h.Cell().Element(CellStyle).Text("Grade");
+                            });
+                            foreach (var row in term.Rows)
+                            {
+                                var percent = row.MaxScore > 0 ? Math.Round((row.Score / row.MaxScore) * 100m, 1) : 0m;
+                                t.Cell().Text(row.SubjectName);
+                                t.Cell().Text($"{row.Score}/{row.MaxScore}");
+                                t.Cell().Text($"{percent}%");
+                                t.Cell().Text(row.GradeLetter ?? "—");
+                            }
                         });
-                        t.Header(h =>
-                        {
-                            h.Cell().Element(CellStyle).Text("Term");
-                            h.Cell().Element(CellStyle).Text("Subject");
-                            h.Cell().Element(CellStyle).Text("Type");
-                            h.Cell().Element(CellStyle).Text("Score");
-                            h.Cell().Element(CellStyle).Text("Grade");
-                        });
-                        foreach (var r in results)
-                        {
-                            t.Cell().Text(r.Term?.Name ?? "—");
-                            t.Cell().Text(r.Subject?.Name ?? "—");
-                            t.Cell().Text(r.AssessmentType);
-                            t.Cell().Text($"{r.Score}/{r.MaxScore}");
-                            t.Cell().Text(r.GradeLetter ?? "—");
-                        }
-                    });
+                        var termScore = term.Rows.Sum(x => x.Score);
+                        var termMax = term.Rows.Sum(x => x.MaxScore);
+                        var termPercent = termMax > 0 ? Math.Round((termScore / termMax) * 100m, 1) : 0m;
+                        var position = termPositions.TryGetValue(term.TermId, out var p) ? p : null;
+                        c.Item().Text($"Term total: {termScore}/{termMax} ({termPercent}%)  |  Position in class: {(position.HasValue ? position.Value.ToString() : "—")}").FontSize(9);
+                        c.Item().PaddingBottom(8);
+                    }
+
                     c.Spacing(15);
                     c.Item().Row(r =>
                     {

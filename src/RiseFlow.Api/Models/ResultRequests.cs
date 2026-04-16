@@ -18,3 +18,5 @@ public record UpdateResultRequest(
     string? GradeLetter,
     string? Comment,
     Guid? ExamId);
+
+public record ReviewResultRequest(string? Comment);

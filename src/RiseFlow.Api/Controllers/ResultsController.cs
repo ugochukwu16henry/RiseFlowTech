@@ -63,6 +63,7 @@ public class ResultsController : ControllerBase
             GradeLetter = resolvedGradeLetter,
             Comment = request.Comment,
             EnteredByTeacherId = teacherId,
+            WorkflowStatus = ResultWorkflowStatus.Draft,
             CreatedAtUtc = DateTime.UtcNow
         };
         _db.StudentResults.Add(result);
@@ -100,6 +101,8 @@ public class ResultsController : ControllerBase
             return Forbid();
         if (User.IsInRole(Roles.Student) && !await CanStudentAccessStudentAsync(result.StudentId, ct))
             return Forbid();
+        if ((User.IsInRole(Roles.Parent) || User.IsInRole(Roles.Student)) && result.WorkflowStatus != ResultWorkflowStatus.ApprovedLocked)
+            return NotFound();
         return Ok(result);
     }
 
@@ -118,6 +121,8 @@ public class ResultsController : ControllerBase
             return NotFound();
         if (result.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
+        if (result.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked || result.LockedAtUtc.HasValue)
+            return BadRequest(new { message = "Result is locked after final approval and cannot be edited." });
 
         var submissionWindowBlock = await ValidateTeacherSubmissionWindowAsync(result.TermId, ct);
         if (submissionWindowBlock != null)
@@ -161,6 +166,8 @@ public class ResultsController : ControllerBase
             return NotFound();
         if (result.SchoolId != _tenant.CurrentSchoolId.Value)
             return Forbid();
+        if (result.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked || result.LockedAtUtc.HasValue)
+            return BadRequest(new { message = "Result is locked after final approval and cannot be deleted." });
         var details = $"Result deleted: Student {result.StudentId:N}, Score {result.Score}/{result.MaxScore}";
         _db.StudentResults.Remove(result);
         await _db.SaveChangesAsync(ct);
@@ -174,6 +181,92 @@ public class ResultsController : ControllerBase
             details,
             ct);
         return NoContent();
+    }
+
+    /// <summary>Teacher/SchoolAdmin: submit a drafted result for review.</summary>
+    [HttpPost("{id:guid}/submit")]
+    [Authorize(Roles = $"{Roles.Teacher},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(StudentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentResult>> Submit(Guid id, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "Submit", id.ToString(), ct))
+            return Forbid();
+
+        var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (result == null)
+            return NotFound();
+        if (result.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+        if (result.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked || result.LockedAtUtc.HasValue)
+            return BadRequest(new { message = "Result is locked after final approval." });
+
+        var teacherId = await ResolveCurrentTeacherIdAsync(ct);
+        result.WorkflowStatus = ResultWorkflowStatus.Submitted;
+        result.SubmittedAtUtc = DateTime.UtcNow;
+        result.SubmittedByTeacherId = teacherId;
+        result.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(result);
+    }
+
+    /// <summary>Class-head review stage before final approval.</summary>
+    [HttpPost("{id:guid}/review")]
+    [Authorize(Roles = $"{Roles.Teacher},{Roles.SchoolAdmin}")]
+    [ProducesResponseType(typeof(StudentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentResult>> Review(Guid id, [FromBody] ReviewResultRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "Review", id.ToString(), ct))
+            return Forbid();
+
+        var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (result == null)
+            return NotFound();
+        if (result.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+        if (result.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked || result.LockedAtUtc.HasValue)
+            return BadRequest(new { message = "Result is locked after final approval." });
+
+        result.WorkflowStatus = ResultWorkflowStatus.Reviewed;
+        result.ReviewedAtUtc = DateTime.UtcNow;
+        result.ReviewedByUserId = TryGetCurrentUserId();
+        result.ReviewComment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
+        result.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(result);
+    }
+
+    /// <summary>SchoolAdmin final approval and immutable lock.</summary>
+    [HttpPost("{id:guid}/final-approve")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentResult>> FinalApprove(Guid id, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        if (!await _staffPermissions.EnsureTeacherPermissionAsync(User, StaffPermissionKeys.CanApproveResults, "StudentResult", "FinalApprove", id.ToString(), ct))
+            return Forbid();
+
+        var result = await _db.StudentResults.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (result == null)
+            return NotFound();
+        if (result.SchoolId != _tenant.CurrentSchoolId.Value)
+            return Forbid();
+
+        var approvedAt = DateTime.UtcNow;
+        result.WorkflowStatus = ResultWorkflowStatus.ApprovedLocked;
+        result.FinalApprovedAtUtc = approvedAt;
+        result.FinalApprovedByUserId = TryGetCurrentUserId();
+        result.LockedAtUtc = approvedAt;
+        result.UpdatedAtUtc = approvedAt;
+        await _db.SaveChangesAsync(ct);
+        return Ok(result);
     }
 
     /// <summary>List results: by student and optional term (teachers/schooladmin), or for parent's children only.</summary>
@@ -194,6 +287,7 @@ public class ResultsController : ControllerBase
             if (allowedStudentIds.Count == 0)
                 return Ok(new List<StudentResult>());
             query = query.Where(r => allowedStudentIds.Contains(r.StudentId));
+            query = query.Where(r => r.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked);
         }
         else if (User.IsInRole(Roles.Student))
         {
@@ -201,6 +295,7 @@ public class ResultsController : ControllerBase
             if (allowedStudentIds.Count == 0)
                 return Ok(new List<StudentResult>());
             query = query.Where(r => allowedStudentIds.Contains(r.StudentId));
+            query = query.Where(r => r.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked);
         }
         else if (studentId.HasValue)
             query = query.Where(r => r.StudentId == studentId.Value);
@@ -227,6 +322,7 @@ public class ResultsController : ControllerBase
             .Include(r => r.Term)
             .Include(r => r.Exam)
             .Where(r => allowedStudentIds.Contains(r.StudentId));
+        query = query.Where(r => r.WorkflowStatus == ResultWorkflowStatus.ApprovedLocked);
         if (termId.HasValue)
             query = query.Where(r => r.TermId == termId.Value);
         var list = await query.OrderBy(r => r.Student!.LastName).ThenBy(r => r.Subject!.Name).ToListAsync(ct);
@@ -395,6 +491,12 @@ public class ResultsController : ControllerBase
         }
 
         return null;
+    }
+
+    private Guid? TryGetCurrentUserId()
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(userIdValue, out var userId) ? userId : null;
     }
 }
 

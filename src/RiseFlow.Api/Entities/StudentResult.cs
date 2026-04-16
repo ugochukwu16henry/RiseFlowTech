@@ -17,6 +17,15 @@ public class StudentResult : ITenantEntity
     public string? GradeLetter { get; set; }
     public string? Comment { get; set; }
     public Guid? EnteredByTeacherId { get; set; }
+    public ResultWorkflowStatus WorkflowStatus { get; set; } = ResultWorkflowStatus.Draft;
+    public DateTime? SubmittedAtUtc { get; set; }
+    public Guid? SubmittedByTeacherId { get; set; }
+    public DateTime? ReviewedAtUtc { get; set; }
+    public Guid? ReviewedByUserId { get; set; }
+    public string? ReviewComment { get; set; }
+    public DateTime? FinalApprovedAtUtc { get; set; }
+    public Guid? FinalApprovedByUserId { get; set; }
+    public DateTime? LockedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
 

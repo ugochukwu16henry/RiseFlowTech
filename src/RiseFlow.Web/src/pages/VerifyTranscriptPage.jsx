@@ -101,6 +101,37 @@ export default function VerifyTranscriptPage() {
                 )}
               </dl>
               <p className="verify-note">This transcript is official. The unique hash and QR code prove it has not been forged. riseflow.com/verify</p>
+
+              {Array.isArray(state.data.termSummaries) && state.data.termSummaries.length > 0 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Verified term summary</h2>
+                  {state.data.termSummaries.map((term) => (
+                    <div key={term.termId} style={{ marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: '0 0 0.25rem', fontSize: '0.95rem' }}>{term.termName}</h3>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left', padding: '0.25rem 0' }}>Subject</th>
+                            <th style={{ textAlign: 'left', padding: '0.25rem 0' }}>Score</th>
+                            <th style={{ textAlign: 'left', padding: '0.25rem 0' }}>Percent</th>
+                            <th style={{ textAlign: 'left', padding: '0.25rem 0' }}>Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(term.subjects || []).map((subject) => (
+                            <tr key={`${term.termId}-${subject.subjectName}`}>
+                              <td style={{ padding: '0.2rem 0' }}>{subject.subjectName}</td>
+                              <td style={{ padding: '0.2rem 0' }}>{subject.score}/{subject.maxScore}</td>
+                              <td style={{ padding: '0.2rem 0' }}>{subject.percentage}%</td>
+                              <td style={{ padding: '0.2rem 0' }}>{subject.gradeLetter || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

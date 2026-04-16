@@ -467,6 +467,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.AssessmentType).IsRequired().HasMaxLength(64);
             e.Property(x => x.GradeLetter).HasMaxLength(16);
             e.Property(x => x.Comment).HasMaxLength(512);
+            e.Property(x => x.WorkflowStatus).HasConversion<string>().HasMaxLength(32);
+            e.Property(x => x.ReviewComment).HasMaxLength(512);
+            e.HasIndex(x => new { x.SchoolId, x.TermId, x.WorkflowStatus });
             e.HasOne(x => x.School).WithMany(s => s.StudentResults).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Student).WithMany(s => s.Results).HasForeignKey(x => x.StudentId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Subject).WithMany(s => s.StudentResults).HasForeignKey(x => x.SubjectId).OnDelete(DeleteBehavior.Restrict);
