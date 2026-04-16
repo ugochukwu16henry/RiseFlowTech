@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -26,8 +27,9 @@ public class StudentsController : ControllerBase
     private readonly ParentWelcomeLetterPdfService _parentLetterPdf;
     private readonly BillingService _billing;
     private readonly ILogger<StudentsController> _logger;
+    private readonly IConfiguration _config;
 
-    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, FileStorageService fileStorage, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, ILogger<StudentsController> logger)
+    public StudentsController(RiseFlowDbContext db, ITenantContext tenant, IWebHostEnvironment env, FileStorageService fileStorage, StudentBulkUploadService bulkUpload, ExcelService excelService, ParentWelcomeLetterPdfService parentLetterPdf, BillingService billing, ILogger<StudentsController> logger, IConfiguration config)
     {
         _db = db;
         _tenant = tenant;
@@ -38,6 +40,7 @@ public class StudentsController : ControllerBase
         _parentLetterPdf = parentLetterPdf;
         _billing = billing;
         _logger = logger;
+        _config = config;
     }
 
     /// <summary>
@@ -352,6 +355,7 @@ public class StudentsController : ControllerBase
                     s.MiddleName,
                     s.AdmissionNumber,
                     s.IsActive,
+                    s.EnrollmentStatus,
                     s.ProfilePhotoFileName,
                     s.ClassId == null
                         ? null
@@ -389,6 +393,7 @@ public class StudentsController : ControllerBase
                     null,
                     null,
                     s.IsActive,
+                    s.EnrollmentStatus,
                     null,
                     null,
                     null))
@@ -530,6 +535,11 @@ public class StudentsController : ControllerBase
             student.ParentAccessCode,
             student.ProfilePhotoFileName,
             student.IsActive,
+            student.EnrollmentStatus,
+            student.ClosedAtUtc,
+            student.ClosedReason,
+            student.GraduatedAtUtc,
+            student.GraduationNotes,
             Class = student.Class == null ? null : new
             {
                 student.Class.Id,
@@ -738,6 +748,74 @@ public class StudentsController : ControllerBase
         student.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(student);
+    }
+
+    [HttpPost("{id:guid}/lifecycle/close")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentLifecycleActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentLifecycleActionResult>> CloseStudent(Guid id, [FromBody] CloseStudentRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+        if (student == null)
+            return NotFound();
+
+        student.IsActive = false;
+        student.EnrollmentStatus = "Closed";
+        student.ClosedAtUtc = DateTime.UtcNow;
+        student.ClosedReason = string.IsNullOrWhiteSpace(request?.Reason) ? "Offboarded by School Admin." : request.Reason.Trim();
+        student.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new StudentLifecycleActionResult(
+            student.Id,
+            student.EnrollmentStatus,
+            student.ClosedAtUtc,
+            null,
+            null,
+            student.ClosedReason,
+            "Student has been offboarded. Record is preserved and marked as closed."));
+    }
+
+    [HttpPost("{id:guid}/lifecycle/graduate")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(typeof(StudentLifecycleActionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StudentLifecycleActionResult>> GraduateStudent(Guid id, [FromBody] GraduateStudentRequest request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var student = await _db.Students
+            .Include(s => s.School)
+            .FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+        if (student == null)
+            return NotFound();
+
+        student.IsActive = false;
+        student.EnrollmentStatus = "Graduated";
+        student.GraduatedAtUtc = DateTime.UtcNow;
+        student.GraduationNotes = string.IsNullOrWhiteSpace(request?.Notes) ? null : request.Notes.Trim();
+        student.UpdatedAtUtc = DateTime.UtcNow;
+
+        var token = await EnsureGraduateVerificationTokenAsync(student, request?.IssuedToName, ct);
+        await _db.SaveChangesAsync(ct);
+
+        var verifyUrl = BuildPublicVerifyUrl(token);
+        return Ok(new StudentLifecycleActionResult(
+            student.Id,
+            student.EnrollmentStatus,
+            null,
+            student.GraduatedAtUtc,
+            token,
+            student.GraduationNotes,
+            "Student has been marked as graduated. QR/verification link generated.",
+            verifyUrl));
     }
 
     [HttpPut("{id:guid}/parent-corrections")]
@@ -1341,6 +1419,49 @@ public class StudentsController : ControllerBase
         await _db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    private async Task<string> EnsureGraduateVerificationTokenAsync(Student student, string? issuedToName, CancellationToken ct)
+    {
+        var existing = await _db.TranscriptVerifications
+            .Where(v => v.StudentId == student.Id && v.SchoolId == student.SchoolId)
+            .OrderByDescending(v => v.IssuedAtUtc)
+            .FirstOrDefaultAsync(ct);
+        if (existing != null)
+        {
+            existing.IssuedToName = string.IsNullOrWhiteSpace(issuedToName) ? existing.IssuedToName : issuedToName.Trim();
+            existing.IssuedAtUtc = DateTime.UtcNow;
+            return existing.VerificationToken;
+        }
+
+        var token = GenerateVerificationToken();
+        _db.TranscriptVerifications.Add(new TranscriptVerification
+        {
+            Id = Guid.NewGuid(),
+            SchoolId = student.SchoolId,
+            StudentId = student.Id,
+            VerificationToken = token,
+            IssuedAtUtc = DateTime.UtcNow,
+            IssuedToName = string.IsNullOrWhiteSpace(issuedToName) ? $"{student.FirstName} {student.LastName}".Trim() : issuedToName.Trim(),
+            ContentHash = null
+        });
+        return token;
+    }
+
+    private string BuildPublicVerifyUrl(string token)
+    {
+        var configured = _config["RiseFlow:VerificationBaseUrl"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+            return $"{configured.TrimEnd('/')}/verify/transcript/{token}";
+
+        return $"{Request.Scheme}://{Request.Host}/verify/transcript/{token}";
+    }
+
+    private static string GenerateVerificationToken()
+    {
+        Span<byte> bytes = stackalloc byte[12];
+        RandomNumberGenerator.Fill(bytes);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
 }
 
 public record AccessCodeDto(string Code);
@@ -1353,6 +1474,7 @@ public record StudentDirectoryItemDto(
     string? MiddleName,
     string? AdmissionNumber,
     bool IsActive,
+    string? EnrollmentStatus,
     string? ProfilePhotoFileName,
     StudentDirectoryClassDto? Class,
     StudentDirectoryGradeDto? Grade);
@@ -1392,3 +1514,14 @@ public record UpdateStudentProfileVisibilityRequest(
     bool ShowParentContactsToTeachers,
     bool ShowAcademicHistoryToTeachers,
     bool ShowPreviousRecordToTeachers);
+public record CloseStudentRequest(string? Reason);
+public record GraduateStudentRequest(string? Notes, string? IssuedToName);
+public record StudentLifecycleActionResult(
+    Guid StudentId,
+    string EnrollmentStatus,
+    DateTime? ClosedAtUtc,
+    DateTime? GraduatedAtUtc,
+    string? VerificationToken,
+    string? Notes,
+    string Message,
+    string? VerificationUrl = null);

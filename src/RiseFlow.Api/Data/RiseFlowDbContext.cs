@@ -174,6 +174,9 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.EmergencyContactPhone).HasMaxLength(512).HasConversion(sensitiveConverter);
             e.Property(x => x.ParentAccessCode).HasMaxLength(16);
             e.Property(x => x.ProfilePhotoFileName).HasMaxLength(256);
+            e.Property(x => x.EnrollmentStatus).IsRequired().HasMaxLength(32).HasDefaultValue("Active");
+            e.Property(x => x.ClosedReason).HasMaxLength(512);
+            e.Property(x => x.GraduationNotes).HasMaxLength(512);
             e.HasIndex(x => new { x.SchoolId, x.ParentAccessCode }).IsUnique();
             e.HasOne(x => x.School).WithMany(s => s.Students).HasForeignKey(x => x.SchoolId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Class).WithMany(c => c.Students).HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.SetNull);

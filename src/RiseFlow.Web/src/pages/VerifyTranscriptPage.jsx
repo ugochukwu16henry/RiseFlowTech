@@ -47,6 +47,14 @@ export default function VerifyTranscriptPage() {
     }
   };
 
+  const resolveLogoUrl = (raw) => {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value)) return value;
+    const normalized = value.startsWith('/') ? value : `/${value}`;
+    return `${window.location.origin}${normalized}`;
+  };
+
   return (
     <PageLayout title="Transcript verification" role="legal" showSignOut={false}>
       <div className="verify-page">
@@ -80,6 +88,15 @@ export default function VerifyTranscriptPage() {
           {state.status === 'done' && state.data && (
             <div className="verify-result verify-result--valid">
               <span className="verify-badge" aria-label="Verified">Verified</span>
+              {state.data.schoolContact?.logoPath && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <img
+                    src={resolveLogoUrl(state.data.schoolContact.logoPath)}
+                    alt={`${state.data.schoolName} logo`}
+                    style={{ maxHeight: '56px', maxWidth: '220px', objectFit: 'contain' }}
+                  />
+                </div>
+              )}
               <dl className="verify-details">
                 <dt>Student</dt>
                 <dd>{state.data.studentName}</dd>
@@ -99,8 +116,36 @@ export default function VerifyTranscriptPage() {
                     <dd className="verify-hash">{state.data.contentHash}</dd>
                   </>
                 )}
+                {state.data.enrollmentStatus && (
+                  <>
+                    <dt>Status</dt>
+                    <dd>{state.data.enrollmentStatus}</dd>
+                  </>
+                )}
+                {state.data.currentClassName && (
+                  <>
+                    <dt>Current/Last Class</dt>
+                    <dd>{state.data.currentClassName}</dd>
+                  </>
+                )}
+                {state.data.dateOfAdmission && (
+                  <>
+                    <dt>Started School</dt>
+                    <dd>{formatDate(state.data.dateOfAdmission)}</dd>
+                  </>
+                )}
               </dl>
               <p className="verify-note">This transcript is official. The unique hash and QR code prove it has not been forged. riseflow.com/verify</p>
+
+              {state.data.schoolContact && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <h2 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>School contact</h2>
+                  <p style={{ margin: '0.15rem 0' }}>{state.data.schoolContact.schoolName || '—'}</p>
+                  <p style={{ margin: '0.15rem 0' }}>{state.data.schoolContact.address || '—'}</p>
+                  <p style={{ margin: '0.15rem 0' }}>{state.data.schoolContact.email || '—'}</p>
+                  <p style={{ margin: '0.15rem 0' }}>{state.data.schoolContact.phone || '—'}</p>
+                </div>
+              )}
 
               {Array.isArray(state.data.termSummaries) && state.data.termSummaries.length > 0 && (
                 <div style={{ marginTop: '1rem' }}>
@@ -130,6 +175,26 @@ export default function VerifyTranscriptPage() {
                       </table>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {Array.isArray(state.data.teachers) && state.data.teachers.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <h2 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>Associated teachers</h2>
+                  <p style={{ margin: 0 }}>{state.data.teachers.join(', ')}</p>
+                </div>
+              )}
+
+              {Array.isArray(state.data.classHistory) && state.data.classHistory.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <h2 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>Class history</h2>
+                  <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                    {state.data.classHistory.map((item, idx) => (
+                      <li key={`${item.promotedAtUtc}-${idx}`}>
+                        {item.fromClass} → {item.toClass} ({formatDate(item.promotedAtUtc)})
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

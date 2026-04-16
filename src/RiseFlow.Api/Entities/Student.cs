@@ -45,6 +45,14 @@ public class Student : ITenantEntity
     public string? ProfilePhotoFileName { get; set; }
 
     public bool IsActive { get; set; } = true;
+    /// <summary>
+    /// Active lifecycle status controlled by School Admin: Active, Closed, Graduated.
+    /// </summary>
+    public string EnrollmentStatus { get; set; } = "Active";
+    public DateTime? ClosedAtUtc { get; set; }
+    public string? ClosedReason { get; set; }
+    public DateTime? GraduatedAtUtc { get; set; }
+    public string? GraduationNotes { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
 

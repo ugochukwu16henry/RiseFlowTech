@@ -51,6 +51,7 @@ export default function SchoolStudentsPage() {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [bulkClassId, setBulkClassId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [processingLifecycleId, setProcessingLifecycleId] = useState(null);
 
   const loadStudents = async (cancelledRef, options = {}) => {
     const { background = false } = options;
@@ -225,6 +226,53 @@ export default function SchoolStudentsPage() {
     }
   };
 
+  const closeStudent = async (student) => {
+    if (!student?.id || processingLifecycleId) return;
+    const reason = window.prompt('Reason for closing this student record (e.g. transferred, dropped out):', 'Student left school');
+    if (reason == null) return;
+    setProcessingLifecycleId(student.id);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/students/${student.id}/lifecycle/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || 'Could not close student record.');
+      await loadStudents(undefined, { background: true });
+    } catch (e) {
+      setError(e.message || 'Could not close student record.');
+    } finally {
+      setProcessingLifecycleId(null);
+    }
+  };
+
+  const graduateStudent = async (student) => {
+    if (!student?.id || processingLifecycleId) return;
+    const notes = window.prompt('Graduation notes (optional):', '');
+    if (notes == null) return;
+    setProcessingLifecycleId(student.id);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/students/${student.id}/lifecycle/graduate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes, issuedToName: [student.firstName, student.lastName].filter(Boolean).join(' ') }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.message || 'Could not mark student as graduated.');
+      if (payload?.verificationUrl) {
+        window.alert(`Graduate verification QR link created:\n${payload.verificationUrl}`);
+      }
+      await loadStudents(undefined, { background: true });
+    } catch (e) {
+      setError(e.message || 'Could not mark student as graduated.');
+    } finally {
+      setProcessingLifecycleId(null);
+    }
+  };
+
   return (
     <PageLayout title="School Admin — Teachers & Students" role="school">
       <h2 className="section-title">Students</h2>
@@ -317,6 +365,7 @@ export default function SchoolStudentsPage() {
                 <th>Class</th>
                 <th>Quick assign</th>
                 <th>Grade</th>
+                <th>Status</th>
                 <th>Record</th>
               </tr>
             </thead>
@@ -354,10 +403,29 @@ export default function SchoolStudentsPage() {
                     {savingClassId === s.id && <span className="form-hint">Saving…</span>}
                   </td>
                   <td>{getGradeName(s)}</td>
+                  <td>{s.enrollmentStatus || (s.isActive ? 'Active' : 'Closed')}</td>
                   <td>
-                    <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setSelectedStudentId(s.id)}>
-                      Open record
-                    </button>
+                    <div className="form-actions" style={{ gap: '0.35rem', flexWrap: 'wrap' }}>
+                      <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setSelectedStudentId(s.id)}>
+                        Open record
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => closeStudent(s)}
+                        disabled={processingLifecycleId === s.id || (s.enrollmentStatus || '').toLowerCase() === 'closed'}
+                      >
+                        {processingLifecycleId === s.id ? 'Saving…' : 'Offboard'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary-action btn-primary-action--ghost"
+                        onClick={() => graduateStudent(s)}
+                        disabled={processingLifecycleId === s.id || (s.enrollmentStatus || '').toLowerCase() === 'graduated'}
+                      >
+                        {processingLifecycleId === s.id ? 'Saving…' : 'Graduate'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

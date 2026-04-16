@@ -50,6 +50,7 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
   const [error, setError] = useState(null);
   const [saveMessage, setSaveMessage] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [savingLifecycle, setSavingLifecycle] = useState(false);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [form, setForm] = useState({});
   const [visibilityForm, setVisibilityForm] = useState(null);
@@ -200,6 +201,56 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
     }
   };
 
+  const handleCloseStudent = async () => {
+    if (!detail?.id || role !== 'school' || savingLifecycle) return;
+    const reason = window.prompt('Reason for closing student record:', detail.closedReason || 'Student left school');
+    if (reason == null) return;
+    setSavingLifecycle(true);
+    setSaveMessage(null);
+    try {
+      const res = await apiFetch(`/api/students/${detail.id}/lifecycle/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'Could not close student.');
+      await refreshDetails(data?.message || 'Student marked as closed.');
+    } catch (err) {
+      setSaveMessage(err.message || 'Could not close student.');
+    } finally {
+      setSavingLifecycle(false);
+    }
+  };
+
+  const handleGraduateStudent = async () => {
+    if (!detail?.id || role !== 'school' || savingLifecycle) return;
+    const notes = window.prompt('Graduation notes (optional):', detail.graduationNotes || '');
+    if (notes == null) return;
+    setSavingLifecycle(true);
+    setSaveMessage(null);
+    try {
+      const res = await apiFetch(`/api/students/${detail.id}/lifecycle/graduate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notes,
+          issuedToName: [detail.firstName, detail.lastName].filter(Boolean).join(' '),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || 'Could not graduate student.');
+      if (data?.verificationUrl) {
+        window.alert(`Graduate verification QR link:\n${data.verificationUrl}`);
+      }
+      await refreshDetails(data?.message || 'Student marked as graduated.');
+    } catch (err) {
+      setSaveMessage(err.message || 'Could not graduate student.');
+    } finally {
+      setSavingLifecycle(false);
+    }
+  };
+
   if (!studentId) return null;
 
   return (
@@ -231,6 +282,9 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
               <p className="card-desc">
                 Current average: {detail.currentAveragePercentage != null ? `${detail.currentAveragePercentage}%` : '—'}
               </p>
+              <p className="card-desc">
+                Status: {detail.enrollmentStatus || (detail.isActive ? 'Active' : 'Closed')}
+              </p>
             </div>
           </div>
 
@@ -239,6 +293,27 @@ export default function StudentRecordPanel({ studentId, role = 'school', onClose
           )}
           {saveMessage && (
             <p className="student-note student-note--success">{saveMessage}</p>
+          )}
+
+          {role === 'school' && (
+            <div className="form-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={handleCloseStudent}
+                disabled={savingLifecycle || String(detail.enrollmentStatus || '').toLowerCase() === 'closed'}
+              >
+                {savingLifecycle ? 'Saving…' : 'Mark as closed / offboarded'}
+              </button>
+              <button
+                type="button"
+                className="btn-primary-action btn-primary-action--ghost"
+                onClick={handleGraduateStudent}
+                disabled={savingLifecycle || String(detail.enrollmentStatus || '').toLowerCase() === 'graduated'}
+              >
+                {savingLifecycle ? 'Saving…' : 'Mark as graduated + generate QR link'}
+              </button>
+            </div>
           )}
 
           <div className="student-record-grid">

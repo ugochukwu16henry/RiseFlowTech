@@ -26,6 +26,7 @@ public class VerifyController : ControllerBase
         var verification = await _db.TranscriptVerifications
             .AsNoTracking()
             .Include(v => v.Student)
+                .ThenInclude(s => s.Class)
             .Include(v => v.School)
             .FirstOrDefaultAsync(v => v.VerificationToken == token, ct);
         if (verification == null)
@@ -58,6 +59,49 @@ public class VerifyController : ControllerBase
                     .ToList()))
             .ToList();
 
+        var classHistory = await _db.StudentPromotions
+            .AsNoTracking()
+            .Include(x => x.FromClass)
+            .Include(x => x.ToClass)
+            .Where(x => x.StudentId == verification.StudentId)
+            .OrderBy(x => x.PromotedAtUtc)
+            .Select(x => new StudentClassHistoryDto(
+                x.FromClass != null ? x.FromClass.Name : "—",
+                x.ToClass != null ? x.ToClass.Name : "—",
+                x.PromotedAtUtc))
+            .ToListAsync(ct);
+
+        var teacherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (verification.Student.ClassId.HasValue)
+        {
+            var classTeacherNames = await _db.TeacherClasses
+                .AsNoTracking()
+                .Include(tc => tc.Teacher)
+                .Where(tc => tc.ClassId == verification.Student.ClassId.Value && tc.Teacher.IsActive)
+                .Select(tc => $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim())
+                .ToListAsync(ct);
+            foreach (var name in classTeacherNames)
+                if (!string.IsNullOrWhiteSpace(name))
+                    teacherNames.Add(name);
+
+            var subjectTeacherNames = await _db.TeacherClassSubjects
+                .AsNoTracking()
+                .Include(tc => tc.Teacher)
+                .Where(tc => tc.ClassId == verification.Student.ClassId.Value && tc.Teacher.IsActive)
+                .Select(tc => $"{tc.Teacher.FirstName} {tc.Teacher.LastName}".Trim())
+                .ToListAsync(ct);
+            foreach (var name in subjectTeacherNames)
+                if (!string.IsNullOrWhiteSpace(name))
+                    teacherNames.Add(name);
+        }
+
+        var schoolContact = new TranscriptVerificationSchoolContactDto(
+            verification.School.Name,
+            verification.School.Address,
+            verification.School.Email,
+            verification.School.Phone,
+            verification.School.LogoFileName);
+
         return Ok(new TranscriptVerificationResult(
             Valid: true,
             StudentName: $"{verification.Student.FirstName} {verification.Student.LastName}",
@@ -65,7 +109,13 @@ public class VerifyController : ControllerBase
             IssuedAtUtc: verification.IssuedAtUtc,
             IssuedToName: verification.IssuedToName,
             ContentHash: verification.ContentHash,
-            TermSummaries: termSummaries));
+            TermSummaries: termSummaries,
+            DateOfAdmission: verification.Student.DateOfAdmission,
+            CurrentClassName: verification.Student.Class?.Name,
+            EnrollmentStatus: verification.Student.EnrollmentStatus,
+            ClassHistory: classHistory,
+            Teachers: teacherNames.OrderBy(x => x).ToList(),
+            SchoolContact: schoolContact));
     }
 }
 
@@ -76,7 +126,13 @@ public record TranscriptVerificationResult(
     DateTime IssuedAtUtc,
     string? IssuedToName,
     string? ContentHash,
-    IReadOnlyList<TranscriptVerificationTermSummary> TermSummaries);
+    IReadOnlyList<TranscriptVerificationTermSummary> TermSummaries,
+    DateTime? DateOfAdmission,
+    string? CurrentClassName,
+    string? EnrollmentStatus,
+    IReadOnlyList<StudentClassHistoryDto> ClassHistory,
+    IReadOnlyList<string> Teachers,
+    TranscriptVerificationSchoolContactDto SchoolContact);
 
 public record TranscriptVerificationTermSummary(
     Guid TermId,
@@ -89,3 +145,15 @@ public record TranscriptVerificationSubjectSummary(
     decimal MaxScore,
     decimal Percentage,
     string? GradeLetter);
+
+public record StudentClassHistoryDto(
+    string FromClass,
+    string ToClass,
+    DateTime PromotedAtUtc);
+
+public record TranscriptVerificationSchoolContactDto(
+    string SchoolName,
+    string? Address,
+    string? Email,
+    string? Phone,
+    string? LogoPath);
