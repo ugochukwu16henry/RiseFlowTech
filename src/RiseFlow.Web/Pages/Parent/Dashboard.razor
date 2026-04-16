@@ -53,10 +53,10 @@
             </a>
         </div>
 
+
         @if (_selected is not null)
         {
             <div class="grid md:grid-cols-2 gap-6">
-
                 <!-- Profile card -->
                 <section
                     class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3">
@@ -75,6 +75,8 @@
                                 </div>
                             }
                         </dl>
+                        <button class="mt-4 px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+                                @onclick="ShowResultsModal">Preview/Download Results</button>
                     </section>
 
                     <!-- Results summary -->
@@ -101,55 +103,107 @@
                                     </div>
                                 }
                             </div>
-                        }
-                    </section>
-                </div>
+                            <div class="mt-4">
+                                <span class="text-xs">Pass rate: </span>
+                                <span class="font-semibold">@(_progress.Count > 0 ? ((double)_progress.Count(p => p.Percent >= 40) /
+                                                        _progress.Count * 100).ToString("F0") : "0")%</span>
+                                </div>
+                            }
+                        </section>
+                    </div>
+
+                    <!-- Results Modal -->
+                    @if (_showResultsModal)
+                    {
+                        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                            <div class="bg-white dark:bg-slate-900 rounded-lg shadow-lg p-6 max-w-lg w-full relative">
+                                <button class="absolute top-2 right-2 text-slate-500 hover:text-slate-800"
+                                        @onclick="HideResultsModal">&times;</button>
+                                <h3 class="text-lg font-bold mb-2">@ChildName(_selected) — Term Results</h3>
+                                @if (_selectedResults.Count == 0)
+                                {
+                                    <p class="text-sm text-slate-500">No results available for this child.</p>
+                                }
+                                else
+                                {
+                                    <table class="min-w-full text-xs mb-4">
+                                        <thead>
+                                            <tr class="border-b">
+                                                <th class="text-left py-1">Subject</th>
+                                                <th class="text-left py-1">Score</th>
+                                                <th class="text-left py-1">Max</th>
+                                                <th class="text-left py-1">%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var r in _selectedResults)
+                                            {
+                                                <tr>
+                                                    <td class="py-1">@r.SubjectName</td>
+                                                    <td class="py-1">@r.Score</td>
+                                                    <td class="py-1">@r.MaxScore</td>
+                                                    <td class="py-1">@((r.MaxScore > 0 ? (r.Score / r.MaxScore * 100) : 0).ToString("F1"))%</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    <a class="inline-block px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-500 transition-colors"
+                                           href="@GetTranscriptDownloadUrl(_selected.StudentId)" target="_blank">
+                                        Download Official Transcript (PDF)
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
 
                 <!-- Teacher contacts -->
                 <section>
-                    <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Teachers</h2>
-                    @if (_loadingTeachers)
+    <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 mb-3">Teachers</h2>
+    @if (_loadingTeachers)
+    {
+        <p class="text-sm text-slate-400" aria-busy="true">Loading teachers…</p>
+    }
+    else if (_teachers.Count == 0)
+    {
+        <p class="text-sm text-slate-400">No teacher contacts found.</p>
+    }
+    else
+    {
+        <div class="grid sm:grid-cols-2 gap-3">
+            @foreach (var t in _teachers)
+            {
+                <div
+                    class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            @($"{t.FirstName} {t.LastName}".Trim())
+                        </p>
+                        <p class="text-xs text-slate-500">@(t.SubjectName ?? "Unknown subject")</p>
+                    </div>
+                    @if (WhatsAppUrl(t.WhatsAppNumber, t.Phone) is { } wa)
                     {
-                        <p class="text-sm text-slate-400" aria-busy="true">Loading teachers…</p>
+                        <a href="@wa" target="_blank" rel="noopener noreferrer"
+                               class="text-xs font-semibold text-emerald-600 hover:underline dark:text-emerald-400">
+                            WhatsApp
+                        </a>
                     }
-                    else if (_teachers.Count == 0)
-                    {
-                        <p class="text-sm text-slate-400">No teacher contacts found.</p>
-                    }
-                    else
-                    {
-                        <div class="grid sm:grid-cols-2 gap-3">
-                            @foreach (var t in _teachers)
-                            {
-                                <div
-                                    class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm">
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                            @($"{t.FirstName} {t.LastName}".Trim())
-                                        </p>
-                                        <p class="text-xs text-slate-500">@(t.SubjectName ?? "Unknown subject")</p>
-                                    </div>
-                                    @if (WhatsAppUrl(t.WhatsAppNumber, t.Phone) is { } wa)
-                                    {
-                                        <a href="@wa" target="_blank" rel="noopener noreferrer"
-                                               class="text-xs font-semibold text-emerald-600 hover:underline dark:text-emerald-400">
-                                            WhatsApp
-                                        </a>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-                </section>
+                </div>
             }
+        </div>
+                }
+            </section>
         }
-    </div>
+    }
+</div>
 
 @code {
     private List<ChildLink> _children = [];
     private List<ResultRecord> _results = [];
     private List<ContactTeacher> _teachers = [];
     private List<(string Subject, int Percent)> _progress = [];
+    private bool _showResultsModal;
+    private List<ResultRecord> _selectedResults = new();
     private ChildLink? _selected;
     private bool _loading = true;
     private bool _loadingTeachers;
@@ -175,6 +229,23 @@
         _selected = _children.FirstOrDefault(c => c.StudentId == studentId);
         BuildProgress(studentId);
         await LoadTeachers(studentId);
+    }
+
+    private void ShowResultsModal()
+    {
+        if (_selected is not null)
+        {
+            _selectedResults = _results.Where(r => r.StudentId == _selected.StudentId).ToList();
+            _showResultsModal = true;
+        }
+    }
+
+    private void HideResultsModal() => _showResultsModal = false;
+
+    private string GetTranscriptDownloadUrl(Guid studentId)
+    {
+        // This assumes the API endpoint for transcript PDF is as follows:
+        return $"/api/transcripts/generate?studentId={studentId}";
     }
 
     private void BuildProgress(Guid studentId)

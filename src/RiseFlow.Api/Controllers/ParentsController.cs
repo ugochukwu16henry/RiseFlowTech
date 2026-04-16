@@ -226,6 +226,96 @@ public class ParentsController : ControllerBase
     }
 
     /// <summary>
+    /// Academic results for the current parent's linked children, grouped by term.
+    /// Used by the Parent dashboard to show pass/fail trend and per-term breakdown.
+    /// </summary>
+    [HttpGet("my-results")]
+    [Authorize(Roles = Roles.Parent)]
+    [ProducesResponseType(typeof(List<MyChildResultsDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<MyChildResultsDto>>> MyResults(CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var email = _tenant.CurrentUserEmail;
+        if (string.IsNullOrEmpty(email))
+            return Unauthorized();
+
+        var parent = await _db.Parents.AsNoTracking().FirstOrDefaultAsync(p => p.SchoolId == schoolId && p.Email == email, ct);
+        if (parent == null)
+            return Ok(new List<MyChildResultsDto>());
+
+        var linkedIds = await _db.StudentParents
+            .Where(sp => sp.ParentId == parent.Id)
+            .Select(sp => sp.StudentId)
+            .ToListAsync(ct);
+        if (linkedIds.Count == 0)
+            return Ok(new List<MyChildResultsDto>());
+
+        var results = await _db.StudentResults
+            .AsNoTracking()
+            .Include(r => r.Term)
+            .Include(r => r.Subject)
+            .Where(r => linkedIds.Contains(r.StudentId))
+            .OrderByDescending(r => r.Term.StartDate)
+            .ThenBy(r => r.Subject.Name)
+            .ToListAsync(ct);
+
+        if (results.Count == 0)
+            return Ok(new List<MyChildResultsDto>());
+
+        var students = await _db.Students
+            .AsNoTracking()
+            .Where(s => s.SchoolId == schoolId && linkedIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, s => s, ct);
+
+        var byStudent = results.GroupBy(r => r.StudentId);
+        var summary = new List<MyChildResultsDto>();
+
+        foreach (var studentGroup in byStudent)
+        {
+            if (!students.TryGetValue(studentGroup.Key, out var student))
+                continue;
+
+            var termGroups = studentGroup
+                .GroupBy(r => r.TermId)
+                .Select(tg =>
+                {
+                    var term = tg.First().Term;
+                    var totalScore = tg.Sum(x => x.Score);
+                    var maxTotal = tg.Sum(x => x.MaxScore);
+                    var percentage = maxTotal > 0 ? Math.Round((totalScore / maxTotal) * 100m, 1) : 0m;
+                    var passed = percentage >= 50m;
+
+                    var subjects = tg
+                        .OrderBy(x => x.Subject.Name)
+                        .Select(x => new SubjectResultDto(
+                            x.Subject.Name,
+                            x.Score,
+                            x.MaxScore,
+                            x.GradeLetter))
+                        .ToList();
+
+                    return new TermResultSummaryDto(
+                        term.Id,
+                        $"{term.Name} {term.AcademicYear}",
+                        percentage,
+                        passed,
+                        subjects);
+                })
+                .OrderByDescending(t => t.TermLabel)
+                .ToList();
+
+            summary.Add(new MyChildResultsDto(
+                student.Id,
+                $"{student.FirstName} {student.LastName}".Trim(),
+                termGroups));
+        }
+
+        return Ok(summary);
+    }
+
+    /// <summary>
     /// Parent dashboard helper: returns each linked child's generated student portal login and visibility settings.
     /// If the student login was missing, it is recreated automatically here.
     /// </summary>
@@ -587,6 +677,12 @@ public class ParentsController : ControllerBase
 }
 
 public record MyChildDto(Guid StudentId, string FirstName, string LastName, string? MiddleName, string ClassName, decimal? TermAverage);
+
+public record SubjectResultDto(string SubjectName, decimal Score, decimal MaxScore, string? GradeLetter);
+
+public record TermResultSummaryDto(Guid TermId, string TermLabel, decimal Percentage, bool Passed, List<SubjectResultDto> Subjects);
+
+public record MyChildResultsDto(Guid StudentId, string FullName, List<TermResultSummaryDto> Terms);
 
 public record ParentSignupRequest(Guid SchoolId, string Email, string? Password, string? FirstName, string? LastName, string? Phone);
 public record ParentSignupResult(bool Success, string Message);

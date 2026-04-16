@@ -81,6 +81,7 @@ export default function ParentPage() {
   const [errorResults, setErrorResults] = useState(null);
   const [errorTeachers, setErrorTeachers] = useState(null);
   const [errorPortalAccess, setErrorPortalAccess] = useState(null);
+  const [resultsByChild, setResultsByChild] = useState({});
   const [activeView, setActiveView] = useState('overview');
   const [showStudentDetails, setShowStudentDetails] = useState(false);
   const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false);
@@ -101,6 +102,20 @@ export default function ParentPage() {
     if (!res.ok) throw new Error('Could not load student access details');
     const data = await res.json();
     return Array.isArray(data) ? data : [];
+  }, []);
+
+  const loadChildResults = useCallback(async () => {
+    const res = await apiFetch('/api/parents/my-results');
+    if (res.status === 401 || res.status === 403) return {};
+    if (!res.ok) throw new Error('Could not load progress.');
+    const data = await res.json();
+    const map = {};
+    if (Array.isArray(data)) {
+      data.forEach((child) => {
+        if (child && child.studentId) map[child.studentId] = child;
+      });
+    }
+    return map;
   }, []);
 
   useEffect(() => {
@@ -160,20 +175,32 @@ export default function ParentPage() {
     let cancelled = false;
     setLoadingResults(true);
     setErrorResults(null);
-    apiFetch('/api/results/my-children')
-      .then((res) => {
-        if (cancelled) return null;
-        if (res.status === 401) return [];
-        if (!res.ok) throw new Error('Could not load results');
-        return res.json();
-      })
-      .then((data) => {
-        if (!cancelled) setResults(Array.isArray(data) ? data : []);
+    loadChildResults()
+      .then((map) => {
+        if (!cancelled) {
+          setResultsByChild(map);
+          // Flatten to the old results shape for the existing progress chart (current term)
+          const flat = [];
+          Object.values(map).forEach((child) => {
+            if (!child?.terms) return;
+            const latest = child.terms[0];
+            if (!latest?.subjects) return;
+            latest.subjects.forEach((s) => {
+              flat.push({
+                studentId: child.studentId,
+                subject: { name: s.subjectName },
+                score: s.score,
+                maxScore: s.maxScore,
+              });
+            });
+          });
+          setResults(flat);
+        }
       })
       .catch((err) => { if (!cancelled) setErrorResults(err.message); })
       .finally(() => { if (!cancelled) setLoadingResults(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [loadChildResults]);
 
   useEffect(() => {
     if (!selectedChildId) {
@@ -586,34 +613,65 @@ export default function ParentPage() {
               <h3 className="card-title">Performance snapshot</h3>
               {loadingResults && <p className="empty-state" aria-busy="true">Loading results…</p>}
               {errorResults && <p className="empty-state empty-state--error">{errorResults}</p>}
-              {!loadingResults && !errorResults && progress.length === 0 && (
-                <p className="empty-state">No results yet for this term.</p>
-              )}
-              {!loadingResults && progress.length > 0 && (
-                <>
-                  {overallPct != null && (
-                    <div className="progress-item progress-overall">
-                      <div className="progress-header">
-                        <span className="progress-label">Overall</span>
-                        <span className="progress-value">{overallPct}%</span>
+              {!loadingResults && !errorResults && (
+                (() => {
+                  const childResults = selectedChildId ? resultsByChild[selectedChildId] : null;
+                  if (!childResults || !Array.isArray(childResults.terms) || childResults.terms.length === 0) {
+                    return <p className="empty-state">No exam or test records yet for this child.</p>;
+                  }
+
+                  return (
+                    <>
+                      {/* Term summary cards with pass/fail */}
+                      <div className="dashboard-grid">
+                        {childResults.terms.map((term) => (
+                          <article key={term.termId} className="dashboard-card">
+                            <p className="dashboard-label">{term.termLabel}</p>
+                            <p className="dashboard-value">{term.percentage}%</p>
+                            <p className="dashboard-sub">
+                              {term.passed ? 'Passed this term' : 'At risk — needs support'}
+                            </p>
+                            <button
+                              type="button"
+                              className="btn-primary-action btn-primary-action--ghost"
+                              onClick={() => window.open(
+                                `/api/transcripts/${selectedChildId}?termId=${term.termId}`,
+                                '_blank',
+                              )}
+                            >
+                              Download term report
+                            </button>
+                          </article>
+                        ))}
                       </div>
-                      <div className="progress-track">
-                        <div className="progress-fill progress-overall-fill" style={{ width: `${overallPct}%` }} />
-                      </div>
-                    </div>
-                  )}
-                  <ul className="progress-list">
-                    {progress.map(({ subject, value }) => (
-                      <li key={subject}>
-                        <ProgressBar label={subject} value={value} />
-                      </li>
-                    ))}
-                  </ul>
-                </>
+
+                      {/* Existing subject progress chart (current term) */}
+                      {progress.length > 0 && (
+                        <div style={{ marginTop: '1rem' }}>
+                          {overallPct != null && (
+                            <div className="progress-item progress-overall">
+                              <div className="progress-header">
+                                <span className="progress-label">Overall (latest term)</span>
+                                <span className="progress-value">{overallPct}%</span>
+                              </div>
+                              <div className="progress-track">
+                                <div className="progress-fill progress-overall-fill" style={{ width: `${overallPct}%` }} />
+                              </div>
+                            </div>
+                          )}
+                          <ul className="progress-list">
+                            {progress.map(({ subject, value }) => (
+                              <li key={subject}>
+                                <ProgressBar label={subject} value={value} />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
               )}
-              <p className="card-desc" style={{ marginTop: '1rem' }}>
-                <button type="button" className="btn-download-pdf" disabled>Download PDF report (coming soon)</button>
-              </p>
 
               <div className="student-record-card" style={{ marginTop: '1rem' }}>
                 <h4 className="dashboard-section-title">Assignments</h4>
