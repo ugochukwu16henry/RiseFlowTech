@@ -2443,11 +2443,11 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                 <article className="dashboard-card"><p className="dashboard-label">Professional summary</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacher.highestQualification || selectedTeacher.subjectSpecialization || '—'}</p><p className="dashboard-sub">Experience: {selectedTeacher.yearsOfExperience ?? '—'} years</p></article>
                 <article className="dashboard-card"><p className="dashboard-label">Workload</p><p className="dashboard-value" style={{ fontSize: '1rem' }}>{selectedTeacherClassIds.length} class(es)</p><p className="dashboard-sub">Handling {selectedTeacherStudentCount} student(s)</p></article>
                 <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-                  <p className="dashboard-label">Hierarchy role setup</p>
+                  <p className="dashboard-label" style={governanceLabelStyle}>Hierarchy role setup</p>
                   <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={selectedTeacherRoleTitle}
                       onChange={(e) => setSelectedTeacherRoleTitle(e.target.value)}
                     >
@@ -2461,7 +2461,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     {selectedTeacherRoleTitle === 'custom' && (
                       <input
                         className="form-input"
-                        style={{ minWidth: '220px' }}
+                        style={{ ...governanceInputStyle, minWidth: '220px' }}
                         value={customTeacherRoleTitle}
                         onChange={(e) => setCustomTeacherRoleTitle(e.target.value)}
                         placeholder="e.g. Assistant Head Teacher"
@@ -2470,7 +2470,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
 
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={selectedTeacherDepartment}
                       onChange={(e) => setSelectedTeacherDepartment(e.target.value)}
                     >
@@ -2489,18 +2489,18 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       {savingTeacherRoleProfile ? 'Saving role…' : 'Save hierarchy role'}
                     </button>
                   </div>
-                  <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+                  <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.5rem' }}>
                     {staffStructureOptions?.countryName
                       ? `Country reference: ${staffStructureOptions.countryName} (${staffStructureOptions.countryCode || '—'}).`
                       : 'Country-specific hierarchy references are loading.'}
                   </p>
                 </article>
                 <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-                  <p className="dashboard-label">Class assignment</p>
+                  <p className="dashboard-label" style={governanceLabelStyle}>Class assignment</p>
                   <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={teacherAssignClassId}
                       onChange={(e) => setTeacherAssignClassId(e.target.value)}
                       disabled={assigningTeacherClass || classes.length === 0}
@@ -2516,7 +2516,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     </select>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={teacherAssignRoleInClass}
                       onChange={(e) => setTeacherAssignRoleInClass(e.target.value)}
                       disabled={assigningTeacherClass}
@@ -2530,7 +2530,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     {teacherAssignRoleInClass === 'custom' && (
                       <input
                         className="form-input"
-                        style={{ minWidth: '220px' }}
+                        style={{ ...governanceInputStyle, minWidth: '220px' }}
                         value={customTeacherAssignRoleInClass}
                         onChange={(e) => setCustomTeacherAssignRoleInClass(e.target.value)}
                         placeholder="e.g. Assistant Class Teacher"
@@ -2572,11 +2572,11 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                   </div>
                 </article>
                 <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-                  <p className="dashboard-label">Subject to class assignment</p>
+                  <p className="dashboard-label" style={governanceLabelStyle}>Subject to class assignment</p>
                   <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={classSubjectClassId}
                       onChange={(e) => setClassSubjectClassId(e.target.value)}
                       disabled={savingClassSubject || classes.length === 0}
@@ -2590,7 +2590,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     </select>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={classSubjectSubjectId}
                       onChange={(e) => setClassSubjectSubjectId(e.target.value)}
                       disabled={savingClassSubject || subjects.length === 0}
@@ -2621,16 +2621,16 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       {removingClassSubjectKey === `${classSubjectClassId}:${classSubjectSubjectId}` ? 'Removing…' : 'Remove selected class-subject'}
                     </button>
                   </div>
-                  <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+                  <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.5rem' }}>
                     Pick a class and subject to map curriculum coverage. Remove actions apply to the selected class.
                   </p>
                 </article>
                 <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
-                  <p className="dashboard-label">Teacher to class + subject assignment</p>
+                  <p className="dashboard-label" style={governanceLabelStyle}>Teacher to class + subject assignment</p>
                   <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={teacherSubjectClassId}
                       onChange={(e) => setTeacherSubjectClassId(e.target.value)}
                       disabled={savingTeacherClassSubject || classes.length === 0}
@@ -2644,7 +2644,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     </select>
                     <select
                       className="form-input"
-                      style={{ minWidth: '220px' }}
+                      style={{ ...governanceInputStyle, minWidth: '220px' }}
                       value={teacherSubjectSubjectId}
                       onChange={(e) => setTeacherSubjectSubjectId(e.target.value)}
                       disabled={savingTeacherClassSubject || teacherSubjectOptions.length === 0}
@@ -2685,7 +2685,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       );
                     })}
                   </div>
-                  <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+                  <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.5rem' }}>
                     You can assign class-subjects even if the teacher has not been assigned as a class teacher yet.
                   </p>
                 </article>
