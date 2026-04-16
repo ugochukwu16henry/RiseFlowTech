@@ -174,6 +174,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
   const [peopleRoleFilter, setPeopleRoleFilter] = useState('all');
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState([]);
   const [parents, setParents] = useState([]);
   const [billing, setBilling] = useState([]);
@@ -234,6 +235,14 @@ export default function SchoolAdminPage({ view = 'overview' }) {
   const [customTeacherAssignRoleInClass, setCustomTeacherAssignRoleInClass] = useState('');
   const [assigningTeacherClass, setAssigningTeacherClass] = useState(false);
   const [removingTeacherClassId, setRemovingTeacherClassId] = useState(null);
+  const [classSubjectClassId, setClassSubjectClassId] = useState('');
+  const [classSubjectSubjectId, setClassSubjectSubjectId] = useState('');
+  const [savingClassSubject, setSavingClassSubject] = useState(false);
+  const [removingClassSubjectKey, setRemovingClassSubjectKey] = useState(null);
+  const [teacherSubjectClassId, setTeacherSubjectClassId] = useState('');
+  const [teacherSubjectSubjectId, setTeacherSubjectSubjectId] = useState('');
+  const [savingTeacherClassSubject, setSavingTeacherClassSubject] = useState(false);
+  const [removingTeacherClassSubjectKey, setRemovingTeacherClassSubjectKey] = useState(null);
   const [staffStructureOptions, setStaffStructureOptions] = useState(null);
   const [staffStructureConfig, setStaffStructureConfig] = useState(null);
   const [staffPermissionMatrixDraft, setStaffPermissionMatrixDraft] = useState([]);
@@ -307,6 +316,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       apiFetch('/api/teachers/people').then((r) => readJsonOrThrow(r, 'Failed to load school people.')),
       apiFetch('/api/students').then((r) => readJsonOrThrow(r, 'Failed to load students.')),
       apiFetch('/api/schools/classes').then((r) => readJsonOrThrow(r, 'Failed to load classes.')),
+      apiFetch('/api/subjects').then((r) => readJsonOrThrow(r, 'Failed to load subjects.')),
       apiFetch('/api/schools/grades').then((r) => readJsonOrThrow(r, 'Failed to load grades.')),
       apiFetch('/api/parents').then((r) => readJsonOrThrow(r, 'Failed to load parents.')),
       apiFetch('/api/billing').then((r) => readJsonOrThrow(r, 'Failed to load billing records.')),
@@ -315,7 +325,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       apiFetch('/api/schools/staff-structure-config').then((r) => readJsonOrThrow(r, 'Failed to load staff structure config.')),
     ])
       .then((results) => {
-        const [dashResult, profileResult, teacherResult, studentResult, classResult, gradeResult, parentResult, billingResult, profileOptionsResult, staffStructureResult, staffStructureConfigResult] = results;
+        const [dashResult, profileResult, teacherResult, studentResult, classResult, subjectResult, gradeResult, parentResult, billingResult, profileOptionsResult, staffStructureResult, staffStructureConfigResult] = results;
         const dash = dashResult.status === 'fulfilled' ? dashResult.value : null;
         const profile = profileResult.status === 'fulfilled' ? profileResult.value : null;
 
@@ -355,6 +365,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
         setTeachers(teacherResult.status === 'fulfilled' && Array.isArray(teacherResult.value) ? teacherResult.value : []);
         setStudents(studentResult.status === 'fulfilled' && Array.isArray(studentResult.value) ? studentResult.value : []);
         setClasses(classResult.status === 'fulfilled' && Array.isArray(classResult.value) ? classResult.value : []);
+        setSubjects(subjectResult.status === 'fulfilled' && Array.isArray(subjectResult.value) ? subjectResult.value : []);
         setGrades(gradeResult.status === 'fulfilled' && Array.isArray(gradeResult.value) ? gradeResult.value : []);
         setParents(parentResult.status === 'fulfilled' && Array.isArray(parentResult.value) ? parentResult.value : []);
         setBilling(billingResult.status === 'fulfilled' && Array.isArray(billingResult.value) ? billingResult.value : []);
@@ -770,6 +781,8 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       setSelectedTeacherDepartment('');
       setTeacherAssignRoleInClass('');
       setCustomTeacherAssignRoleInClass('');
+      setTeacherSubjectClassId('');
+      setTeacherSubjectSubjectId('');
       return;
     }
 
@@ -782,6 +795,8 @@ export default function SchoolAdminPage({ view = 'overview' }) {
     setSelectedTeacherDepartment(teacherDepartment);
     setTeacherAssignRoleInClass('');
     setCustomTeacherAssignRoleInClass('');
+    setTeacherSubjectClassId('');
+    setTeacherSubjectSubjectId('');
   }, [selectedTeacher?.id, selectedTeacher?.roleTitle, selectedTeacher?.department, staffRoleTitles]);
 
   const selectedTeacherClassIds = selectedTeacher
@@ -790,9 +805,123 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       ...(selectedTeacher.teacherClassSubjects || []).map((tcs) => tcs.classId),
     ].filter(Boolean)))
     : [];
+  const classNameById = useMemo(() => {
+    const map = new Map();
+    classes.forEach((schoolClass) => {
+      map.set(schoolClass.id, schoolClass.name || schoolClass.id);
+    });
+    return map;
+  }, [classes]);
+  const subjectNameById = useMemo(() => {
+    const map = new Map();
+    subjects.forEach((subject) => {
+      map.set(subject.id, subject.name || subject.id);
+    });
+    return map;
+  }, [subjects]);
+  const selectedTeacherClassSubjects = useMemo(() => {
+    const rows = selectedTeacher?.teacherClassSubjects || [];
+    return rows
+      .map((row) => ({
+        classId: row.classId,
+        subjectId: row.subjectId,
+        className: classNameById.get(row.classId) || row.class?.name || row.classId,
+        subjectName: subjectNameById.get(row.subjectId) || row.subject?.name || row.subjectId,
+      }))
+      .filter((row) => row.classId && row.subjectId)
+      .sort((a, b) => {
+        const left = `${a.className} ${a.subjectName}`.toLowerCase();
+        const right = `${b.className} ${b.subjectName}`.toLowerCase();
+        return left.localeCompare(right);
+      });
+  }, [classNameById, selectedTeacher?.teacherClassSubjects, subjectNameById]);
   const selectedTeacherStudentCount = selectedTeacherClassIds.length === 0
     ? 0
     : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
+
+  const assignSubjectToClass = async () => {
+    if (!classSubjectClassId || !classSubjectSubjectId || savingClassSubject) return;
+    setSavingClassSubject(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/subjects/classes/${classSubjectClassId}/subjects/${classSubjectSubjectId}`, {
+        method: 'POST',
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not assign subject to class.');
+
+      setClassSubjectClassId('');
+      setClassSubjectSubjectId('');
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not assign subject to class.');
+    } finally {
+      setSavingClassSubject(false);
+    }
+  };
+
+  const unassignSubjectFromClass = async (classId, subjectId) => {
+    if (!classId || !subjectId || removingClassSubjectKey === `${classId}:${subjectId}`) return;
+    setRemovingClassSubjectKey(`${classId}:${subjectId}`);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/subjects/classes/${classId}/subjects/${subjectId}`, {
+        method: 'DELETE',
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not remove subject from class.');
+
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not remove subject from class.');
+    } finally {
+      setRemovingClassSubjectKey(null);
+    }
+  };
+
+  const assignTeacherToClassSubject = async () => {
+    if (!selectedTeacher?.id || !teacherSubjectClassId || !teacherSubjectSubjectId || savingTeacherClassSubject) return;
+    setSavingTeacherClassSubject(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/subjects/teachers/${selectedTeacher.id}/classes/${teacherSubjectClassId}/subjects/${teacherSubjectSubjectId}`, {
+        method: 'POST',
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not assign teacher to class subject.');
+
+      setTeacherSubjectClassId('');
+      setTeacherSubjectSubjectId('');
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not assign teacher to class subject.');
+    } finally {
+      setSavingTeacherClassSubject(false);
+    }
+  };
+
+  const unassignTeacherFromClassSubject = async (classId, subjectId) => {
+    if (!selectedTeacher?.id || !classId || !subjectId || removingTeacherClassSubjectKey === `${classId}:${subjectId}`) return;
+    setRemovingTeacherClassSubjectKey(`${classId}:${subjectId}`);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/subjects/teachers/${selectedTeacher.id}/classes/${classId}/subjects/${subjectId}`, {
+        method: 'DELETE',
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) throw new Error(text || 'Could not unassign teacher from class subject.');
+
+      await loadData({ background: true });
+      if (selectedTeacherId) await fetchTeacherProfile(selectedTeacherId);
+    } catch (e) {
+      setError(e.message || 'Could not unassign teacher from class subject.');
+    } finally {
+      setRemovingTeacherClassSubjectKey(null);
+    }
+  };
 
   const updateTeacherRoleProfile = async () => {
     if (!selectedTeacher?.id || savingTeacherRoleProfile) return;
@@ -2387,6 +2516,123 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                           title="Remove teacher from this class"
                         >
                           {removingTeacherClassId === classId ? 'Removing…' : `Remove ${label}${assignedRole ? ` • ${assignedRole}` : ''}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
+                <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+                  <p className="dashboard-label">Subject to class assignment</p>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={classSubjectClassId}
+                      onChange={(e) => setClassSubjectClassId(e.target.value)}
+                      disabled={savingClassSubject || classes.length === 0}
+                    >
+                      <option value="">- Select class -</option>
+                      {classes.map((schoolClass) => (
+                        <option key={schoolClass.id} value={schoolClass.id}>
+                          {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={classSubjectSubjectId}
+                      onChange={(e) => setClassSubjectSubjectId(e.target.value)}
+                      disabled={savingClassSubject || subjects.length === 0}
+                    >
+                      <option value="">- Select subject -</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-primary-action"
+                      onClick={assignSubjectToClass}
+                      disabled={savingClassSubject || !classSubjectClassId || !classSubjectSubjectId}
+                    >
+                      {savingClassSubject ? 'Saving…' : 'Assign subject to class'}
+                    </button>
+                  </div>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn-primary-action btn-primary-action--ghost"
+                      onClick={() => unassignSubjectFromClass(classSubjectClassId, classSubjectSubjectId)}
+                      disabled={!classSubjectClassId || !classSubjectSubjectId || removingClassSubjectKey === `${classSubjectClassId}:${classSubjectSubjectId}`}
+                    >
+                      {removingClassSubjectKey === `${classSubjectClassId}:${classSubjectSubjectId}` ? 'Removing…' : 'Remove selected class-subject'}
+                    </button>
+                  </div>
+                  <p className="card-desc" style={{ marginTop: '0.5rem' }}>
+                    Pick a class and subject to map curriculum coverage. Remove actions apply to the selected class.
+                  </p>
+                </article>
+                <article className="dashboard-card" style={{ gridColumn: '1 / -1' }}>
+                  <p className="dashboard-label">Teacher to class + subject assignment</p>
+                  <div className="form-actions" style={{ marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={teacherSubjectClassId}
+                      onChange={(e) => setTeacherSubjectClassId(e.target.value)}
+                      disabled={savingTeacherClassSubject || selectedTeacherClassIds.length === 0}
+                    >
+                      <option value="">- Select class -</option>
+                      {classes
+                        .filter((schoolClass) => selectedTeacherClassIds.includes(schoolClass.id))
+                        .map((schoolClass) => (
+                          <option key={schoolClass.id} value={schoolClass.id}>
+                            {schoolClass.name}{schoolClass.gradeName ? ` (${schoolClass.gradeName})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      className="form-input"
+                      style={{ minWidth: '220px' }}
+                      value={teacherSubjectSubjectId}
+                      onChange={(e) => setTeacherSubjectSubjectId(e.target.value)}
+                      disabled={savingTeacherClassSubject || subjects.length === 0}
+                    >
+                      <option value="">- Select subject -</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-primary-action"
+                      onClick={assignTeacherToClassSubject}
+                      disabled={savingTeacherClassSubject || !teacherSubjectClassId || !teacherSubjectSubjectId}
+                    >
+                      {savingTeacherClassSubject ? 'Saving…' : 'Assign teacher to class subject'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    {selectedTeacherClassSubjects.length === 0 && (
+                      <span className="card-desc">No class-subject assignment yet.</span>
+                    )}
+                    {selectedTeacherClassSubjects.map((item) => {
+                      const key = `${item.classId}:${item.subjectId}`;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          className="btn-primary-action btn-primary-action--ghost"
+                          onClick={() => unassignTeacherFromClassSubject(item.classId, item.subjectId)}
+                          disabled={removingTeacherClassSubjectKey === key}
+                          title="Remove teacher from this class subject"
+                        >
+                          {removingTeacherClassSubjectKey === key ? 'Removing…' : `Remove ${item.className} • ${item.subjectName}`}
                         </button>
                       );
                     })}
