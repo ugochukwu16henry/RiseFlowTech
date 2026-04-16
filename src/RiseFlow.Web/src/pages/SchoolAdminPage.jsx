@@ -276,6 +276,9 @@ export default function SchoolAdminPage({ view = 'overview' }) {
   });
   const [savingFieldSettingKey, setSavingFieldSettingKey] = useState(null);
   const [newCustomField, setNewCustomField] = useState({ displayName: '', fieldKey: '' });
+  const [showTeacherFieldControls, setShowTeacherFieldControls] = useState(false);
+  const [showSchoolHierarchyCatalog, setShowSchoolHierarchyCatalog] = useState(false);
+  const [showDeniedPermissionAttempts, setShowDeniedPermissionAttempts] = useState(false);
   const fileInputRefs = useRef({});
   const schoolFileInputRef = useRef(null);
   const schoolLogoInputRef = useRef(null);
@@ -1861,6 +1864,17 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       // ignore
     }
   };
+  const governancePanelStyle = {
+    marginTop: '1rem',
+    background: '#f8fafc',
+    border: '1px solid #cbd5e1',
+    color: '#0f172a',
+  };
+  const governanceLabelStyle = { color: '#0f172a', fontWeight: 600 };
+  const governanceDescStyle = { color: '#334155' };
+  const governanceInputStyle = { color: '#0f172a', background: '#ffffff', borderColor: '#94a3b8' };
+  const governanceTableStyle = { color: '#0f172a' };
+  const governanceCheckboxStyle = { accentColor: '#1d4ed8', width: '1rem', height: '1rem' };
 
   return (
     <PageLayout title="School Admin" role="school">
@@ -2056,21 +2070,30 @@ export default function SchoolAdminPage({ view = 'overview' }) {
             <p className="card-desc" style={{ marginTop: '0.75rem' }}>Loading selected teacher details…</p>
           )}
 
-          <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="Teacher profile governance">
-            <h3 className="card-title">Teacher field controls</h3>
-            <p className="card-desc">Control what teachers can see or edit. Salary, allowances and recognitions can be locked here. You can also add custom fields.</p>
+          <section className="dashboard-panel" style={governancePanelStyle} aria-label="Teacher profile governance">
+            <div className="form-actions" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 className="card-title" style={{ margin: 0 }}>Teacher field controls</h3>
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setShowTeacherFieldControls((current) => !current)}>
+                {showTeacherFieldControls ? 'Hide controls' : 'Open controls'}
+              </button>
+            </div>
+            <p className="card-desc" style={governanceDescStyle}>Control what teachers can see or edit. Salary, allowances and recognitions can be locked here. You can also add custom fields.</p>
+            {showTeacherFieldControls && (
+            <>
             <div className="form-grid" style={{ marginTop: '0.75rem' }}>
-              <label className="form-field">Custom field label
+              <label className="form-field" style={governanceLabelStyle}>Custom field label
                 <input
                   className="form-input"
+                  style={governanceInputStyle}
                   value={newCustomField.displayName}
                   onChange={(e) => setNewCustomField((prev) => ({ ...prev, displayName: e.target.value }))}
                   placeholder="e.g. Teaching License Expiry"
                 />
               </label>
-              <label className="form-field">Custom field key
+              <label className="form-field" style={governanceLabelStyle}>Custom field key
                 <input
                   className="form-input"
+                  style={governanceInputStyle}
                   value={newCustomField.fieldKey}
                   onChange={(e) => setNewCustomField((prev) => ({ ...prev, fieldKey: e.target.value }))}
                   placeholder="e.g. teachinglicenseexpiry"
@@ -2084,7 +2107,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
             </div>
 
             <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
-              <table className="data-table">
+              <table className="data-table" style={governanceTableStyle}>
                 <thead>
                   <tr>
                     <th>Field</th>
@@ -2100,6 +2123,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       <td>
                         <input
                           type="checkbox"
+                          style={governanceCheckboxStyle}
                           checked={!!setting.isVisibleToTeacher}
                           disabled={savingFieldSettingKey === setting.fieldKey}
                           onChange={(e) => toggleSetting(setting, { isVisibleToTeacher: e.target.checked })}
@@ -2108,6 +2132,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       <td>
                         <input
                           type="checkbox"
+                          style={governanceCheckboxStyle}
                           checked={!!setting.isEditableByTeacher}
                           disabled={savingFieldSettingKey === setting.fieldKey || !!setting.isAdminOnly}
                           onChange={(e) => toggleSetting(setting, { isEditableByTeacher: e.target.checked })}
@@ -2116,6 +2141,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                       <td>
                         <input
                           type="checkbox"
+                          style={governanceCheckboxStyle}
                           checked={!!setting.isAdminOnly}
                           disabled={savingFieldSettingKey === setting.fieldKey}
                           onChange={(e) => toggleSetting(setting, { isAdminOnly: e.target.checked, isEditableByTeacher: e.target.checked ? false : setting.isEditableByTeacher })}
@@ -2126,16 +2152,24 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                 </tbody>
               </table>
             </div>
+            </>
+            )}
           </section>
 
-          <section className="dashboard-panel" style={{ marginTop: '1rem' }} aria-label="School hierarchy catalog">
-            <h3 className="card-title">School hierarchy catalog</h3>
-            <p className="card-desc">
+          <section className="dashboard-panel" style={governancePanelStyle} aria-label="School hierarchy catalog">
+            <div className="form-actions" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 className="card-title" style={{ margin: 0 }}>School hierarchy catalog</h3>
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setShowSchoolHierarchyCatalog((current) => !current)}>
+                {showSchoolHierarchyCatalog ? 'Hide catalog' : 'Open catalog'}
+              </button>
+            </div>
+            <p className="card-desc" style={governanceDescStyle}>
               Manage your school&apos;s role catalog and governance matrix. These settings are saved for your school and reused across teacher assignments.
             </p>
-
+            {showSchoolHierarchyCatalog && (
+            <>
             <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
-              <table className="data-table">
+              <table className="data-table" style={governanceTableStyle}>
                 <thead>
                   <tr>
                     <th>Role title</th>
@@ -2172,14 +2206,14 @@ export default function SchoolAdminPage({ view = 'overview' }) {
             <div className="form-actions" style={{ marginTop: '0.75rem', flexWrap: 'wrap' }}>
               <input
                 className="form-input"
-                style={{ minWidth: '220px' }}
+                style={{ ...governanceInputStyle, minWidth: '220px' }}
                 value={customHierarchyRoleDraft.roleTitle}
                 onChange={(e) => setCustomHierarchyRoleDraft((current) => ({ ...current, roleTitle: e.target.value }))}
                 placeholder="Custom role title"
               />
               <select
                 className="form-input"
-                style={{ minWidth: '220px' }}
+                style={{ ...governanceInputStyle, minWidth: '220px' }}
                 value={customHierarchyRoleDraft.stageScope}
                 onChange={(e) => setCustomHierarchyRoleDraft((current) => ({ ...current, stageScope: e.target.value }))}
               >
@@ -2188,7 +2222,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
               </select>
               <input
                 className="form-input"
-                style={{ width: '150px' }}
+                style={{ ...governanceInputStyle, width: '150px' }}
                 type="number"
                 min="1"
                 value={customHierarchyRoleDraft.hierarchyOrder}
@@ -2202,7 +2236,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
 
             <h4 className="card-title" style={{ marginTop: '1rem' }}>Permission matrix</h4>
             <div className="data-table-wrap" style={{ marginTop: '0.5rem' }}>
-              <table className="data-table">
+              <table className="data-table" style={governanceTableStyle}>
                 <thead>
                   <tr>
                     <th>Role</th>
@@ -2217,11 +2251,11 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                   {staffPermissionMatrixDraft.map((row) => (
                     <tr key={`perm-${row.roleTitle}`}>
                       <td>{row.roleTitle}</td>
-                      <td><input type="checkbox" checked={!!row.canManageTeachers} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageTeachers', e.target.checked)} /></td>
-                      <td><input type="checkbox" checked={!!row.canAssignClasses} onChange={(e) => updatePermissionRule(row.roleTitle, 'canAssignClasses', e.target.checked)} /></td>
-                      <td><input type="checkbox" checked={!!row.canApproveResults} onChange={(e) => updatePermissionRule(row.roleTitle, 'canApproveResults', e.target.checked)} /></td>
-                      <td><input type="checkbox" checked={!!row.canSendParentBroadcasts} onChange={(e) => updatePermissionRule(row.roleTitle, 'canSendParentBroadcasts', e.target.checked)} /></td>
-                      <td><input type="checkbox" checked={!!row.canManageFees} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageFees', e.target.checked)} /></td>
+                      <td><input type="checkbox" style={governanceCheckboxStyle} checked={!!row.canManageTeachers} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageTeachers', e.target.checked)} /></td>
+                      <td><input type="checkbox" style={governanceCheckboxStyle} checked={!!row.canAssignClasses} onChange={(e) => updatePermissionRule(row.roleTitle, 'canAssignClasses', e.target.checked)} /></td>
+                      <td><input type="checkbox" style={governanceCheckboxStyle} checked={!!row.canApproveResults} onChange={(e) => updatePermissionRule(row.roleTitle, 'canApproveResults', e.target.checked)} /></td>
+                      <td><input type="checkbox" style={governanceCheckboxStyle} checked={!!row.canSendParentBroadcasts} onChange={(e) => updatePermissionRule(row.roleTitle, 'canSendParentBroadcasts', e.target.checked)} /></td>
+                      <td><input type="checkbox" style={governanceCheckboxStyle} checked={!!row.canManageFees} onChange={(e) => updatePermissionRule(row.roleTitle, 'canManageFees', e.target.checked)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -2244,34 +2278,45 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                 </span>
               )}
             </div>
+            </>
+            )}
           </section>
 
-          <section className="progress-section" style={{ marginTop: '1rem' }} aria-label="Denied permission attempts">
-            <h3 className="card-title">Denied permission attempts</h3>
-            <p className="card-desc">
+          <section className="progress-section" style={governancePanelStyle} aria-label="Denied permission attempts">
+            <div className="form-actions" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 className="card-title" style={{ margin: 0 }}>Denied permission attempts</h3>
+              <button type="button" className="btn-primary-action btn-primary-action--ghost" onClick={() => setShowDeniedPermissionAttempts((current) => !current)}>
+                {showDeniedPermissionAttempts ? 'Hide log' : 'Open log'}
+              </button>
+            </div>
+            <p className="card-desc" style={governanceDescStyle}>
               Review denied teacher actions captured by the staff hierarchy matrix. Filter and export this log for governance reviews.
             </p>
-
+            {showDeniedPermissionAttempts && (
+            <>
             <div className="form-grid" style={{ marginTop: '0.75rem' }}>
-              <label className="form-field">From
+              <label className="form-field" style={governanceLabelStyle}>From
                 <input
                   className="form-input"
+                  style={governanceInputStyle}
                   type="datetime-local"
                   value={deniedAuditFilters.fromUtc}
                   onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, fromUtc: e.target.value }))}
                 />
               </label>
-              <label className="form-field">To
+              <label className="form-field" style={governanceLabelStyle}>To
                 <input
                   className="form-input"
+                  style={governanceInputStyle}
                   type="datetime-local"
                   value={deniedAuditFilters.toUtc}
                   onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, toUtc: e.target.value }))}
                 />
               </label>
-              <label className="form-field">Entity type
+              <label className="form-field" style={governanceLabelStyle}>Entity type
                 <select
                   className="form-input"
+                  style={governanceInputStyle}
                   value={deniedAuditFilters.entityType}
                   onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, entityType: e.target.value }))}
                 >
@@ -2281,18 +2326,20 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                   ))}
                 </select>
               </label>
-              <label className="form-field">Teacher email
+              <label className="form-field" style={governanceLabelStyle}>Teacher email
                 <input
                   className="form-input"
+                  style={governanceInputStyle}
                   type="email"
                   placeholder="teacher@school.com"
                   value={deniedAuditFilters.userEmail}
                   onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, userEmail: e.target.value }))}
                 />
               </label>
-              <label className="form-field">Result limit
+              <label className="form-field" style={governanceLabelStyle}>Result limit
                 <select
                   className="form-input"
+                  style={governanceInputStyle}
                   value={deniedAuditFilters.limit}
                   onChange={(e) => setDeniedAuditFilters((current) => ({ ...current, limit: e.target.value }))}
                 >
@@ -2351,7 +2398,7 @@ export default function SchoolAdminPage({ view = 'overview' }) {
 
             {deniedAttempts.length > 0 && (
               <div className="data-table-wrap" style={{ marginTop: '0.75rem' }}>
-                <table className="data-table">
+                <table className="data-table" style={governanceTableStyle}>
                   <thead>
                     <tr>
                       <th>When</th>
@@ -2380,6 +2427,8 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                   </tbody>
                 </table>
               </div>
+            )}
+            </>
             )}
           </section>
 
