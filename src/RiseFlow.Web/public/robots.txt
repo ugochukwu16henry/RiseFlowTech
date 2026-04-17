@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /school/
+Disallow: /super-admin/
+Disallow: /teacher/
+Disallow: /parent/
+Disallow: /student/
+Disallow: /staff/
+Disallow: /login
+
+Sitemap: https://rise-flow-tech.vercel.app/sitemap.xml

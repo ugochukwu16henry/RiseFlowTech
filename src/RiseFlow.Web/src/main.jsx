@@ -42,10 +42,12 @@ import SuperAdminAffiliatesPage from './pages/SuperAdminAffiliatesPage.jsx'
 import SchoolFeesPage from './pages/SchoolFeesPage.jsx'
 import SchoolTermsPage from './pages/SchoolTermsPage.jsx'
 import ParentFeesPage from './pages/ParentFeesPage.jsx'
+import RouteSeoManager from './seo/RouteSeoManager.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <RouteSeoManager />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/verify/transcript/:token" element={<VerifyTranscriptPage />} />

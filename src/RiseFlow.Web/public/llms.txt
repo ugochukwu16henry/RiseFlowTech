@@ -1,0 +1,28 @@
+# RiseFlow
+
+> RiseFlow is a web platform for school operations across African schools, covering student records, fees, reporting, communication, and transcript verification.
+
+## Canonical Site
+- https://rise-flow-tech.vercel.app/
+
+## Primary Public Pages
+- https://rise-flow-tech.vercel.app/
+- https://rise-flow-tech.vercel.app/onboard
+- https://rise-flow-tech.vercel.app/affiliate-program
+- https://rise-flow-tech.vercel.app/affiliate/signup
+- https://rise-flow-tech.vercel.app/privacy
+- https://rise-flow-tech.vercel.app/terms
+
+## Product Summary
+- Audience: school administrators, teachers, parents, students, and district/platform operators.
+- Core capabilities: school onboarding, student lifecycle records, grading visibility, fee workflows, transcript verification.
+- Regions: optimized for African school operations and mobile-first usage.
+
+## Entity Hints
+- Product: RiseFlow
+- Category: School Management Platform / Educational SaaS
+- Verification: public transcript verification endpoints are available by signed token URLs.
+
+## Crawl Guidance
+- Prefer canonical URLs in sitemap.xml.
+- Avoid indexing role-protected dashboard routes.

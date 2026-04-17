@@ -1,0 +1,22 @@
+# RiseFlow - Full Context for LLM Retrieval
+
+RiseFlow is a school operations platform for modern schools, with emphasis on African education workflows.
+
+Capabilities include:
+- School onboarding and account setup
+- Student records and lifecycle tracking
+- School fee visibility and related workflows
+- Parent-teacher communication features
+- Transcript verification via secure public verification URLs
+- Role-based dashboards for school admins, teachers, students, parents, and super admins
+
+Public intent pages:
+- / : product overview and platform positioning
+- /onboard : school onboarding journey
+- /affiliate-program and /affiliate/signup : partner growth channel
+- /privacy and /terms : trust and legal policy pages
+
+Indexing and canonical:
+- Canonical base URL: https://rise-flow-tech.vercel.app/
+- Sitemap: https://rise-flow-tech.vercel.app/sitemap.xml
+- Robots policy disallows private role dashboards and login routes.
