@@ -711,6 +711,42 @@ public class StudentsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Assign or clear a student's class only (used by quick-assign and bulk class UI).</summary>
+    [HttpPut("{id:guid}/class-assignment")]
+    [Authorize(Roles = Roles.SchoolAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateClassAssignment(Guid id, [FromBody] UpdateStudentClassAssignmentRequest? request, CancellationToken ct)
+    {
+        if (!_tenant.CurrentSchoolId.HasValue)
+            return Forbid();
+
+        var schoolId = _tenant.CurrentSchoolId.Value;
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id && s.SchoolId == schoolId, ct);
+        if (student == null)
+            return NotFound();
+
+        var classId = request?.ClassId;
+        if (classId.HasValue)
+        {
+            var cls = await _db.Classes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == classId.Value && c.SchoolId == schoolId, ct);
+            if (cls == null)
+                return BadRequest("That class does not belong to this school.");
+            student.ClassId = cls.Id;
+            student.GradeId = cls.GradeId;
+        }
+        else
+        {
+            student.ClassId = null;
+            student.GradeId = null;
+        }
+
+        student.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     [HttpPut("{id:guid}")]
     [Authorize(Roles = Roles.SchoolAdmin)]
     [ProducesResponseType(typeof(Student), StatusCodes.Status200OK)]

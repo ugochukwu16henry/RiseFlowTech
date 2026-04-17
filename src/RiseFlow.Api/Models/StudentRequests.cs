@@ -23,6 +23,9 @@ public record CreateStudentRequest(
     string? EmergencyContactName,
     string? EmergencyContactPhone);
 
+/// <summary>Partial update: set or clear a student's class (grade is taken from the class).</summary>
+public record UpdateStudentClassAssignmentRequest(Guid? ClassId);
+
 public record UpdateStudentRequest(
     string FirstName,
     string LastName,
