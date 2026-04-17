@@ -46,13 +46,18 @@ function isPublicPath(pathname) {
     || pathname === '/terms'
     || pathname === '/privacy'
     || pathname.startsWith('/verify/transcript/')
-    || pathname.startsWith('/affiliate');
+    || pathname.startsWith('/affiliate')
+    // Self-signup / claim flows: anonymous users hit authenticated endpoints (e.g. branding) → 401 must not redirect to login
+    || pathname === '/parent/signup'
+    || pathname === '/parent/claim'
+    || pathname === '/teacher/signup'
+    || pathname === '/staff/signup';
 }
 
 function handleSessionExpiredRedirect() {
   if (typeof window === 'undefined') return;
   const currentPath = window.location.pathname || '/';
-  if (isPublicPath(currentPath) && currentPath === '/login') return;
+  if (isPublicPath(currentPath)) return;
 
   try {
     localStorage.removeItem(STORAGE_TENANT_KEY);
