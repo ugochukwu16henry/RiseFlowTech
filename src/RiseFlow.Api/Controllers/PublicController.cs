@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RiseFlow.Api.Data;
 using RiseFlow.Api.Entities;
 using RiseFlow.Api.Models;
@@ -28,6 +29,29 @@ public class PublicController : ControllerBase
         _teacherGuidePdf = teacherGuidePdf;
         _gradingReferencePdf = gradingReferencePdf;
         _db = db;
+    }
+
+    /// <summary>Safe school name + logo path for unauthenticated flows (e.g. parent signup via <c>?school=</c>). Registration/CAC paths are omitted.</summary>
+    [HttpGet("school-branding/{schoolId:guid}")]
+    [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any)]
+    [ProducesResponseType(typeof(SchoolBrandingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SchoolBrandingDto>> GetPublicSchoolBranding(Guid schoolId, CancellationToken ct)
+    {
+        var school = await _db.Schools
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.Id == schoolId && s.IsActive, ct);
+        if (school == null)
+            return NotFound();
+
+        static string LogoPath(Guid id) => $"api/schools/{id}/logo";
+
+        return Ok(new SchoolBrandingDto(
+            school.Id,
+            school.Name,
+            string.IsNullOrWhiteSpace(school.LogoFileName) ? null : LogoPath(school.Id),
+            RegistrationDocumentPath: null));
     }
 
     /// <summary>Download the RiseFlow "Future-Ready" School Pitch Deck as a PDF.</summary>

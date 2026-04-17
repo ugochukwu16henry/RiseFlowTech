@@ -137,6 +137,8 @@ export default function PageLayout({
   variant = 'app',
   showSignOut,
   authHeaderRight,
+  /** When set (e.g. parent signup `?school=` GUID), loads branding anonymously so the school logo shows before sign-in. */
+  publicBrandingSchoolId,
 }) {
   const navigate = useNavigate();
   const items = role ? NAV_BY_ROLE[role] : null;
@@ -163,17 +165,17 @@ export default function PageLayout({
 
     const applyBrand = (data) => {
       if (!data) return;
-      const schoolId = data.id || data.schoolId || null;
-      if (schoolId) {
+      const schoolIdFromPayload = data.id || data.schoolId || null;
+      if (schoolIdFromPayload) {
         try {
-          localStorage.setItem(STORAGE_TENANT_KEY, schoolId);
+          localStorage.setItem(STORAGE_TENANT_KEY, schoolIdFromPayload);
         } catch {
           // ignore
         }
       }
 
       setSchoolBrand({
-        id: schoolId,
+        id: schoolIdFromPayload,
         name: data.name || data.schoolName || 'School',
         logo: (() => {
           const baseLogo = buildPublicUrl(data.logoPath || data.logoFileName);
@@ -184,6 +186,24 @@ export default function PageLayout({
         registrationDocumentPath: data.registrationDocumentPath ? buildPublicUrl(data.registrationDocumentPath) : null,
       });
     };
+
+    const pubId = (publicBrandingSchoolId || '').trim();
+    if (pubId) {
+      const url = `${getApiBase()}/api/public/school-branding/${encodeURIComponent(pubId)}`;
+      fetch(url, { credentials: 'include' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return;
+          applyBrand(data);
+        })
+        .catch(() => {
+          if (!cancelled) setSchoolBrand(null);
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // Preferred source: tenant-aware branding endpoint for school/teacher/parent/student roles.
     apiFetch('/api/schools/branding')
@@ -217,7 +237,7 @@ export default function PageLayout({
       });
 
     return () => { cancelled = true; };
-  }, [usesPlatformBrand, variant, brandReloadToken]);
+  }, [usesPlatformBrand, variant, brandReloadToken, publicBrandingSchoolId]);
 
   useEffect(() => {
     // If a previous fetch failed and the logo URL changed, allow image rendering to retry.

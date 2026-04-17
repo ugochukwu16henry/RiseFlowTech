@@ -1140,9 +1140,9 @@ public class SchoolsController : ControllerBase
         });
     }
 
-    /// <summary>Get a school's logo file. SuperAdmin can access any; SchoolAdmin can access own school.</summary>
+    /// <summary>Get a school's logo file. SuperAdmin can access any; tenant members can access their school; anonymous users can load logos for active schools (e.g. parent signup).</summary>
     [HttpGet("{id:guid}/logo")]
-    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.SchoolAdmin},{Roles.Teacher},{Roles.Parent},{Roles.Student}")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLogo(Guid id, CancellationToken ct)
@@ -1151,8 +1151,19 @@ public class SchoolsController : ControllerBase
         if (school == null || string.IsNullOrWhiteSpace(school.LogoFileName))
             return NotFound();
 
-        if (!User.IsInRole(Roles.SuperAdmin) && (!_tenant.CurrentSchoolId.HasValue || _tenant.CurrentSchoolId.Value != id))
-            return Forbid();
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            if (User.IsInRole(Roles.SuperAdmin))
+            {
+                // allow
+            }
+            else if (!_tenant.CurrentSchoolId.HasValue || _tenant.CurrentSchoolId.Value != id)
+                return Forbid();
+        }
+        else if (!school.IsActive)
+        {
+            return NotFound();
+        }
 
         var path = school.LogoFileName!;
         var bytes = await _fileStorage.TryReadBytesAsync(path, ct);

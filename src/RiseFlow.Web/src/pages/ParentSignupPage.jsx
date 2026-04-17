@@ -79,7 +79,7 @@ export default function ParentSignupPage() {
   }
 
   return (
-    <PageLayout title="Parent signup" role="parent" backTo="/parent">
+    <PageLayout title="Parent signup" role="parent" backTo="/parent" publicBrandingSchoolId={schoolId}>
       <div className="claim-child parent-signup">
         <p className="card-desc">
           Create your parent account for this school. After signup, sign in and enter the <strong>Parent Access Code</strong> from your school to link your child.
