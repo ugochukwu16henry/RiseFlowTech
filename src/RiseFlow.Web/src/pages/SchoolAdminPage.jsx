@@ -25,6 +25,39 @@ function dedupeCaseInsensitive(values) {
   return result;
 }
 
+/** Best-effort: junior/senior secondary vs early years from class + grade labels (school naming varies). */
+function isSecondarySchoolSectionClass(classRow) {
+  if (!classRow) return false;
+  const label = `${classRow.name || ''} ${classRow.gradeName || ''}`.toLowerCase();
+  const secondaryHints = [
+    'jss',
+    'j.s.s',
+    'junior secondary',
+    'ss1',
+    'ss2',
+    'ss3',
+    'ss ',
+    's.s. 1',
+    's.s. 2',
+    's.s. 3',
+    'senior secondary',
+    'secondary',
+    'high school',
+    'form 1',
+    'form 2',
+    'form 3',
+    'form 4',
+    'shs',
+    'jhs',
+    'wassce',
+    'sss',
+    'grade 10',
+    'grade 11',
+    'grade 12',
+  ];
+  return secondaryHints.some((h) => label.includes(h));
+}
+
 function parseTransitionJson(rawJson) {
   const raw = String(rawJson || '').trim();
   if (!raw) return { map: {}, error: null };
@@ -903,6 +936,13 @@ export default function SchoolAdminPage({ view = 'overview' }) {
       });
   }, [classNameById, selectedTeacher?.teacherClassSubjects, subjectNameById]);
   const teacherSubjectOptions = useMemo(() => subjects, [subjects]);
+  const teacherSubjectClassForHint = useMemo(
+    () => (teacherSubjectClassId ? classes.find((c) => c.id === teacherSubjectClassId) : null),
+    [classes, teacherSubjectClassId],
+  );
+  const teacherSubjectClassIsSecondary = teacherSubjectClassForHint
+    ? isSecondarySchoolSectionClass(teacherSubjectClassForHint)
+    : false;
   const selectedTeacherStudentCount = selectedTeacherClassIds.length === 0
     ? 0
     : students.filter((s) => s.classId && selectedTeacherClassIds.includes(s.classId)).length;
@@ -2755,6 +2795,17 @@ export default function SchoolAdminPage({ view = 'overview' }) {
                     })}
                   </div>
                   <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.5rem' }}>
+                    Assign each subject this teacher teaches in that class. For{' '}
+                    <strong>secondary sections</strong> (JSS, SS, forms, SHS, etc.), the same subject teacher can be
+                    given <strong>more than one subject</strong> in the same class — use Assign once per subject.
+                    Map subjects to the class first under &quot;Subject to class assignment&quot; when needed.
+                  </p>
+                  {teacherSubjectClassId && teacherSubjectClassIsSecondary && (
+                    <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.35rem', color: '#0f766e' }}>
+                      This class matches a secondary-style label — multiple subjects per teacher here are expected.
+                    </p>
+                  )}
+                  <p className="card-desc" style={{ ...governanceDescStyle, marginTop: '0.35rem' }}>
                     You can assign class-subjects even if the teacher has not been assigned as a class teacher yet.
                   </p>
                 </article>

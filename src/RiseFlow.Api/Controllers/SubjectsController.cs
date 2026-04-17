@@ -170,6 +170,10 @@ public class SubjectsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Assigns a teacher to teach one subject in one class. The same teacher may have multiple rows for the same class
+    /// (different subject IDs), which is typical for secondary subject teachers.
+    /// </summary>
     [HttpPost("teachers/{teacherId:guid}/classes/{classId:guid}/subjects/{subjectId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult> AssignTeacherToClassSubject(Guid teacherId, Guid classId, Guid subjectId, CancellationToken ct)

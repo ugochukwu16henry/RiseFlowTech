@@ -77,6 +77,8 @@ public class TeachersController : ControllerBase
                 .ThenInclude(tc => tc.Class)
                 .Include(t => t.TeacherClassSubjects)
                 .ThenInclude(tcs => tcs.Class)
+                .Include(t => t.TeacherClassSubjects)
+                .ThenInclude(tcs => tcs.Subject)
                 .Where(t => t.SchoolId == schoolId)
                 .OrderBy(t => t.LastName)
                 .ThenBy(t => t.FirstName)
@@ -124,6 +126,8 @@ public class TeachersController : ControllerBase
             .ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects)
             .ThenInclude(tcs => tcs.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Subject)
             .Where(t => t.SchoolId == schoolId)
             .OrderBy(t => t.LastName)
             .ThenBy(t => t.FirstName)
@@ -217,7 +221,13 @@ public class TeachersController : ControllerBase
                     .Select(tc => new { tc.ClassId, tc.RoleInClass, @class = tc.Class == null ? null : new { tc.Class.Id, tc.Class.Name } })
                     .ToList(),
                 teacherClassSubjects = (t.TeacherClassSubjects ?? Array.Empty<TeacherClassSubject>())
-                    .Select(tcs => new { tcs.ClassId, @class = tcs.Class == null ? null : new { tcs.Class.Id, tcs.Class.Name } })
+                    .Select(tcs => new
+                    {
+                        tcs.ClassId,
+                        tcs.SubjectId,
+                        subject = tcs.Subject == null ? null : new { tcs.Subject.Id, tcs.Subject.Name },
+                        @class = tcs.Class == null ? null : new { tcs.Class.Id, tcs.Class.Name }
+                    })
                     .ToList()
             };
         }).ToList();
@@ -239,6 +249,8 @@ public class TeachersController : ControllerBase
             .ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects)
             .ThenInclude(tcs => tcs.Class)
+            .Include(t => t.TeacherClassSubjects)
+            .ThenInclude(tcs => tcs.Subject)
             .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
@@ -520,6 +532,7 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Subject)
             .FirstOrDefaultAsync(t => t.SchoolId == schoolId && t.Email == email, ct);
         if (teacher == null)
             return Ok(null);
@@ -547,6 +560,7 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Subject)
             .FirstOrDefaultAsync(t => t.Id == id && t.SchoolId == schoolId, ct);
         if (teacher == null)
             return NotFound();
@@ -702,6 +716,7 @@ public class TeachersController : ControllerBase
             .AsNoTracking()
             .Include(t => t.TeacherClasses).ThenInclude(tc => tc.Class)
             .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Class)
+            .Include(t => t.TeacherClassSubjects).ThenInclude(tcs => tcs.Subject)
             .FirstOrDefaultAsync(t => t.Id == teacher.Id, ct);
 
         return Ok(await BuildTeacherProfileConfigDtoAsync(schoolId, refreshed!, teacherView: true, ct));
