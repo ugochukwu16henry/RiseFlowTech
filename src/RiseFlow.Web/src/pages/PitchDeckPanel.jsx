@@ -1,3 +1,5 @@
+import { getApiBase } from '../api';
+
 const PITCH_DECK_SECTIONS = [
   {
     title: 'The Problem (The Paper Burden)',
@@ -37,15 +39,16 @@ const PITCH_DECK_SECTIONS = [
     points: [
       'Future-ready transcripts for local and international transfer needs.',
       'QR verification for authenticity of school records.',
-      'Aligned with NDPR-focused data handling and future government integrations.',
+      'Privacy built for African schools: strong access control and audit-friendly records, aligned with local data-protection expectations (e.g. Nigeria’s NDPR) and future integrations.',
     ],
   },
   {
     title: 'Pricing (Fair-Growth Model)',
     points: [
-      'Start free: first 50 students at N0.',
-      'Scale affordably: N500 per student after the first 50.',
-      'No hidden fees: includes portal, mobile experience, and future updates.',
+      'Start free: first 50 students at ₦0—we grow when your enrolment grows across Africa.',
+      'Monthly: ₦100 per billable student per month for each student beyond the first 50.',
+      'One-time activation: ₦500 per new student added beyond the first 50.',
+      'No hidden fees: includes portal, parent and staff access, and ongoing updates.',
     ],
   },
   {
@@ -54,7 +57,7 @@ const PITCH_DECK_SECTIONS = [
       'Run a 5-minute Excel import demo live.',
       'Show the WhatsApp parent-to-teacher contact flow.',
       'Show paper vs digital side-by-side and ask which reflects a modern school.',
-      'Final pro tip: one successful school in a locality drives referrals from neighboring schools.',
+      'Final pro tip: across African markets, when one respected school goes digital, neighboring schools follow—no one wants to stay on paper alone.',
     ],
   },
 ];
@@ -65,9 +68,14 @@ export default function PitchDeckPanel({ roleTitle }) {
       <p className="dashboard-label">RiseFlow</p>
       <h3 className="section-title pitch-deck-heading">The "Future-Ready" School Pitch Deck</h3>
       <p className="card-desc">
-        One platform. Total control. Built for African schools. Use this script from your {roleTitle} dashboard.
+        One platform. Total control. Built for schools across Africa. Use this script from your {roleTitle} dashboard.
       </p>
       <p className="pitch-deck-domain">riseflow.com</p>
+      <p className="pitch-deck-pdf-link">
+        <a href={`${getApiBase()}/api/public/pitch-deck`} target="_blank" rel="noopener noreferrer">
+          Download pitch deck (PDF)
+        </a>
+      </p>
 
       <div className="pitch-deck-grid">
         {PITCH_DECK_SECTIONS.map((section, idx) => (

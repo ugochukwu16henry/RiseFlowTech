@@ -31,7 +31,7 @@ public class PitchDeckPdfService
                     c.Item().AlignCenter().Text("The \"Future-Ready\" School").FontSize(22).FontColor(Colors.Grey.Darken2);
                     c.Item().AlignCenter().Text("Pitch Deck").FontSize(18).FontColor(AccentColor);
                     c.Spacing(80);
-                    c.Item().AlignCenter().Text("One platform. Total control. Built for African schools.").FontSize(12).FontColor(Colors.Grey.Medium);
+                    c.Item().AlignCenter().Text("One platform. Total control. Built for schools across Africa.").FontSize(12).FontColor(Colors.Grey.Medium);
                 });
                 page.Footer().AlignCenter().Text("riseflow.com").FontSize(9).FontColor(Colors.Grey.Medium);
             });
@@ -75,16 +75,18 @@ public class PitchDeckPdfService
                 "Students can request transcripts for foreign universities or other schools instantly.",
                 "QR Verification:",
                 "Every document has a QR code. Anyone can scan it to verify it's an authentic record from your school.",
-                "Government Ready:",
-                "Aligned with NDPR data laws and ready for future government plugins.");
+                "Privacy & Compliance:",
+                "Designed for African schools: strong access control, audit-friendly records, and alignment with local data-protection expectations (for example Nigeria’s NDPR).");
 
             AddSlide(container, 6, "Pricing (The \"Fair-Growth\" Model)",
                 "Start for Free:",
-                "Your first 50 students are ₦0.00. We grow only when you grow.",
-                "Affordable Scaling:",
-                "Only ₦500 per student after the first 50.",
+                "Your first 50 students are ₦0.00. We grow only when you grow—whether your school is in West, East, Southern, or Central Africa.",
+                "Monthly Platform Fee:",
+                "₦100 per billable student per month for each student beyond your first 50.",
+                "One-Time Activation:",
+                "₦500 per student added beyond your first 50 (one-time activation per new billable student).",
                 "No Hidden Fees:",
-                "Includes the web portal, the mobile app, and all future updates.");
+                "Includes the web portal, mobile-friendly access for parents and staff, and ongoing product updates.");
 
             // How to deliver + pro tip
             container.Page(page =>
@@ -106,7 +108,7 @@ public class PitchDeckPdfService
                     c.Item().Text("The \"Paper vs. Digital\" Comparison").Bold().FontSize(12).FontColor(AccentColor);
                     c.Item().PaddingBottom(16).Text("Hold a physical, tattered result book in one hand and your tablet with RiseFlow in the other. Ask: \"Which one looks like a 21st-century school?\"");
                     c.Item().PaddingTop(16).Text("Final Pro-Tip for You").Bold().FontSize(14).FontColor(PrimaryColor);
-                    c.Item().PaddingTop(4).Text("In Nigeria, \"Proprietors\" often talk to each other. If you get one big school in a local government area, the others will follow because they don't want to be \"the school using paper\" while their neighbor is \"digital.\"").Italic();
+                    c.Item().PaddingTop(4).Text("Across African markets, school owners and principals compare notes. When one respected school in a city or region goes digital, peer schools follow—no one wants to be known as the campus still buried in paper while neighbours are future-ready.").Italic();
                 });
                 page.Footer().AlignCenter().Text("RiseFlow — Future-ready schools across Africa").FontSize(9).FontColor(Colors.Grey.Medium);
             });
