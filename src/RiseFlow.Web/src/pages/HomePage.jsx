@@ -172,7 +172,7 @@ export default function HomePage() {
             </span>
           </Link>
           <div className="home-header-actions flex items-center gap-3">
-            <nav className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-300 sm:gap-4">
+            <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300 sm:gap-4">
               <a href="#how" className="hover:text-indigo-600 dark:hover:text-indigo-400">
                 How it works
               </a>
@@ -189,7 +189,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="home-theme-toggle flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="home-theme-toggle flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               aria-label={theme === 'light' ? 'Switch to night view' : 'Switch to day view'}
             >
               <span className="home-theme-icon" aria-hidden="true">
@@ -209,13 +209,13 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="home-main mx-auto max-w-6xl px-4 pb-20 pt-10 space-y-16">
+      <main className="home-main mx-auto max-w-6xl px-4 pb-24 pt-12 space-y-20">
         {/* Hero */}
         <section className="home-hero grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="home-hero-copy relative overflow-hidden">
             <div className="pointer-events-none absolute -inset-8 rounded-3xl bg-gradient-to-br from-indigo-500/20 via-emerald-400/10 to-sky-500/10 blur-2xl dark:from-indigo-500/40 dark:via-emerald-400/20 dark:to-sky-500/20" />
             <div className="relative rounded-3xl border border-slate-200/80 bg-white/70 p-6 shadow-xl backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
-              <p className="mb-2 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <p className="mb-2 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                 Built for African schools • First 50 students free
               </p>
               <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
@@ -287,7 +287,7 @@ export default function HomePage() {
               </button>
             )}
 
-            <div className="home-hero-stats grid gap-3 text-[11px] sm:grid-cols-3">
+            <div className="home-hero-stats grid gap-3 text-sm sm:grid-cols-3">
               <div className="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
                 <p className="text-slate-500 dark:text-slate-300">Real‑time results</p>
                 <p className="mt-1 font-semibold text-slate-900 dark:text-slate-50">
@@ -308,7 +308,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="home-hero-icon-callout flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="home-hero-icon-callout flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white/80 p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
               <img
                 src={currentHeroIcon.src}
                 alt={currentHeroIcon.alt}
@@ -318,7 +318,7 @@ export default function HomePage() {
                 <p className="font-semibold text-slate-900 break-words dark:text-slate-50">
                   {currentHeroIcon.alt}
                 </p>
-                <p className="text-[10px] text-slate-500 break-words dark:text-slate-400">
+                <p className="text-xs text-slate-500 break-words dark:text-slate-400">
                   Rotating hero focus every 3 minutes.
                 </p>
               </div>
@@ -329,10 +329,10 @@ export default function HomePage() {
         {/* Bento grid */}
         <section id="bento" className="home-section space-y-6">
           <div className="home-section-header">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
               One platform, three superpowers
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Owners, teachers, and parents each get a tailored experience inside one multi‑tenant
               platform.
             </p>
@@ -340,10 +340,10 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-3">
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
               <img src="/media/hero-icon-1.png" alt="For owners" className="h-8 w-8" />
-              <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
+              <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-50">
                 For owners
               </h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Real‑time metrics across students, teachers, and fees. Lock result printing until
                 debts are cleared, and stay on top of your billing.
               </p>
@@ -354,20 +354,20 @@ export default function HomePage() {
                 alt="For teachers"
                 className="h-8 w-8"
               />
-              <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
+              <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-50">
                 For teachers
               </h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Fast grid entry, automatic totals, and one-click transcript generation — with
                 access limited only to students in their classes.
               </p>
             </article>
             <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-500 hover:shadow-md dark:border-slate-700 dark:bg-slate-900/80">
               <img src="/media/hero-icon-2.png" alt="For parents" className="h-8 w-8" />
-              <h3 className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
+              <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-50">
                 For parents
               </h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Family view for multiple children, secure access codes, and instant PDF report
                 cards on any smartphone.
               </p>
@@ -378,10 +378,10 @@ export default function HomePage() {
         {/* Pricing calculator + skeleton grid */}
         <section id="pricing" className="home-section">
           <div className="home-section-header">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
               Transparent pricing for growing schools
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               First 50 students are lifetime free. From student 51, you pay a one‑time activation and a small monthly fee.
             </p>
           </div>
@@ -419,19 +419,19 @@ export default function HomePage() {
 
               <div className="home-pricing-body">
                 <div>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-bold uppercase tracking-wide">
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300 font-bold uppercase tracking-wide">
                     Monthly subscription
                   </p>
                   <p className="home-pricing-cost">
                     {formatNaira(monthlySubscription)}{' '}
-                    <span className="text-xs font-normal text-slate-500 italic">/month</span>
+                    <span className="text-sm font-normal text-slate-500 italic">/month</span>
                   </p>
                   <p className="home-pricing-note">
                     ({studentCount > 50 ? studentCount - 50 : 0} billable students at ₦100 each)
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
+                  <p className="text-sm text-slate-500 font-bold uppercase tracking-wide">
                     One‑time activation
                   </p>
                   <p className="home-pricing-cost">
@@ -444,7 +444,7 @@ export default function HomePage() {
               </div>
 
               {studentCount <= 50 && (
-                <div className="mt-4 flex items-center justify-center gap-2 bg-yellow-100 text-yellow-800 py-2 rounded-full font-bold text-sm animate-bounce">
+                <div className="mt-4 flex items-center justify-center gap-2 bg-yellow-100 text-yellow-800 py-2 rounded-full font-bold text-sm">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
@@ -580,11 +580,11 @@ export default function HomePage() {
 
         {/* RiseFlow vs Paper */}
         <section id="compare" className="home-section space-y-4">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
             RiseFlow vs. Paper
           </h2>
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-            <table className="min-w-full text-xs">
+            <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Feature</th>
@@ -665,7 +665,7 @@ export default function HomePage() {
                 {leadStatus === 'loading' ? 'Submitting...' : 'Email me the guide'}
               </button>
             </form>
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">By submitting, you agree to receive product emails. You can unsubscribe anytime.</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">By submitting, you agree to receive product emails. You can unsubscribe anytime.</p>
             {leadMessage && (
               <p className={`mt-2 text-sm ${leadStatus === 'success' ? 'text-emerald-600' : 'text-rose-600'}`} role="status">
                 {leadMessage}
@@ -706,9 +706,9 @@ export default function HomePage() {
         href="https://wa.me/2349015718484?text=Hi%20RiseFlow%2C%20I%27d%20like%20to%20see%20a%20demo%20for%20my%20school."
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-950"
+        className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-950"
       >
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[11px]">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-xs">
           WA
         </span>
         <span>Chat with an expert</span>
