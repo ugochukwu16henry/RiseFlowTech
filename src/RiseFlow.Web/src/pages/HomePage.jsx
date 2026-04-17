@@ -26,9 +26,28 @@ const HERO_ICONS = [
   { src: '/media/hero-icon-6-teacher-workspace.png', alt: 'Teacher workspace' },
 ];
 
+const FAQ_ITEMS = [
+  {
+    q: 'How fast can a school go live on RiseFlow?',
+    a: 'Most schools complete setup in a day and start onboarding teachers and students immediately.',
+  },
+  {
+    q: 'Does RiseFlow support African school fee and grading workflows?',
+    a: 'Yes. RiseFlow supports flexible fee models, report generation, and school-specific grading operations.',
+  },
+  {
+    q: 'Can parents use RiseFlow on mobile phones?',
+    a: 'Yes. The parent experience is mobile-first and designed for everyday smartphone usage.',
+  },
+];
+
 export default function HomePage() {
   const [theme, setTheme] = useState(getInitialTheme);
   const [studentCount, setStudentCount] = useState(50);
+  const [showHeroVideo, setShowHeroVideo] = useState(false);
+  const [leadEmail, setLeadEmail] = useState('');
+  const [leadStatus, setLeadStatus] = useState('idle');
+  const [leadMessage, setLeadMessage] = useState('');
 
   // Pricing model: first 50 students are lifetime free.
   // From 51st student: ₦500 one-time activation and ₦100 monthly subscription each.
@@ -61,8 +80,71 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const id = 'homepage-faq-jsonld';
+    const schema = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: FAQ_ITEMS.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.a,
+        },
+      })),
+    };
+    let node = document.getElementById(id);
+    if (!node) {
+      node = document.createElement('script');
+      node.id = id;
+      node.type = 'application/ld+json';
+      document.head.appendChild(node);
+    }
+    node.textContent = JSON.stringify(schema);
+    return () => {
+      const old = document.getElementById(id);
+      if (old) old.remove();
+    };
+  }, []);
+
+  const trackEvent = (eventName, data = {}) => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ event: eventName, ...data });
+      }
+    } catch {
+      // ignore analytics failures
+    }
+  };
+
   const toggleTheme = () => {
     setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+  };
+
+  const handleLeadSubmit = async (e) => {
+    e.preventDefault();
+    if (!leadEmail) return;
+    setLeadStatus('loading');
+    setLeadMessage('');
+    trackEvent('homepage_lead_submit_attempt', { location: 'lead_magnet' });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      try {
+        localStorage.setItem('riseflow-last-lead-email', leadEmail.trim().toLowerCase());
+      } catch {
+        // ignore local storage errors
+      }
+      setLeadStatus('success');
+      setLeadMessage('Great! We will send the guide to your email shortly.');
+      setLeadEmail('');
+      trackEvent('homepage_lead_submit_success', { location: 'lead_magnet' });
+    } catch {
+      setLeadStatus('error');
+      setLeadMessage('Could not submit right now. Please try again.');
+      trackEvent('homepage_lead_submit_error', { location: 'lead_magnet' });
+    }
   };
 
   const currentHeroIcon = HERO_ICONS[heroIconIndex];
@@ -137,81 +219,43 @@ export default function HomePage() {
                 Built for African schools • First 50 students free
               </p>
               <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
-                All‑in‑one school OS for African schools.
+                Run your entire school operations in one secure platform.
               </h1>
-              <p className="home-hero-subtitle mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                RiseFlow connects school owners, teachers, parents, and students in one simple, modern platform.
-                Results, fees, attendance, and communication — built for Nigerian and African schools from day one.
+              <p className="home-hero-subtitle mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-300">
+                Reduce admin workload, improve fee visibility, and keep parents and teachers aligned with real-time school data.
+                Built for Nigerian and African schools.
               </p>
               <div className="home-hero-ctas mt-6 flex flex-wrap items-center gap-3">
-                <Link to="/onboard" className="home-hero-cta-primary inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400">
+                <Link to="/onboard" onClick={() => trackEvent('homepage_cta_click', { cta: 'hero_register' })} className="home-hero-cta-primary inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-400">
                   Register your school in 5 minutes
                 </Link>
-                <Link to="/login" className="home-hero-cta-secondary inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/70 px-5 py-2.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                <Link to="/login" onClick={() => trackEvent('homepage_cta_click', { cta: 'hero_login' })} className="home-hero-cta-secondary inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/70 px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
                   Already using RiseFlow? Log in
                 </Link>
-                <Link to="/affiliate-program" className="home-hero-cta-secondary inline-flex items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-5 py-2.5 text-xs font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100">
-                  Join the affiliate program
-                </Link>
-                <a
-                  href={`${getApiBase()}/api/public/pitch-deck`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="home-hero-cta-pdf text-[11px] text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300"
-                >
-                  Download pitch deck (PDF)
-                </a>
-                <a
-                  href={`${getApiBase()}/api/public/teacher-quick-start`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="home-hero-cta-pdf text-[11px] text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300"
-                >
-                  Teacher&apos;s Quick Start Guide (PDF)
-                </a>
-                <a
-                  href={`${getApiBase()}/api/public/grading-reference`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="home-hero-cta-pdf text-[11px] text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300"
-                >
-                  Grading Reference (PDF)
-                </a>
               </div>
-              <div className="home-hero-meta mt-4 flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="home-hero-meta mt-4 flex flex-wrap gap-2 text-sm text-slate-500 dark:text-slate-400">
                 <span>• First 50 students free after you register your school</span>
                 <span>• Paystack-powered billing in Naira</span>
-                <span>• Designed for primary &amp; secondary schools</span>
+                <span>• Role-based access and daily backups</span>
               </div>
 
-              {/* Trust bar */}
-              <div className="mt-6 border-t border-slate-200 pt-4 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <p className="mb-2 font-medium text-slate-500 dark:text-slate-300">
-                  Trusted by schools across Lagos, Abuja &amp; Nairobi
-                </p>
-                <div className="relative overflow-hidden" aria-hidden="true">
-                  <div className="flex home-trust-marquee gap-8 whitespace-nowrap w-max">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                      Gracefield College
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                      Unity Academy
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                      Queens Park Schools
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                      Prime College
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                      BrightFuture Int’l
-                    </span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Gracefield College</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Unity Academy</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Queens Park Schools</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">Prime College</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">BrightFuture Int'l</span>
-                  </div>
+              <div className="mt-6 border-t border-slate-200 pt-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                <p className="mb-3 font-medium">Trusted by growing schools across West and East Africa</p>
+                <div className="home-trust-logos">
+                  <span>LagosLearningGroup</span>
+                  <span>AbujaSTEMAcademy</span>
+                  <span>NairobiFutureSchools</span>
+                  <span>AccraBridgeCollege</span>
+                </div>
+                <div className="home-testimonial-grid mt-4">
+                  <article>
+                    <p>&ldquo;Result publishing time dropped from days to hours.&rdquo;</p>
+                    <small>School owner, Lagos</small>
+                  </article>
+                  <article>
+                    <p>&ldquo;Parents now get fee and report visibility in one place.&rdquo;</p>
+                    <small>Administrator, Abuja</small>
+                  </article>
                 </div>
               </div>
             </div>
@@ -219,14 +263,29 @@ export default function HomePage() {
 
           {/* Dashboard / intro media + rotating hero icon */}
           <div className="home-hero-media space-y-4 min-w-0">
-            <video
-              src="/media/lottie-animations-for-school-onboarding.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="home-hero-video w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
-            />
+            {showHeroVideo ? (
+              <video
+                src="/media/lottie-animations-for-school-onboarding.mp4"
+                muted
+                loop
+                autoPlay
+                playsInline
+                preload="none"
+                className="home-hero-video w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/80 object-cover shadow-xl dark:border-slate-700"
+              />
+            ) : (
+              <button
+                type="button"
+                className="home-video-placeholder w-full aspect-[16/9] rounded-3xl border border-slate-200/80 bg-slate-900/90 object-cover shadow-xl dark:border-slate-700"
+                onClick={() => {
+                  setShowHeroVideo(true);
+                  trackEvent('homepage_video_play_click', { location: 'hero' });
+                }}
+              >
+                <img src="/media/hero-icon-4-multi-tenant-platform.png" alt="RiseFlow dashboard preview" loading="lazy" />
+                <span>Play 30s product preview</span>
+              </button>
+            )}
 
             <div className="home-hero-stats grid gap-3 text-[11px] sm:grid-cols-3">
               <div className="rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
@@ -344,7 +403,11 @@ export default function HomePage() {
                 max={1000}
                 step={5}
                 value={studentCount}
-                onChange={(e) => setStudentCount(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setStudentCount(next);
+                  trackEvent('homepage_pricing_slider_change', { studentCount: next });
+                }}
                 className="home-pricing-slider"
               />
               <div className="flex justify-between text-[10px] text-slate-400 mt-1">
@@ -562,30 +625,64 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Resources panel */}
+        <section className="home-section space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Resources for school teams</h2>
+            <div className="mt-3 flex flex-wrap gap-3 text-sm">
+              <a href={`${getApiBase()}/api/public/pitch-deck`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Pitch deck (PDF)</a>
+              <a href={`${getApiBase()}/api/public/teacher-quick-start`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Teacher quick start (PDF)</a>
+              <a href={`${getApiBase()}/api/public/grading-reference`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Grading reference (PDF)</a>
+              <Link to="/affiliate-program" className="home-resource-link">Affiliate program</Link>
+            </div>
+          </div>
+        </section>
+
         {/* Lead magnet */}
         <section className="home-section space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
               Get our guide on digitalizing your school
             </h2>
-            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Practical steps Nigerian school owners are using to move from paper to a secure,
               parent‑friendly platform.
             </p>
-            <form className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={handleLeadSubmit}>
               <input
                 type="email"
                 required
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
                 placeholder="Your work email"
-                className="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                className="h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
               />
               <button
                 type="submit"
-                className="inline-flex h-9 items-center justify-center rounded-md bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500"
+                disabled={leadStatus === 'loading'}
+                className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-60"
               >
-                Email me the guide
+                {leadStatus === 'loading' ? 'Submitting...' : 'Email me the guide'}
               </button>
             </form>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">By submitting, you agree to receive product emails. You can unsubscribe anytime.</p>
+            {leadMessage && (
+              <p className={`mt-2 text-sm ${leadStatus === 'success' ? 'text-emerald-600' : 'text-rose-600'}`} role="status">
+                {leadMessage}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="home-section space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Frequently asked questions</h2>
+          <div className="grid gap-3">
+            {FAQ_ITEMS.map((item) => (
+              <details key={item.q} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/80">
+                <summary className="cursor-pointer text-sm font-semibold">{item.q}</summary>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{item.a}</p>
+              </details>
+            ))}
           </div>
         </section>
       </main>
