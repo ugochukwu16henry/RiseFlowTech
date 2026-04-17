@@ -62,13 +62,15 @@ const PITCH_DECK_SECTIONS = [
   },
 ];
 
-export default function PitchDeckPanel({ roleTitle }) {
+export default function PitchDeckPanel({ roleTitle, pdfOnly = false }) {
   return (
     <section className="progress-section pitch-deck-panel" aria-label="RiseFlow pitch deck">
       <p className="dashboard-label">RiseFlow</p>
       <h3 className="section-title pitch-deck-heading">The "Future-Ready" School Pitch Deck</h3>
       <p className="card-desc">
-        One platform. Total control. Built for schools across Africa. Use this script from your {roleTitle} dashboard.
+        {pdfOnly
+          ? 'Download the PDF to share when you present RiseFlow to schools.'
+          : `One platform. Total control. Built for schools across Africa. Use this script from your ${roleTitle} dashboard.`}
       </p>
       <p className="pitch-deck-domain">riseflow.com</p>
       <p className="pitch-deck-pdf-link">
@@ -77,19 +79,21 @@ export default function PitchDeckPanel({ roleTitle }) {
         </a>
       </p>
 
-      <div className="pitch-deck-grid">
-        {PITCH_DECK_SECTIONS.map((section, idx) => (
-          <article key={section.title} className="pitch-deck-card">
-            <p className="pitch-deck-step">{idx + 1}</p>
-            <h4>{section.title}</h4>
-            <ul>
-              {section.points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </div>
+      {!pdfOnly && (
+        <div className="pitch-deck-grid">
+          {PITCH_DECK_SECTIONS.map((section, idx) => (
+            <article key={section.title} className="pitch-deck-card">
+              <p className="pitch-deck-step">{idx + 1}</p>
+              <h4>{section.title}</h4>
+              <ul>
+                {section.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

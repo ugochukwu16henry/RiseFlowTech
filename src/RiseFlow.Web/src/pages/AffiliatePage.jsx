@@ -330,7 +330,7 @@ export default function AffiliatePage() {
 
           {view === 'dashboard' && (
             <>
-              <PitchDeckPanel roleTitle="Affiliate" />
+              <PitchDeckPanel pdfOnly />
 
               <div className="affiliate-profile-hero progress-section">
                 <div className="affiliate-profile-identity">
