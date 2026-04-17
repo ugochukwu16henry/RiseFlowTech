@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import './LoginPage.css';
@@ -13,13 +13,27 @@ const ROLE_ROUTE = {
   SuperAdmin: '/super-admin',
   Staff: '/staff',
 };
+const REMEMBER_ME_KEY = 'riseflow-remembered-signin';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const remembered = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(REMEMBER_ME_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const [email, setEmail] = useState(remembered?.email || '');
+  const [password, setPassword] = useState(remembered?.password || '');
+  const [rememberMe, setRememberMe] = useState(Boolean(remembered?.email || remembered?.password));
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const expiredMessage = params?.get('reason') === 'session_expired'
+    ? 'Your session expired. Please sign in again.'
+    : null;
+  const [error, setError] = useState(expiredMessage);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,6 +68,15 @@ export default function LoginPage() {
         } else {
           // Important: clear stale tenant when signing in as SuperAdmin/global user.
           localStorage.removeItem(STORAGE_TENANT_KEY);
+        }
+      } catch {
+        // ignore
+      }
+      try {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBER_ME_KEY, JSON.stringify({ email, password }));
+        } else {
+          localStorage.removeItem(REMEMBER_ME_KEY);
         }
       } catch {
         // ignore
@@ -120,6 +143,16 @@ export default function LoginPage() {
               placeholder="Enter your password"
               required
             />
+          </label>
+          <label className="login-field" style={{ gap: '0.5rem' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember sign-in details on this device
+            </span>
           </label>
           {error && <p className="login-error" role="alert">{error}</p>}
           <button type="submit" className="login-submit" disabled={submitting}>

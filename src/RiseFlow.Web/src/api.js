@@ -37,6 +37,36 @@ export const API_BASE = resolveApiBase();
 export const TENANT_HEADER = 'X-Tenant-Id';
 export const STORAGE_TENANT_KEY = 'riseflow-tenant-id';
 export const STORAGE_ONBOARDING_KEY = 'riseflow-onboarding-school';
+export const SESSION_EXPIRED_BROADCAST_KEY = 'riseflow-session-expired-at';
+
+function isPublicPath(pathname) {
+  return pathname === '/'
+    || pathname === '/login'
+    || pathname === '/onboard'
+    || pathname === '/terms'
+    || pathname === '/privacy'
+    || pathname.startsWith('/verify/transcript/')
+    || pathname.startsWith('/affiliate');
+}
+
+function handleSessionExpiredRedirect() {
+  if (typeof window === 'undefined') return;
+  const currentPath = window.location.pathname || '/';
+  if (isPublicPath(currentPath) && currentPath === '/login') return;
+
+  try {
+    localStorage.removeItem(STORAGE_TENANT_KEY);
+    localStorage.setItem(SESSION_EXPIRED_BROADCAST_KEY, String(Date.now()));
+  } catch {
+    // ignore storage errors
+  }
+
+  const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+  const target = `/login?reason=session_expired&next=${next}`;
+  if (`${window.location.pathname}${window.location.search}` !== target) {
+    window.location.assign(target);
+  }
+}
 
 export function getApiBase() {
   return API_BASE;
@@ -60,15 +90,24 @@ export function apiFetch(path, options = {}) {
   if (skipTenantHeader) {
     delete headers[TENANT_HEADER];
   }
-  return fetch(url, { credentials: 'include', ...rest, headers }).catch((err) => {
-    // Browser uses "Failed to fetch" / "Load failed" when CORS blocks, TLS/DNS fails, or mixed content.
-    if (err instanceof TypeError && /failed to fetch|load failed|networkerror/i.test(String(err.message))) {
-      const hint =
-        API_BASE
-          ? `Request to ${url} was blocked or unreachable. Confirm the API is up, uses HTTPS if the site does, and that Cors:AllowedOrigins on the API includes this page’s exact origin.`
-          : `Request to ${url} failed. For production builds set VITE_API_URL to your API base URL (e.g. https://your-api.up.railway.app). Empty VITE_API_URL only works when the API is served on the same origin or via dev proxy.`;
-      throw new Error(hint);
-    }
-    throw err;
-  });
+  return fetch(url, { credentials: 'include', ...rest, headers })
+    .then((res) => {
+      const authPath = typeof path === 'string' && path.startsWith('/api/auth/login');
+      const expired = res.status === 401 || res.status === 419;
+      if (expired && !authPath) {
+        handleSessionExpiredRedirect();
+      }
+      return res;
+    })
+    .catch((err) => {
+      // Browser uses "Failed to fetch" / "Load failed" when CORS blocks, TLS/DNS fails, or mixed content.
+      if (err instanceof TypeError && /failed to fetch|load failed|networkerror/i.test(String(err.message))) {
+        const hint =
+          API_BASE
+            ? `Request to ${url} was blocked or unreachable. Confirm the API is up, uses HTTPS if the site does, and that Cors:AllowedOrigins on the API includes this page’s exact origin.`
+            : `Request to ${url} failed. For production builds set VITE_API_URL to your API base URL (e.g. https://your-api.up.railway.app). Empty VITE_API_URL only works when the API is served on the same origin or via dev proxy.`;
+        throw new Error(hint);
+      }
+      throw err;
+    });
 }
