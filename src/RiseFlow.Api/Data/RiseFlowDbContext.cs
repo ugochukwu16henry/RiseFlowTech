@@ -55,6 +55,7 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
     public DbSet<AssessmentItem> AssessmentItems => Set<AssessmentItem>();
     public DbSet<StudentAssessment> StudentAssessments => Set<StudentAssessment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<MarketingLead> MarketingLeads => Set<MarketingLead>();
     public DbSet<PlatformComplianceSettings> PlatformComplianceSettings => Set<PlatformComplianceSettings>();
     public DbSet<FileAsset> FileAssets => Set<FileAsset>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
@@ -748,6 +749,15 @@ public class RiseFlowDbContext : IdentityDbContext<ApplicationUser, IdentityRole
             e.Property(x => x.UserName).HasMaxLength(256);
             e.Property(x => x.Details).HasMaxLength(1024);
             e.HasIndex(x => new { x.SchoolId, x.CreatedAtUtc });
+        });
+
+        builder.Entity<MarketingLead>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Email).IsRequired().HasMaxLength(256);
+            e.Property(x => x.Source).IsRequired().HasMaxLength(64);
+            e.HasIndex(x => x.CreatedAtUtc);
+            e.HasIndex(x => x.Email);
         });
 
         // PlatformComplianceSettings: singleton record (Id = 1)

@@ -125,14 +125,24 @@ export default function HomePage() {
 
   const handleLeadSubmit = async (e) => {
     e.preventDefault();
-    if (!leadEmail) return;
+    const trimmed = leadEmail.trim();
+    if (!trimmed) return;
     setLeadStatus('loading');
     setLeadMessage('');
     trackEvent('homepage_lead_submit_attempt', { location: 'lead_magnet' });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      const res = await fetch(`${getApiBase()}/api/public/marketing-leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: trimmed }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || 'Request failed');
+      }
       try {
-        localStorage.setItem('riseflow-last-lead-email', leadEmail.trim().toLowerCase());
+        localStorage.setItem('riseflow-last-lead-email', trimmed.toLowerCase());
       } catch {
         // ignore local storage errors
       }

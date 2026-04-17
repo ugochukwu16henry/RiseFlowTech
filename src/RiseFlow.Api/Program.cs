@@ -405,6 +405,17 @@ CREATE INDEX IF NOT EXISTS "IX_AffiliateLeadRequests_Email" ON "AffiliateLeadReq
 """);
 
         await context.Database.ExecuteSqlRawAsync("""
+CREATE TABLE IF NOT EXISTS "MarketingLeads" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_MarketingLeads" PRIMARY KEY,
+    "Email" TEXT NOT NULL,
+    "Source" TEXT NOT NULL,
+    "CreatedAtUtc" TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_MarketingLeads_CreatedAtUtc" ON "MarketingLeads" ("CreatedAtUtc");
+CREATE INDEX IF NOT EXISTS "IX_MarketingLeads_Email" ON "MarketingLeads" ("Email");
+""");
+
+        await context.Database.ExecuteSqlRawAsync("""
 CREATE TABLE IF NOT EXISTS "AffiliateInvites" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_AffiliateInvites" PRIMARY KEY,
     "AffiliateLeadRequestId" TEXT NOT NULL,
@@ -808,6 +819,15 @@ ALTER TABLE IF EXISTS "Students" ADD COLUMN IF NOT EXISTS "GraduatedAtUtc" times
 ALTER TABLE IF EXISTS "Students" ADD COLUMN IF NOT EXISTS "GraduationNotes" text NULL;
 CREATE INDEX IF NOT EXISTS "IX_Schools_AcademicSystemProfileId" ON "Schools" ("AcademicSystemProfileId");
 CREATE INDEX IF NOT EXISTS "IX_Schools_AffiliateId" ON "Schools" ("AffiliateId");
+
+CREATE TABLE IF NOT EXISTS "MarketingLeads" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "Email" character varying(256) NOT NULL,
+    "Source" character varying(64) NOT NULL,
+    "CreatedAtUtc" timestamp with time zone NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_MarketingLeads_CreatedAtUtc" ON "MarketingLeads" ("CreatedAtUtc");
+CREATE INDEX IF NOT EXISTS "IX_MarketingLeads_Email" ON "MarketingLeads" ("Email");
 
 CREATE TABLE IF NOT EXISTS "AcademicSystemProfiles" (
     "Id" uuid NOT NULL PRIMARY KEY,

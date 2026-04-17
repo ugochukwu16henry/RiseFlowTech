@@ -414,6 +414,20 @@ public class SuperAdminController : ControllerBase
         return Ok(list);
     }
 
+    /// <summary>Public marketing leads (e.g. homepage guide downloads).</summary>
+    [HttpGet("marketing-leads")]
+    [ProducesResponseType(typeof(List<MarketingLeadDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<MarketingLeadDto>>> GetMarketingLeads([FromQuery] int take = 200, CancellationToken ct = default)
+    {
+        var cap = Math.Clamp(take, 1, 500);
+        var list = await _db.MarketingLeads.AsNoTracking()
+            .OrderByDescending(m => m.CreatedAtUtc)
+            .Take(cap)
+            .Select(m => new MarketingLeadDto(m.Id, m.Email, m.Source, m.CreatedAtUtc))
+            .ToListAsync(ct);
+        return Ok(list);
+    }
+
     /// <summary>
     /// Platform-wide compliance settings for NDPC / data protection. SuperAdmin can set DPO details and DPIA URL.
     /// </summary>

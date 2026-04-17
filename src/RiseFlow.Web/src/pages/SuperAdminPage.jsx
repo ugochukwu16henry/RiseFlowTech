@@ -11,6 +11,19 @@ function formatMoney(amount, currencyCode = 'USD') {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode, maximumFractionDigits: 0 }).format(n);
 }
 
+function formatMarketingLeadSource(source) {
+  if (source === 'homepage_digital_guide') return 'Homepage — digitalizing guide';
+  return source || '—';
+}
+
+function formatLeadSubmittedAt(iso) {
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
+  } catch {
+    return iso ?? '—';
+  }
+}
+
 export default function SuperAdminPage() {
   const [dashboard, setDashboard] = useState(null);
   const [schools, setSchools] = useState([]);
@@ -19,6 +32,7 @@ export default function SuperAdminPage() {
   const [error, setError] = useState(null);
   const [markingId, setMarkingId] = useState(null);
   const [revenue, setRevenue] = useState(null);
+  const [marketingLeads, setMarketingLeads] = useState([]);
 
   const readJsonOrThrow = async (response, fallbackMessage) => {
     if (response.status === 401 || response.status === 403) {
@@ -39,14 +53,17 @@ export default function SuperAdminPage() {
       apiFetch('/api/superadmin/revenue', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load revenue.')),
       apiFetch('/api/superadmin/schools', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load schools.')),
       apiFetch('/api/superadmin/audit?limit=50', { skipTenantHeader: true }).then((r) => readJsonOrThrow(r, 'Could not load audit log.')),
+      apiFetch('/api/superadmin/marketing-leads?take=200', { skipTenantHeader: true }).then((r) =>
+        readJsonOrThrow(r, 'Could not load marketing leads.')),
     ])
-      .then(([dashResult, revenueResult, schoolsResult, auditResult]) => {
+      .then(([dashResult, revenueResult, schoolsResult, auditResult, leadsResult]) => {
         setDashboard(dashResult.status === 'fulfilled' ? (dashResult.value || null) : null);
         setRevenue(revenueResult.status === 'fulfilled' ? (revenueResult.value || null) : null);
         setSchools(schoolsResult.status === 'fulfilled' && Array.isArray(schoolsResult.value) ? schoolsResult.value : []);
         setAudit(auditResult.status === 'fulfilled' && Array.isArray(auditResult.value) ? auditResult.value : []);
+        setMarketingLeads(leadsResult.status === 'fulfilled' && Array.isArray(leadsResult.value) ? leadsResult.value : []);
 
-        const failures = [dashResult, revenueResult, schoolsResult, auditResult]
+        const failures = [dashResult, revenueResult, schoolsResult, auditResult, leadsResult]
           .filter((result) => result.status === 'rejected')
           .map((result) => result.reason?.message || 'A section failed to load');
 
@@ -114,6 +131,39 @@ export default function SuperAdminPage() {
       </div>
 
       <PitchDeckPanel roleTitle="Super Admin" />
+
+      <section className="progress-section" aria-label="Homepage guide marketing leads">
+        <h2 className="dashboard-section-title">Homepage guide leads</h2>
+        <p className="card-desc">
+          Work emails from the public form &quot;Get our guide on digitalizing your school&quot; (riseflow.com).
+        </p>
+        {marketingLeads.length === 0 ? (
+          <p className="empty-state">No submissions yet.</p>
+        ) : (
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Source</th>
+                  <th>Submitted (UTC)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {marketingLeads.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <a href={`mailto:${row.email}`}>{row.email}</a>
+                    </td>
+                    <td>{formatMarketingLeadSource(row.source)}</td>
+                    <td>{formatLeadSubmittedAt(row.createdAtUtc)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* 1. The Pulse (top KPI cards) */}
       <section aria-label="Business pulse KPIs">
