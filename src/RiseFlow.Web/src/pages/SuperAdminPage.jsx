@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PageLayout from '../components/PageLayout';
 import { apiFetch } from '../api';
 import './RolePages.css';
+import PitchDeckPanel from './PitchDeckPanel';
 
 function formatMoney(amount, currencyCode = 'USD') {
   const n = Number(amount);
@@ -111,6 +112,8 @@ export default function SuperAdminPage() {
           Training videos
         </Link>
       </div>
+
+      <PitchDeckPanel roleTitle="Super Admin" />
 
       {/* 1. The Pulse (top KPI cards) */}
       <section aria-label="Business pulse KPIs">

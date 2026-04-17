@@ -410,6 +410,58 @@ a.school-admin-nav-link.school-admin-nav-btn {
   background: rgba(16, 185, 129, 0.06);
 }
 
+.pitch-deck-panel {
+  margin-bottom: 1rem;
+}
+
+.pitch-deck-heading {
+  margin-bottom: 0.25rem;
+}
+
+.pitch-deck-domain {
+  margin: 0.5rem 0 0.9rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.pitch-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.pitch-deck-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #f8fafc;
+}
+
+.pitch-deck-step {
+  margin: 0 0 0.3rem;
+  font-size: 0.75rem;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.pitch-deck-card h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.pitch-deck-card ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.pitch-deck-card li {
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
 .support-empty {
   margin-top: 0.75rem;
   font-size: 0.8125rem;

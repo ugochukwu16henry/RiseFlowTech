@@ -630,7 +630,6 @@ export default function HomePage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Resources for school teams</h2>
             <div className="mt-3 flex flex-wrap gap-3 text-sm">
-              <a href={`${getApiBase()}/api/public/pitch-deck`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Pitch deck (PDF)</a>
               <a href={`${getApiBase()}/api/public/teacher-quick-start`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Teacher quick start (PDF)</a>
               <a href={`${getApiBase()}/api/public/grading-reference`} target="_blank" rel="noopener noreferrer" className="home-resource-link">Grading reference (PDF)</a>
               <Link to="/affiliate-program" className="home-resource-link">Affiliate program</Link>
@@ -655,12 +654,12 @@ export default function HomePage() {
                 value={leadEmail}
                 onChange={(e) => setLeadEmail(e.target.value)}
                 placeholder="Your work email"
-                className="h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                className="home-control-input flex-1 border border-slate-300 bg-white px-3 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
               />
               <button
                 type="submit"
                 disabled={leadStatus === 'loading'}
-                className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-60"
+                className="home-control-button inline-flex items-center justify-center bg-indigo-600 px-4 text-white shadow-sm hover:bg-indigo-500 disabled:opacity-60"
               >
                 {leadStatus === 'loading' ? 'Submitting...' : 'Email me the guide'}
               </button>

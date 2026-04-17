@@ -4,6 +4,7 @@ import PageLayout from '../components/PageLayout';
 import { apiFetch, getApiBase } from '../api';
 import './RolePages.css';
 import './AffiliatePage.css';
+import PitchDeckPanel from './PitchDeckPanel';
 
 function formatMoney(amount, currency = 'NGN') {
   const value = Number(amount || 0);
@@ -329,6 +330,8 @@ export default function AffiliatePage() {
 
           {view === 'dashboard' && (
             <>
+              <PitchDeckPanel roleTitle="Affiliate" />
+
               <div className="affiliate-profile-hero progress-section">
                 <div className="affiliate-profile-identity">
                   {headshotUrl ? (
